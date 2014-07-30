@@ -45,15 +45,6 @@ public:
      */
     virtual ColorImagePtr GetColorImage(const std::string& cameraname, unsigned long long& timestamp) = 0;
 
-    /** \brief Gets the latest n color images from camera and the min/max timestamps.
-        \param cameraname name of the camera
-        \param n number of desired images
-        \param colorimages vector to which the desired images will be pushed
-        \param starttime timestamp of the earliest image
-        \param endtime timestamp of the latest image
-     */
-    //virtual void GetConsecutiveColorImages(const std::string& cameraname, const unsigned int n, std::vector<ColorImagePtr>& colorimages, unsigned long long& starttime, unsigned long long& endtime) = 0;
-
     /** \brief Gets the depth image from the latest n images with depth data, and the min/max timestamps of the images used.
         \param cameraname name of the camera
         \param n number of desired images to use for creating the depth image

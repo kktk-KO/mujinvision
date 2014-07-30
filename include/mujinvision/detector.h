@@ -48,21 +48,6 @@ public:
      */
     virtual void DetectObjects(const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects) = 0;
 
-    /** \brief detects object in the color image
-        \param colorcameraname name of the color camera
-        \param resultscolorcamera poses of detected objects in color camera frame
-     */
-    //virtual void DetectInColorImage(const std::string& colorcameraname, std::vector<DetectedObjectPtr>& resultscolorcamera) = 0;
-
-    /** \brief Refines 2d image detection results with depth data
-        \param colorcameraname name of the color camera that generated the image detection results
-        \param depthcameraname name of the depth camera
-        \param resultscolorcamera input from 2d image detection in depth camera frame
-        \param resultsdepthcamera refined object in the depth camera frame
-        \param indicescolorcamera indices of the refined poses in the input result
-     */
-    //virtual void RefineDetectionWithDepthData(const std::string& colorcameraname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultscolorcameradepthcamera, std::vector<DetectedObjectPtr>& resultsdepthcamera, std::vector<unsigned int>& indicescolorcamera) = 0;
-
     /** \brief Gets point cloud obstacle from depth data and detection result.
         \param depthcameraname name of the depth camera
         \param resultsworld detection result in world frame

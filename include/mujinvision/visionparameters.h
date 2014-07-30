@@ -27,7 +27,6 @@
 
 #include "geometry.h"
 #include "visionexceptions.h"
-#include "picojson.h"
 
 #include <time.h>
 

@@ -563,7 +563,6 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
         std::stringstream ss;
         ss << std::setprecision(std::numeric_limits<double>::digits10+1);
         //"{\"name\": \"obj\",\"translation_\":[100,200,300],\"quat_\":[1,0,0,0],\"confidence\":0.5}"
-        /*
         ss << "{";
         ss << "\"name\": \"" << name << "\", ";
         ss << "\"translation_\": [";
@@ -584,7 +583,6 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
         ss << "], ";
         ss << "\"confidence\": " << confidence;
         ss << "}";
-        */
         return ss.str();
     }
 

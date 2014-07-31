@@ -219,8 +219,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         }
         result_pt = Initialize(command_pt.get<std::string>("detectorConfigurationFilename"),
                                command_pt.get<std::string>("imagesubscriberConfigurationFilename"),
-                               command_pt.get<std::string>("mujinControllerIp"),
-                               command_pt.get<unsigned int>("mujinControllerPort"),
+                               command_pt.get<std::string>("mujinControllerIp", ""),
+                               command_pt.get<unsigned int>("mujinControllerPort", 0),
                                command_pt.get<std::string>("mujinControllerUsernamePass"),
                                command_pt.get<std::string>("robotControllerIp"),
                                command_pt.get<unsigned int>("robotControllerPort"),
@@ -228,8 +228,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                                command_pt.get<unsigned int>("binpickingTaskHeartbeatPort"),
                                command_pt.get<double>("binpickingTaskHeartbeatTimeout"),
                                command_pt.get<std::string>("binpickingTaskScenePk"),
-                               command_pt.get<std::string>("robotname"),
-                               command_pt.get<std::string>("regionname")
+                               command_pt.get<std::string>("robotname", ""),
+                               command_pt.get<std::string>("regionname"),
+                               command_pt.get<std::string>("tasktype","binpicking")
                                );
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else if (command == "DetectObjects") {
@@ -936,10 +937,10 @@ ptree MujinVisionManager::_GetResultPtree(ManagerStatus status)
     return pt;
 }
 
-ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, const std::string& imagesubscriberConfigFilename, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerIp, const unsigned int robotControllerPort, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& regionname)
+  ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, const std::string& imagesubscriberConfigFilename, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerIp, const unsigned int robotControllerPort, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& regionname, const std::string& tasktype)
 {
     ptree pt;
-
+    
     // connect to mujin controller
     std::stringstream url_ss;
     url_ss << "http://"<< controllerIp << ":" << controllerPort;
@@ -948,7 +949,7 @@ ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, 
     _SetStatusMessage("Connected to mujin controller at " + url_ss.str());
     SceneResourcePtr scene(new SceneResource(controller,binpickingTaskScenePk));
     _pSceneResource = scene;
-    _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8("binpickingtask1", TRO_EnableZMQ);
+    _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8(tasktype+std::string("task1"), tasktype, TRO_EnableZMQ);
     _pBinpickingTask->Initialize(robotControllerIp, robotControllerPort, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, binpickingTaskHeartbeatTimeout);
 
     // sync region

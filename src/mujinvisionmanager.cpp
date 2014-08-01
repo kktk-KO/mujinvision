@@ -748,7 +748,7 @@ void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::s
     int minu, maxu, minv, maxv;
     const int image_width  = sensordata.image_dimensions[0];
     const int image_height  = sensordata.image_dimensions[1];
-    minu=image_width; maxu=0; 
+    minu=image_width; maxu=0;
     minv=image_height; maxv=0;
     CameraPtr camera = _mNameCamera[cameraname];
     for (unsigned int i=0; i<8; i++) {
@@ -800,6 +800,9 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname)
         // get axis aligned bounding box for region
         BinPickingTaskResource::ResultAABB raabb;
         _pBinpickingTask->GetAABB(regionname, raabb, "m");
+        if (raabb.extents.size()!=3 || raabb.pos.size()!=3) {
+            throw MujinVisionException("ResultAABB from Mujin controller is invalid!", MVE_ControllerError);
+        }
         //                0                    2                    4
         //                x                    y                    z
         double aabb[6] = {0,raabb.extents[0]*2,0,raabb.extents[1]*2,0,raabb.extents[2]*2};

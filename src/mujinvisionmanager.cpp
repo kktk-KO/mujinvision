@@ -233,6 +233,12 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                                );
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else if (command == "DetectObjects") {
+        if (!_pDetector || !_pBinpickingTask) {
+            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+            result_ss << "}";
+            _SetStatus(MS_Pending);
+            return;
+        }
         std::vector<std::string> cameranames;
         boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
         if (!!cameranames_pt) {
@@ -246,6 +252,13 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         result_ss << ", ";
         result_ss << _GetJsonString(detectedobjects);
     } else if (command == "StartDetectionLoop") {
+        if (!_pDetector || !_pBinpickingTask) {
+            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+            result_ss << "}";
+            _SetStatus(MS_Pending);
+            return;
+        }
+
         std::vector<std::string> cameranames;
         boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
         if (!!cameranames_pt) {
@@ -264,6 +277,13 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         result_pt = StopDetectionLoop();
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else if (command == "SendPointCloudObstacleToController") {
+        if (!_pDetector || !_pBinpickingTask) {
+            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+            result_ss << "}";
+            _SetStatus(MS_Pending);
+            return;
+        }
+
         std::vector<std::string> cameranames;
         boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
         if (!!cameranames_pt) {
@@ -287,6 +307,12 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                                                        pointsize);
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else if (command == "VisualizePointCloudOnController") {
+        if (!_pDetector || !_pBinpickingTask) {
+            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+            result_ss << "}";
+            _SetStatus(MS_Pending);
+            return;
+        }
         std::vector<std::string> cameranames;
         boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
         if (!!cameranames_pt) {
@@ -300,13 +326,34 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                                                     pointsize);
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else if (command == "ClearVisualizationOnController") {
+        if (!_pBinpickingTask) {
+            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+            result_ss << "}";
+            _SetStatus(MS_Pending);
+            return;
+        }
+
         result_pt = ClearVisualizationOnController();
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else if (command == "SaveSnapshot") {
+        if (!_pBinpickingTask || !_pImagesubscriberManager) {
+            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+            result_ss << "}";
+            _SetStatus(MS_Pending);
+            return;
+        }
+
         bool getlatest = command_pt.get("getlatest",true);
         result_pt = SaveSnapshot(command_pt.get<std::string>("regionname"), getlatest);
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else if (command == "UpdateDetectedObjects") {
+        if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
+            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+            result_ss << "}";
+            _SetStatus(MS_Pending);
+            return;
+        }
+
         std::vector<DetectedObjectPtr> detectedobjects;
         boost::optional<const ptree&> detectedobjects_pt(command_pt.get_child_optional("detectedobjects"));
         if (!!detectedobjects_pt) {
@@ -318,9 +365,22 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                                           command_pt.get<bool>("sendtocontroller"));
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else if (command == "SyncRegion") {
+        if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
+            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+            result_ss << "}";
+            _SetStatus(MS_Pending);
+            return;
+        }
         result_pt = SyncRegion(command_pt.get<std::string>("regionname"));
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else if (command == "SyncCameras") {
+        if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
+            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+            result_ss << "}";
+            _SetStatus(MS_Pending);
+            return;
+        }
+
         std::vector<std::string> cameranames;
         boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
         if (!!cameranames_pt) {
@@ -468,8 +528,12 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
 
 void MujinVisionManager::_StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize)
 {
-    _bStopDetectionThread = false;
-    _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, voxelsize, pointsize)));
+    if (!!_pDetectionThread && !_bStopDetectionThread) {
+        _SetStatusMessage("Detection thread is already running, do nothing.");
+    } else {
+        _bStopDetectionThread = false;
+        _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, voxelsize, pointsize)));
+    }
 }
 
 void MujinVisionManager::_StopDetectionThread()
@@ -481,6 +545,7 @@ void MujinVisionManager::_StopDetectionThread()
             _pDetectionThread->join();
             _SetStatusMessage("Stopped detection thread.");
         }
+        _pDetectionThread.reset();
     }
 }
 

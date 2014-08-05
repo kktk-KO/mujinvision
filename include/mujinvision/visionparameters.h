@@ -523,9 +523,21 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
             i++;
         }
         i=0;
-        FOREACH(v, pt.get_child("quat_")) {
-            transform.rot[i] = boost::lexical_cast<double>(v->second.data());
-            i++;
+        boost::optional< const boost::property_tree::ptree& > optchild;
+        optchild = pt.get_child_optional( "quat_" );
+        if (!!optchild) {
+            FOREACH(v, pt.get_child("quat_")) {
+                transform.rot[i] = boost::lexical_cast<double>(v->second.data());
+                i++;
+            }
+        }
+        i=0;
+        optchild = pt.get_child_optional( "dir_" );
+        if (!!optchild) {
+            FOREACH(v, pt.get_child("dir_")) {
+                transform.rot[i] = boost::lexical_cast<double>(v->second.data());
+                i++;
+            }
         }
         confidence = pt.get<double>("confidence");
     }

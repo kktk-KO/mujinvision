@@ -62,6 +62,7 @@ public:
             timeToRemember = pt.get<unsigned int>("time_to_remember");
             timeToIgnore = pt.get<unsigned int>("time_to_ignore");
             numDetectionsToKeep = pt.get<unsigned int>("num_detections_to_keep");
+            monitorbinpickingheartbeat = pt.get<bool>("monitorbinpickingheartbeat",true);
         }
 
         virtual ~VisionServerParameters() {
@@ -78,6 +79,7 @@ public:
         unsigned int timeToRemember; ///< in millisecond, time to keep detection result before forgetting it
         unsigned int timeToIgnore; ///< in millisecond, time to ignore detection result after picking in the region
         unsigned int numDetectionsToKeep; ///< number of detection history to keep
+        bool monitorbinpickingheartbeat;
 
         std::string GetJsonString()
         {
@@ -182,7 +184,8 @@ public:
                              const double binpickingTaskHeartbeatTimeout,
                              const std::string& binpickingTaskScenePk,
                              const std::string& robotname,
-                             const std::string& regionname
+                             const std::string& regionname,
+			     const std::string& tasktype="binpicking"
                              );
 
     /** \brief Detects objects in specified region with specified cameras

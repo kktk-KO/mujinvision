@@ -748,7 +748,7 @@ void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::s
     int minu, maxu, minv, maxv;
     const int image_width  = sensordata.image_dimensions[0];
     const int image_height  = sensordata.image_dimensions[1];
-    minu=image_width; maxu=0; 
+    minu=image_width; maxu=0;
     minv=image_height; maxv=0;
     CameraPtr camera = _mNameCamera[cameraname];
     for (unsigned int i=0; i<8; i++) {
@@ -948,7 +948,7 @@ ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, 
     _SetStatusMessage("Connected to mujin controller at " + url_ss.str());
     SceneResourcePtr scene(new SceneResource(controller,binpickingTaskScenePk));
     _pSceneResource = scene;
-    _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8("binpickingtask1", TRO_EnableZMQ);
+    _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8("binpickingtask1","binpicking", TRO_EnableZMQ);
     _pBinpickingTask->Initialize(robotControllerIp, robotControllerPort, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, binpickingTaskHeartbeatTimeout);
 
     // sync region

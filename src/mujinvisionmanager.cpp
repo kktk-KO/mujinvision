@@ -1005,10 +1005,10 @@ ptree MujinVisionManager::_GetResultPtree(ManagerStatus status)
     return pt;
 }
 
-  ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, const std::string& imagesubscriberConfigFilename, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerIp, const unsigned int robotControllerPort, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& regionname, const std::string& tasktype)
+ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, const std::string& imagesubscriberConfigFilename, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerIp, const unsigned int robotControllerPort, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& regionname, const std::string& tasktype)
 {
     ptree pt;
-    
+
     // connect to mujin controller
     std::stringstream url_ss;
     url_ss << "http://"<< controllerIp << ":" << controllerPort;

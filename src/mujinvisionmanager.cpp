@@ -871,8 +871,8 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname)
         }
         //                0                    2                    4
         //                x                    y                    z
-        double aabb[6] = {0,raabb.extents[0]*2,0,raabb.extents[1]*2,0,raabb.extents[2]*2};
-        double center[3] = {raabb.pos[0], raabb.pos[1], raabb.pos[2]};
+        double aabb[6] = {0,raabb.extents.at(0)*2,0,raabb.extents.at(1)*2,0,raabb.extents.at(2)*2};
+        double center[3] = {raabb.pos.at(0), raabb.pos.at(1), raabb.pos.at(2)};
 
         // need to prepare offets to calculate vertices positions
         Transform O_T_B = _GetTransform(regionname); // region origin in world frame
@@ -978,19 +978,20 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
     DepthImagePtr depthimage;
     unsigned long long starttime, endtime;
     bool isoccluding;
-    while (!_bCancelCommand && !bShutdown && !_bStopDetectionThread) {
+    while (!_bCancelCommand && !bShutdown) {
         depthimage = _pImagesubscriberManager->GetDepthImage(cameraname, _numDepthImagesToAverage, starttime, endtime);
         if (!depthimage) {
             std::cerr << "could not get depth image for camera: " << cameraname << ", wait for 1 more second" << std::endl;
             boost::this_thread::sleep(boost::posix_time::seconds(1));
             continue;
-        }
-        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
-        if (!isoccluding) {
-            break;
-        }else {
-            std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
-            boost::this_thread::sleep(boost::posix_time::milliseconds(200));
+        } else {
+            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+            if (!isoccluding) {
+                break;
+            }else {
+                std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+                boost::this_thread::sleep(boost::posix_time::milliseconds(200));
+            }
         }
     }
     return depthimage;
@@ -1349,10 +1350,10 @@ void Utils::TransformDetectedObjects(const std::vector<DetectedObjectPtr>& detec
         return;
     }
     Transform G_T_S = O_T_G.inverse()*O_T_S;
-    const std::string name = detectedobjectsfrom[0]->name;
+    const std::string name = detectedobjectsfrom.at(0)->name;
     for (size_t i=0; i<detectedobjectsfrom.size(); i++) {
-        Transform G_T_A = G_T_S * detectedobjectsfrom[i]->transform;
-        DetectedObjectPtr detectedobj(new DetectedObject(name, G_T_A, detectedobjectsfrom[i]->confidence));
+        Transform G_T_A = G_T_S * detectedobjectsfrom.at(i)->transform;
+        DetectedObjectPtr detectedobj(new DetectedObject(name, G_T_A, detectedobjectsfrom.at(i)->confidence));
         detectedobjectsto.push_back(detectedobj);
     }
     BOOST_ASSERT(detectedobjectsfrom.size() == detectedobjectsto.size());

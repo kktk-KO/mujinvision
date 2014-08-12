@@ -13,6 +13,7 @@
 # limitations under the License.
 include_directories(${MUJINVISION_INCLUDE_LOCAL_DIRS} ${libzmq_INCLUDE_DIRS} ${MujinControllerClient_INCLUDE_DIRS})
 link_directories(${MUJINVISION_LINK_DIRS} ${libzmq_LIBRARY_DIRS} ${MujinControllerClient_LIBRARY_DIRS})
+add_definitions("-DBOOST_SPIRIT_THREADSAFE")
 
 set(SOURCE_FILES mujinzmq.cpp mujinvisionmanager.cpp)
 

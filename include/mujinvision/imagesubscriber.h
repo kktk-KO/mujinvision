@@ -26,6 +26,7 @@ enum ImageType {
     IT_Depth=1,
     IT_Ir=2,
     IT_Depthxyz=3,
+    IT_DepthNormal=4,
     IT_Any=100,
 };
 

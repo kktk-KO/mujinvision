@@ -60,14 +60,18 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     FOREACH(v, pt.get_child("cameras")) {
         _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
     }
-    _StartStatusThread(_pVisionServerParameters->statusPort);
-    _StartCommandThread(_pVisionServerParameters->rpcPort);
-    _StartCommandThread(_pVisionServerParameters->configurationPort);
 }
 
 MujinVisionManager::~MujinVisionManager()
 {
     Destroy();
+}
+
+void MujinVisionManager::StartThreads()
+{
+    _StartStatusThread(_pVisionServerParameters->statusPort);
+    _StartCommandThread(_pVisionServerParameters->rpcPort);
+    _StartCommandThread(_pVisionServerParameters->configurationPort);
 }
 
 void MujinVisionManager::Destroy()
@@ -393,9 +397,22 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                                 cameranames);
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else {
-        std::stringstream ss;
-        ss << "Received unknown command " << command << ".";
-        throw MujinVisionException(ss.str(), MVE_CommandNotSupported);
+        CMDMAP::iterator it = __mapCommands.find(command);
+        if( it == __mapCommands.end() ) {
+            std::stringstream ss;
+            ss << "Received unknown command " << command << ".";
+            throw MujinVisionException(ss.str(), MVE_CommandNotSupported);
+        }
+        boost::shared_ptr<CustomCommand> customcommand = it->second;
+        std::stringstream jsonss;
+        if( customcommand->fn(this, command_pt, jsonss) ) {
+            result_ss << ParametersBase::GetJsonString("status","succeeded");
+        } else {
+            result_ss << ParametersBase::GetJsonString("status","failed");
+            std::cout << str(boost::format("command failed in custom command %s: %s\n")%command%jsonss) << std::endl;
+        }
+        result_ss << ", ";
+        result_ss << "\"customresult\": " << jsonss.str();
     }
     _SetStatus(MS_Pending);
     result_ss << "}";
@@ -509,20 +526,20 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
         catch (const UserInterruptException& ex) {
             throw;
         }
-        catch (const mujinclient::MujinException& e) {
-            _SetStatus(MS_Aborted,"",true);
-            std::cerr << "mujinclient::MujinException " << e.message() << std::endl;
-            throw;
-        } catch (const zmq::error_t& e) {
-            _SetStatus(MS_Aborted,"",true);
-            std::cerr << "zmq exception " << e.what() << std::endl;
-            throw;
-        }
-        catch (const std::exception& e) {
-            _SetStatus(MS_Aborted,"",true);
-            std::cerr << "std::exception " << e.what() << std::endl;
-            throw;
-        }
+        //catch (const mujinclient::MujinException& e) {
+        //    _SetStatus(MS_Aborted,"",true);
+        //    std::cerr << "mujinclient::MujinException " << e.message() << std::endl;
+        //    throw;
+        //} catch (const zmq::error_t& e) {
+        //    _SetStatus(MS_Aborted,"",true);
+        //    std::cerr << "zmq exception " << e.what() << std::endl;
+        //    throw;
+        //}
+        //catch (const std::exception& e) {
+        //    _SetStatus(MS_Aborted,"",true);
+        //    std::cerr << "std::exception " << e.what() << std::endl;
+        //    throw;
+        //}
     }
     _StopCommandServer(port);
 }
@@ -947,6 +964,25 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname)
         _mNameRegion[regionname]->pRegionParameters->maxz = maxz;
         _mNameRegion[regionname]->pRegionParameters->bInitializedRoi = true;
         std::cout << _mNameRegion[regionname]->pRegionParameters->GetJsonString() << std::endl;
+    }
+}
+
+void MujinVisionManager::RegisterCustomCommand(const std::string& cmdname, CustomCommandFn fncmd)
+{
+    if((cmdname.size() == 0) || (cmdname == "commands")) {
+        throw MujinVisionException(boost::str(boost::format("command '%s' invalid")%cmdname), MVE_Failed);
+    }
+    if( __mapCommands.find(cmdname) != __mapCommands.end() ) {
+        throw MujinVisionException(str(boost::format("command '%s' already registered")%cmdname),MVE_Failed);
+    }
+    __mapCommands[cmdname] = boost::shared_ptr<CustomCommand>(new CustomCommand(fncmd));
+}
+
+void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
+{
+    CMDMAP::iterator it = __mapCommands.find(cmdname);
+    if( it != __mapCommands.end() ) {
+        __mapCommands.erase(it);
     }
 }
 

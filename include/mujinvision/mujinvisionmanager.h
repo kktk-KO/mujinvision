@@ -166,6 +166,10 @@ public:
     typedef boost::shared_ptr<CommandServer const> CommandServerConstPtr;
     typedef boost::weak_ptr<CommandServer> CommandServerWeakPtr;
 
+
+    /** \brief start threads
+     */
+    virtual void StartThreads();
     /** \brief preparation for the detection process
         - load object.conf
         - subscribe to image streams
@@ -252,6 +256,27 @@ public:
                               const std::vector<std::string>& cameranames);
 
     bool bShutdown;
+
+    /// \brief Registers a command.
+    typedef boost::function<bool (MujinVisionManager*, const ptree&, std::ostream&)> CustomCommandFn;
+    class MUJINVISION_API CustomCommand
+    {
+public:
+        CustomCommand() {
+        }
+        CustomCommand(CustomCommandFn newfn) : fn(newfn) {
+        }
+        CustomCommandFn fn; ///< command function to run
+    };
+
+    /// \brief Registers a command and its help string. <b>[multi-thread safe]</b>
+    ///
+    /// \param cmdname - command name, converted to lower case
+    /// \param fncmd function to execute for the command
+    virtual void RegisterCustomCommand(const std::string& cmdname, CustomCommandFn fncmd);
+
+    /// \brief Unregisters the command. <b>[multi-thread safe]</b>
+    virtual void UnregisterCommand(const std::string& cmdname);
 
 private:
 
@@ -410,6 +435,10 @@ private:
     bool _bCancelCommand;
     bool _bExecutingUserCommand; ///< true if currently executing a user command
     std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool
+
+    typedef std::map<std::string, boost::shared_ptr<CustomCommand> > CMDMAP;
+    CMDMAP __mapCommands; ///< all registered commands
+
 };
 typedef boost::shared_ptr<MujinVisionManager> MujinVisionManagerPtr;
 typedef boost::shared_ptr<MujinVisionManager const> MujinVisionManagerConstPtr;

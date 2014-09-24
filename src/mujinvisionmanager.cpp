@@ -29,7 +29,7 @@ protected:
 
 MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const std::string& visionmanagerConfigFilename)
 {
-    _initialized = false;
+    _bInitialized = false;
     _pImagesubscriberManager = imagesubscribermanager;
     _pDetectorManager = detectormanager;
     _vStatusDescriptions[MS_Lost] = "lost";
@@ -40,7 +40,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _vStatusDescriptions[MS_Succeeded] = "succeeded";
     _vStatusDescriptions[MS_Paused] = "paused";
     _vStatusDescriptions[MS_Aborted] = "aborted";
-    bShutdown = false;
+    _bShutdown = false;
     ptree pt;
     // load visionserver configuration
     if (!boost::filesystem::exists(visionmanagerConfigFilename)) {
@@ -80,6 +80,16 @@ void MujinVisionManager::Destroy()
     _StopStatusThread();
     _StopCommandThread(_pVisionServerParameters->rpcPort);
     _StopCommandThread(_pVisionServerParameters->configurationPort);
+}
+
+void MujinVisionManager::Shutdown()
+{
+    _bShutdown=true;
+}
+
+bool MujinVisionManager::IsShutdown()
+{
+    return _bShutdown;
 }
 
 void MujinVisionManager::_SetStatus(ManagerStatus status, const std::string& msg, const bool disableInterrupt)
@@ -154,11 +164,11 @@ void MujinVisionManager::_StartCommandThread(const unsigned int port)
 
 void MujinVisionManager::_StopCommandThread(const unsigned int port)
 {
-    if (!_mPortStopCommandThread[port]) {
+    if (!!_mPortStopCommandThread[port]) {
         _mPortStopCommandThread[port] = true;
         _mPortCommandThread[port]->join();
-        std::cout << "Stopped command thread (port: " << port << ")." << std::endl;
     }
+    std::cout << "Stopped command thread (port: " << port << ")." << std::endl;
 }
 
 void MujinVisionManager::_StartCommandServer(const unsigned int port)
@@ -194,7 +204,7 @@ void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, s
         result_ss << ParametersBase::GetJsonString("status", _vStatusDescriptions.at(MS_Preempting));
     } else if (command == "Quit") {
         // throw exception, shutdown gracefully
-        bShutdown=true;
+        _bShutdown=true;
         _StopStatusThread();
         _StopCommandThread(_pVisionServerParameters->rpcPort);
         throw UserInterruptException("User requested exit.");
@@ -215,11 +225,11 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
     }
     std::string command = command_pt.get<std::string>("command");
     if (command == "Initialize") {
-        if (_initialized) {
+        if (_bInitialized) {
             _SetStatusMessage("Vision manager was initialized, de-initialize it first.");
             _DeInitialize();
         } else {
-            _initialized = true;
+            _bInitialized = true;
         }
         result_pt = Initialize(command_pt.get<std::string>("detectorConfigurationFilename"),
                                command_pt.get<std::string>("imagesubscriberConfigurationFilename"),
@@ -991,7 +1001,7 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
     ColorImagePtr colorimage;
     unsigned long long timestamp;
     bool isoccluding;
-    while (!_bCancelCommand && !bShutdown && !_bStopDetectionThread) {
+    while (!_bCancelCommand && !_bShutdown && !_bStopDetectionThread) {
         colorimage = _pImagesubscriberManager->GetColorImage(cameraname,timestamp);
         if (!colorimage) {
             std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", wait for 1 more second." << std::endl;
@@ -1014,7 +1024,7 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
     DepthImagePtr depthimage;
     unsigned long long starttime, endtime;
     bool isoccluding;
-    while (!_bCancelCommand && !bShutdown) {
+    while (!_bCancelCommand && !_bShutdown) {
         depthimage = _pImagesubscriberManager->GetDepthImage(cameraname, _numDepthImagesToAverage, starttime, endtime);
         if (!depthimage) {
             std::cerr << "could not get depth image for camera: " << cameraname << ", wait for 1 more second" << std::endl;

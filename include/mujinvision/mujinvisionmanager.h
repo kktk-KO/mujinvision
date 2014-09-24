@@ -247,7 +247,8 @@ public:
     virtual ptree SyncCameras(const std::string& regionname,
                               const std::vector<std::string>& cameranames);
 
-    bool bShutdown;
+    void Shutdown();
+    bool IsShutdown();
 
     /// \brief Registers a command.
     typedef boost::function<bool (MujinVisionManager*, const ptree&, std::ostream&)> CustomCommandFn;
@@ -383,8 +384,6 @@ private:
 
     boost::array<std::string,8> _vStatusDescriptions;
 
-    bool _initialized;
-
     ControllerClientPtr _pControllerClient;
     SceneResourcePtr _pSceneResource;
     VisionServerParametersPtr _pVisionServerParameters;
@@ -422,6 +421,8 @@ private:
     std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
     std::vector<DetectedInfo> _vDetectedInfo;
     
+    bool _bInitialized;
+    bool _bShutdown;
     bool _bStopStatusThread;
     bool _bStopDetectionThread;
     bool _bCancelCommand;

@@ -759,7 +759,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 transform.rot = _vDetectedInfo.at(i).meanRotation;
                 DetectedObjectPtr obj(new DetectedObject(detectedobjects[0]->name, transform, _vDetectedInfo.at(i).meanScore));
                 newdetectedobjects.push_back(obj);
-                obj->Print();
+                //obj->Print();
             }
         }
 
@@ -1016,6 +1016,9 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
             boost::this_thread::sleep(boost::posix_time::milliseconds(200));
         }
     }
+    if (!colorimage) {
+        std::cerr << "returning empty image. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
+    }
     return colorimage;
 }
 
@@ -1024,7 +1027,7 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
     DepthImagePtr depthimage;
     unsigned long long starttime, endtime;
     bool isoccluding;
-    while (!_bCancelCommand && !_bShutdown) {
+    while (!_bCancelCommand && !_bShutdown  && !_bStopDetectionThread) {
         depthimage = _pImagesubscriberManager->GetDepthImage(cameraname, _numDepthImagesToAverage, starttime, endtime);
         if (!depthimage) {
             std::cerr << "could not get depth image for camera: " << cameraname << ", wait for 1 more second" << std::endl;
@@ -1039,6 +1042,9 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
                 boost::this_thread::sleep(boost::posix_time::milliseconds(200));
             }
         }
+    }
+    if (!depthimage) {
+        std::cerr << "returning empty image. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
     }
     return depthimage;
 }
@@ -1169,14 +1175,15 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
     // set up images
     ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname);
     DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname);
-    _pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
-    _pDetector->SetDepthImage(depthcameraname, depthimage);
-
-    // detect objects
-    _pDetector->DetectObjects(colorcameraname, depthcameraname, detectedobjects);
-    std::stringstream msgss;
-    msgss << "Detected " << detectedobjects.size() << " objects. Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
-    _SetStatusMessage(msgss.str());
+    if (!!originalcolorimage && !!depthimage) {
+        _pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
+        _pDetector->SetDepthImage(depthcameraname, depthimage);
+        // detect objects
+        _pDetector->DetectObjects(colorcameraname, depthcameraname, detectedobjects);
+        std::stringstream msgss;
+        msgss << "Detected " << detectedobjects.size() << " objects. Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
+        _SetStatusMessage(msgss.str());
+    }
     return _GetResultPtree(MS_Succeeded);
 }
 
@@ -1246,7 +1253,7 @@ ptree MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool
             std::stringstream filename_ss;
             filename_ss << colorcameraname << "_" << GetMilliTime() << ".png";
             ColorImagePtr colorimage;
-            if (getlatest || !_pDetector->mColorImage[colorcameraname]) {
+            if ((getlatest || !_pDetector->mColorImage[colorcameraname]) && !_bStopDetectionThread) {
                 colorimage = _GetColorImage(regionname, colorcameraname);
             } else {
                 colorimage = _pDetector->mColorImage[colorcameraname];

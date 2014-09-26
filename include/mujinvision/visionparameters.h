@@ -808,7 +808,7 @@ public:
         return roi;
     }
 
-    bool IsPointInROI(const double px, const double py, const double pz)
+    bool IsPointInROI(const double px, const double py, const double pz) const
     {
         if (!pRegionParameters->bInitializedRoi) {
             throw MujinVisionException("globalroi3d is not initialized!", MVE_Failed);

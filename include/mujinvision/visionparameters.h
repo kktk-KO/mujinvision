@@ -415,6 +415,7 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
 {
 
     CalibrationData() {
+        distortion_coeffs.resize(5);
     }
 
     CalibrationData(const ptree& pt)
@@ -431,6 +432,12 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
         image_height = pt.get<double>("image_height");
         pixel_width = pt.get<double>("pixel_width");
         pixel_height = pt.get<double>("pixel_height");
+        distortion_model = pt.get<std::string>("distortion_model");
+        unsigned int i=0;
+        FOREACH(v, pt.get_child("distortion_coeffs")) {
+            distortion_coeffs[i] = boost::lexical_cast<double>(v->second.data());
+            i++;
+        }
     }
 
     virtual ~CalibrationData() {
@@ -447,7 +454,8 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
     double image_height;
     double pixel_width;
     double pixel_height;
-    double distortioncoeffs[5];
+    std::string distortion_model;
+    std::vector<double> distortion_coeffs;
     std::vector<double> extra_parameters;
 
     std::string GetJsonString()
@@ -465,6 +473,15 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
         ss << "image_height: " << image_height << ", ";
         ss << "pixel_width: " << pixel_width << ", ";
         ss << "pixel_height: " << pixel_height << ", ";
+        ss << "distortion_model: " << distortion_model << ", ";
+        ss << "distortion_coeffs: [";
+        for (size_t i = 0; i < distortion_coeffs.size(); i++) {
+            ss << distortion_coeffs[i];
+            if (i != distortion_coeffs.size()) {
+                ss << ", ";
+            }
+        }
+        ss << "]";        
         ss << "extra_parameters: [";
         for (size_t iparam = 0; iparam < extra_parameters.size(); iparam++) {
             ss << extra_parameters[iparam];
@@ -731,6 +748,16 @@ public:
         return pCameraParameters;
     }
 
+    std::vector<double> GetKK() const
+    {
+        std::vector<double> KK;
+        KK.resize(9);
+        KK[0] = pCalibrationData->fx; KK[1] = pCalibrationData->s; KK[2] = pCalibrationData->pu;
+        KK[3] = 0; KK[4] = pCalibrationData->fy; KK[5] = pCalibrationData->pv;
+        KK[6] = 0; KK[7] = 0; KK[8] = 1;
+        return KK;
+    }
+
 protected:
 
     /// \brief camera transform in world frame
@@ -767,6 +794,18 @@ public:
     const Transform& GetWorldTransform() const
     {
         return worldTransform;
+    }
+
+    std::vector<double> GetROI() const
+    {
+        std::vector<double> roi;
+        roi.push_back(pRegionParameters->minx);
+        roi.push_back(pRegionParameters->maxx);
+        roi.push_back(pRegionParameters->miny);
+        roi.push_back(pRegionParameters->maxy);
+        roi.push_back(pRegionParameters->minz);
+        roi.push_back(pRegionParameters->maxz);
+        return roi;
     }
 
     bool IsPointInROI(const double px, const double py, const double pz)

@@ -652,22 +652,23 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             Vector rotation = transform.rot;
             double minDist = 999;
             int minIndex = -1;
-            // make sure the z-axis of the detected rotation's origin is pointing up in the world frame, so that upside-down flipping is considered the same
-            double dotproductX = mat.m[0]+mat.m[4]+mat.m[8];
-            double dotproductY = mat.m[1]+mat.m[5]+mat.m[9];
-            double dotproductZ = mat.m[2]+mat.m[6]+mat.m[10];
-            if (dotproductZ<0  // if z pointing down
-                || (dotproductZ == 0 && dotproductX <0) // or if z pointing flat, but x pointing down
-                || (dotproductZ == 0 && dotproductX == 0 && dotproductY<0) // or both z and x pointing flat, but y pointing down
-                ) {
-                std::cout << "Upside-down detection (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << "), flip rotation." << std::endl;
-                // rotate around x axis by 180
-                rotation[0] = -transform.rot[1];
-                rotation[1] = transform.rot[0];
-                rotation[2] = transform.rot[3];
-                rotation[3] = -transform.rot[2];
+            if (_pVisionServerParameters->numDetectionsToKeep>0) {
+                // make sure the z-axis of the detected rotation's origin is pointing up in the world frame, so that upside-down flipping is considered the same
+                double dotproductX = mat.m[0]+mat.m[4]+mat.m[8];
+                double dotproductY = mat.m[1]+mat.m[5]+mat.m[9];
+                double dotproductZ = mat.m[2]+mat.m[6]+mat.m[10];
+                if (dotproductZ<0  // if z pointing down
+                    || (dotproductZ == 0 && dotproductX <0) // or if z pointing flat, but x pointing down
+                    || (dotproductZ == 0 && dotproductX == 0 && dotproductY<0) // or both z and x pointing flat, but y pointing down
+                    ) {
+                    std::cout << "Upside-down detection (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << "), flip rotation." << std::endl;
+                    // rotate around x axis by 180
+                    rotation[0] = -transform.rot[1];
+                    rotation[1] = transform.rot[0];
+                    rotation[2] = transform.rot[3];
+                    rotation[3] = -transform.rot[2];
+                }
             }
-
             for (unsigned int j=0; j<_vDetectedInfo.size(); j++) {
                 double dist = std::sqrt(((position-_vDetectedInfo[j].meanPosition)*weights).lengthsqr3());
                 if (dist < minDist) {
@@ -675,7 +676,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     minIndex = j;
                 }
             }
-            if (minDist < _pVisionServerParameters->maxPositionError) {
+            if (minDist < _pVisionServerParameters->maxPositionError && _pVisionServerParameters->numDetectionsToKeep>0) {
                 _vDetectedInfo.at(minIndex).count++;
                 unsigned int numDetections;
                 // only keep track of the last n detection results
@@ -1095,8 +1096,9 @@ ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, 
         calibrationdata->pv           = sensordata.intrinsic[5];
         calibrationdata->s            = sensordata.intrinsic[1];
         calibrationdata->focal_length = sensordata.focal_length;
+        calibrationdata->distortion_model = sensordata.distortion_model;
         for (size_t idceff = 0; idceff < 5; idceff++) {
-            calibrationdata->distortioncoeffs[idceff] = sensordata.distortion_coeffs[idceff];
+            calibrationdata->distortion_coeffs[idceff] = sensordata.distortion_coeffs[idceff];
         }
         if (sensordata.extra_parameters.size()==4 && sensordata.extra_parameters[0]==1) { // TODO: reorganize
             calibrationdata->kappa = sensordata.extra_parameters[1];

@@ -643,6 +643,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         if (_bStopDetectionThread) {
             break;
         }
+        if (_pVisionServerParameters->numDetectionsToKeep==0) {
+            _vDetectedInfo.resize(0);
+        }
         for (unsigned int i=0; i<detectedobjects.size(); i++) {
             unsigned long long timestamp = GetMilliTime();
             double score = detectedobjects[i]->confidence;
@@ -741,7 +744,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 _vDetectedInfo.push_back(info);
             }
         }
-        if (_vDetectedInfo.size()>0) {
+        if (_vDetectedInfo.size()>0 && _pVisionServerParameters->numDetectionsToKeep>0) {
             // remove old detection results
             for (int i=_vDetectedInfo.size()-1; i>=0; i--) {
                 if (GetMilliTime() - _vDetectedInfo.at(i).timestamp > _pVisionServerParameters->timeToRemember) {

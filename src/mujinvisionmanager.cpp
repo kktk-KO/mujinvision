@@ -231,22 +231,31 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         } else {
             _bInitialized = true;
         }
-        result_pt = Initialize(command_pt.get<std::string>("detectorConfigurationFilename"),
-                               command_pt.get<std::string>("imagesubscriberConfigurationFilename"),
-                               command_pt.get<std::string>("mujinControllerIp", ""),
-                               command_pt.get<unsigned int>("mujinControllerPort", 0),
-                               command_pt.get<std::string>("mujinControllerUsernamePass"),
-                               command_pt.get<std::string>("robotControllerIp"),
-                               command_pt.get<unsigned int>("robotControllerPort"),
-                               command_pt.get<unsigned int>("binpickingTaskZmqPort"),
-                               command_pt.get<unsigned int>("binpickingTaskHeartbeatPort"),
-                               command_pt.get<double>("binpickingTaskHeartbeatTimeout"),
-                               command_pt.get<std::string>("binpickingTaskScenePk"),
-                               command_pt.get<std::string>("robotname", ""),
-                               command_pt.get<std::string>("regionname"),
-                               command_pt.get<std::string>("tasktype","binpicking")
-                               );
-        result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+        bool succeeded=false;
+        while (!succeeded) {
+            try {
+                result_pt = Initialize(command_pt.get<std::string>("detectorConfigurationFilename"),
+                                       command_pt.get<std::string>("imagesubscriberConfigurationFilename"),
+                                       command_pt.get<std::string>("mujinControllerIp", ""),
+                                       command_pt.get<unsigned int>("mujinControllerPort", 0),
+                                       command_pt.get<std::string>("mujinControllerUsernamePass"),
+                                       command_pt.get<std::string>("robotControllerIp"),
+                                       command_pt.get<unsigned int>("robotControllerPort"),
+                                       command_pt.get<unsigned int>("binpickingTaskZmqPort"),
+                                       command_pt.get<unsigned int>("binpickingTaskHeartbeatPort"),
+                                       command_pt.get<double>("binpickingTaskHeartbeatTimeout"),
+                                       command_pt.get<std::string>("binpickingTaskScenePk"),
+                                       command_pt.get<std::string>("robotname", ""),
+                                       command_pt.get<std::string>("regionname"),
+                                       command_pt.get<std::string>("tasktype","binpicking")
+                                       );
+                result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+                succeeded = true;
+            } catch (...) {
+                _SetStatusMessage("Failed to initialize. Try again in 1 second...");
+                boost::this_thread::sleep(boost::posix_time::seconds(1));
+            }
+        }
     } else if (command == "DetectObjects") {
         if (!_pDetector || !_pBinpickingTask) {
             result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
@@ -725,7 +734,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 }
                 _vDetectedInfo.at(minIndex).meanScore = sumScore / numDetections;
             } else { // new object is detected
-                std::cout << "New object is detected at (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << " ," <<  position[0] << ", " << position[1] << ", " << position[2] << ")" << std::endl;
+                //std::cout << "New object is detected at (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << " ," <<  position[0] << ", " << position[1] << ", " << position[2] << ")" << std::endl;
                 std::vector<Vector> positions;
                 positions.push_back(position);
                 std::vector<Vector> rotations;

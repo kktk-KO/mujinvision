@@ -774,10 +774,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         if (_bStopDetectionThread) {
             break;
         }
-        std::cout << "Sending " << newdetectedobjects.size() << " detected objects to the mujin controller." << std::endl;
-        SendPointCloudObstacleToController(regionname, cameranames, newdetectedobjects, voxelsize, pointsize);
-        UpdateDetectedObjects(newdetectedobjects, true);
-
+        //std::cout << "Sending " << newdetectedobjects.size() << " detected objects to the mujin controller." << std::endl;
+        //SendPointCloudObstacleToController(regionname, cameranames, newdetectedobjects, voxelsize, pointsize);
+        //UpdateDetectedObjects(newdetectedobjects, true);
+        _UpdateEnvironmentState(regionname, cameranames, newdetectedobjects, voxelsize, pointsize);
         // visualize results
         if (_bStopDetectionThread) {
             break;
@@ -1230,6 +1230,39 @@ ptree MujinVisionManager::SendPointCloudObstacleToController(const std::string& 
 
     return _GetResultPtree(MS_Succeeded);
 }
+
+void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize)
+{
+    std::vector<mujinclient::Transform> transformsworld;
+    std::vector<std::string> confidences;
+    for (unsigned int i=0; i<detectedobjectsworld.size(); i++) {
+        mujinclient::Transform transform;
+        transform.quaternion[0] = detectedobjectsworld[i]->transform.rot[0];
+        transform.quaternion[1] = detectedobjectsworld[i]->transform.rot[1];
+        transform.quaternion[2] = detectedobjectsworld[i]->transform.rot[2];
+        transform.quaternion[3] = detectedobjectsworld[i]->transform.rot[3];
+        transform.translate[0] = detectedobjectsworld[i]->transform.trans[0];
+        transform.translate[1] = detectedobjectsworld[i]->transform.trans[1];
+        transform.translate[2] = detectedobjectsworld[i]->transform.trans[2];
+        transformsworld.push_back(transform);
+        confidences.push_back(detectedobjectsworld[i]->confidence);
+    }
+    std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
+    std::vector<Real> totalpoints;
+    for(unsigned int i=0; i<cameranamestobeused.size(); i++) {
+        std::string cameraname = cameranamestobeused[i];
+        // get point cloud obstacle
+        std::vector<Real> points;
+        _pDetector->GetPointCloudObstacle(cameraname, detectedobjectsworld, points, voxelsize);
+        totalpoints.insert(totalpoints.end(), points.begin(), points.end());
+    }
+    _pBinpickingTask->UpdateEnvironmentState(detectedobjectsworld[0]->name, transformsworld, confidences, totalpoints, pointsize, "__dynamicobstacle__","m");
+    std::stringstream ss;
+    ss << "Updating environment with " << detectedobjectsworld.size() << " detected objects and " << (totalpoints.size()/3) << " points.";
+    _SetStatusMessage(ss.str());
+
+}
+
 
 ptree MujinVisionManager::VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>&cameranames, const double pointsize)
 {

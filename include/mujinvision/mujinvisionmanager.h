@@ -369,6 +369,8 @@ private:
      */
     void _SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld);
 
+    void _UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize);
+
     /** \brief Converts mujinclient::Transform to Transform.
      */
     Transform _GetTransform(const mujinclient::Transform& t);

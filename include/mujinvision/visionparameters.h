@@ -556,11 +556,11 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
                 i++;
             }
         }
-        confidence = pt.get<double>("confidence");
+        confidence = pt.get<std::string>("confidence");
     }
 
     /// assume input is in meter
-    DetectedObject(const std::string& n, const Transform& t, const double& c)
+    DetectedObject(const std::string& n, const Transform& t, const std::string& c)
     {
         name = n;
         transform = t;
@@ -572,13 +572,13 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
 
     std::string name;
     Transform transform; ///< in meter
-    double confidence; ///< detection score
+    std::string confidence; ///< detection confidence
 
     std::string GetJsonString()
     {
         std::stringstream ss;
         ss << std::setprecision(std::numeric_limits<double>::digits10+1);
-        //"{\"name\": \"obj\",\"translation_\":[100,200,300],\"quat_\":[1,0,0,0],\"confidence\":0.5}"
+        //"{\"name\": \"obj\",\"translation_\":[100,200,300],\"quat_\":[1,0,0,0],\"confidence\":{}}"
         ss << "{";
         ss << "\"name\": \"" << name << "\", ";
         ss << "\"translation_\": [";
@@ -620,7 +620,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
                 quat_pt.push_back(std::make_pair("",p));
             }
             _pt.put_child("quat_", quat_pt);
-            _pt.put<double>("confidence", confidence);
+            _pt.put<std::string>("confidence", confidence);
         }
         return _pt;
     }

@@ -657,7 +657,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         }
         for (unsigned int i=0; i<detectedobjects.size(); i++) {
             unsigned long long timestamp = GetMilliTime();
-            double score = detectedobjects[i]->confidence;
+            std::string confidence = detectedobjects[i]->confidence;
             Transform transform = detectedobjects[i]->transform;
             TransformMatrix mat(transform);
             Vector position = transform.trans;
@@ -695,14 +695,14 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 if (_vDetectedInfo.at(minIndex).count <= _pVisionServerParameters->numDetectionsToKeep) {
                     _vDetectedInfo.at(minIndex).positions.push_back(position);
                     _vDetectedInfo.at(minIndex).rotations.push_back(rotation);
-                    _vDetectedInfo.at(minIndex).scores.push_back(score);
+                    _vDetectedInfo.at(minIndex).confidences.push_back(confidence);
                     numDetections = _vDetectedInfo.at(minIndex).count;
                 } else {
                     numDetections = _pVisionServerParameters->numDetectionsToKeep;
                     unsigned int newindex = _vDetectedInfo.at(minIndex).count% numDetections;
                     _vDetectedInfo.at(minIndex).positions.at(newindex) = position;
                     _vDetectedInfo.at(minIndex).rotations.at(newindex) = rotation;
-                    _vDetectedInfo.at(minIndex).scores.at(newindex) = score;
+                    _vDetectedInfo.at(minIndex).confidences.at(newindex) = confidence;
                 }
                 std::cout << "Part " << minIndex << " is known (minDist " << minDist << "), updating its mean position averaging " << numDetections << " detections." << std::endl;
 
@@ -728,28 +728,22 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     }
                 }
                 _vDetectedInfo.at(minIndex).meanRotation = _vDetectedInfo.at(minIndex).rotations.at(minQuatIndex);
-                double sumScore=0;
-                for (unsigned int j=0; j<numDetections; j++) {
-                    sumScore += _vDetectedInfo.at(minIndex).scores.at(j);
-                }
-                _vDetectedInfo.at(minIndex).meanScore = sumScore / numDetections;
             } else { // new object is detected
                 //std::cout << "New object is detected at (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << " ," <<  position[0] << ", " << position[1] << ", " << position[2] << ")" << std::endl;
                 std::vector<Vector> positions;
                 positions.push_back(position);
                 std::vector<Vector> rotations;
                 rotations.push_back(rotation);
-                std::vector<double> scores;
-                scores.push_back(score);
+                std::vector<std::string> confidences;
+                confidences.push_back(confidence);
                 DetectedInfo info;
                 info.timestamp = timestamp;
                 info.count = 1;
                 info.meanPosition = position;
                 info.meanRotation = rotation;
-                info.meanScore = score;
                 info.positions = positions;
                 info.rotations = rotations;
-                info.scores = scores;
+                info.confidences = confidences;
                 _vDetectedInfo.push_back(info);
             }
         }
@@ -770,7 +764,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 Transform transform;
                 transform.trans = _vDetectedInfo.at(i).meanPosition;
                 transform.rot = _vDetectedInfo.at(i).meanRotation;
-                DetectedObjectPtr obj(new DetectedObject(detectedobjects[0]->name, transform, _vDetectedInfo.at(i).meanScore));
+                DetectedObjectPtr obj(new DetectedObject(detectedobjects[0]->name, transform, _vDetectedInfo.at(i).confidences.at(0)));
                 newdetectedobjects.push_back(obj);
                 //obj->Print();
             }
@@ -1388,7 +1382,7 @@ std::vector<std::string> MujinVisionManager::_GetDepthCameraNames(const std::str
 void MujinVisionManager::_SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld)
 {
     std::vector<mujinclient::Transform> transformsworld;
-    std::vector<double> confidence;
+    std::vector<std::string> confidences;
     for (unsigned int i=0; i<detectedobjectsworld.size(); i++) {
         mujinclient::Transform transform;
         transform.quaternion[0] = detectedobjectsworld[i]->transform.rot[0];
@@ -1399,9 +1393,9 @@ void MujinVisionManager::_SendDetectedObjectsToController(const std::vector<Dete
         transform.translate[1] = detectedobjectsworld[i]->transform.trans[1];
         transform.translate[2] = detectedobjectsworld[i]->transform.trans[2];
         transformsworld.push_back(transform);
-        confidence.push_back(detectedobjectsworld[i]->confidence);
+        confidences.push_back(detectedobjectsworld[i]->confidence);
     }
-    _pBinpickingTask->UpdateObjects(detectedobjectsworld[0]->name, transformsworld, confidence,"m");
+    _pBinpickingTask->UpdateObjects(detectedobjectsworld[0]->name, transformsworld, confidences,"m");
 }
 
 Transform MujinVisionManager::_GetTransform(const mujinclient::Transform& t)

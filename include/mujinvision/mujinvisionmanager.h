@@ -289,10 +289,9 @@ private:
         unsigned int count; ///< count is the number of detections of part.
         Vector meanPosition; ///< meanPosition is the mean position of part's history of detected positions.
         Vector meanRotation; ///< meanRotation is the mean rotation of part's history of detected rotations.
-        double meanScore; ///< meanScore is the mean score of part's detection.
         std::vector<Vector> positions; ///< positions is part's history of detected positions. positions[i] is the i'th history of part's XYZ position.
         std::vector<Vector> rotations; ///< rotations is part's history of detected rotations. rotation[i] is the i'th history of part's rotation.
-        std::vector<double> scores; ///< scores is part's history of detection confidence. rotation[i] is the i'th history of part's score.
+        std::vector<std::string> confidences; ///< confidences is part's history of detection confidence. confidences[i] is the i'th history of part's confidence.
     };
 
     void _DeInitialize();

@@ -1026,6 +1026,9 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
             break;
         } else {
             std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+            if (_bStopDetectionThread) {
+                break;
+            }
             boost::this_thread::sleep(boost::posix_time::milliseconds(200));
         }
     }
@@ -1052,6 +1055,9 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
                 break;
             }else {
                 std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+                if (_bStopDetectionThread) {
+                    break;
+                }
                 boost::this_thread::sleep(boost::posix_time::milliseconds(200));
             }
         }

@@ -181,7 +181,8 @@ public:
                              const std::string& binpickingTaskScenePk,
                              const std::string& robotname,
                              const std::string& regionname,
-			     const std::string& tasktype="binpicking"
+                             const std::string& targetname,
+                             const std::string& tasktype="binpicking"
                              );
 
     /** \brief Detects objects in specified region with specified cameras
@@ -405,6 +406,7 @@ private:
     boost::mutex _mutexCommandServerMap;
     StatusPublisherPtr _pStatusPublisher;
 
+    std::string _targetname; ///< name of the target object
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
     std::map<std::string, CameraParametersPtr> _mNameCameraParameters; ///< name->camera param
     std::map<std::string, CameraPtr > _mNameCamera; ///< name->camera

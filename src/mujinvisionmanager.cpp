@@ -233,7 +233,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         }
         bool succeeded=false;
         while (!succeeded) {
-            try {
+            //try {
                 result_pt = Initialize(command_pt.get<std::string>("detectorConfigurationFilename"),
                                        command_pt.get<std::string>("imagesubscriberConfigurationFilename"),
                                        command_pt.get<std::string>("mujinControllerIp", ""),
@@ -247,14 +247,15 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                                        command_pt.get<std::string>("binpickingTaskScenePk"),
                                        command_pt.get<std::string>("robotname", ""),
                                        command_pt.get<std::string>("regionname"),
+                                       command_pt.get<std::string>("targetname"),
                                        command_pt.get<std::string>("tasktype","binpicking")
                                        );
                 result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
                 succeeded = true;
-            } catch (...) {
-                _SetStatusMessage("Failed to initialize. Try again in 1 second...");
-                boost::this_thread::sleep(boost::posix_time::seconds(1));
-            }
+                //} catch (...) {
+                //_SetStatusMessage("Failed to initialize. Try again in 1 second...");
+                //boost::this_thread::sleep(boost::posix_time::seconds(1));
+                //}
         }
     } else if (command == "DetectObjects") {
         if (!_pDetector || !_pBinpickingTask) {
@@ -488,6 +489,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
     std::string incomingmessage;
     ptree command_pt;
     std::stringstream command_ss, result_ss;
+
     while (!_mPortStopCommandThread[port]) {
         try {
             // receive message
@@ -510,7 +512,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 catch (const UserInterruptException& ex) { // need to catch it here, otherwise zmq will be in bad state
                     if (port == _pVisionServerParameters->configurationPort) {
                         std::cerr << "User requested program exit." << std::endl;
-                        throw;
+                        //throw;
                     } else {
                         _SetStatus(MS_Preempted,"",true);
                         std::cerr << "User interruped command execution." << std::endl;
@@ -518,7 +520,6 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                     }
                 }
                 catch (const MujinVisionException& e) {
-                    _SetStatus(MS_Aborted,"",true);
                     std::cerr << "MujinVisionException " << e.message() << std::endl;
                     if (e.GetCode() == MVE_CommandNotSupported) {
                         result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
@@ -529,9 +530,15 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                     } else if (e.GetCode() == MVE_ControllerError) {
                         result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
                     } else {
-                        std::cerr << "Unhandled MujinVisionException, throw. " << std::endl;
-                        throw;
+                        result_ss << "{\"error\": \"Unhandled MujinVisionException\"}";
+                        //throw;
                     }
+                    _SetStatus(MS_Aborted,e.message(),true);
+                }
+                catch (std::exception& e) {
+                    result_ss << "{\"error\": \"" << e.what() << "\"}";
+                    std::cerr << "unhandled exception, " << e.what() << std::endl; 
+                    _SetStatus(MS_Aborted,e.what(),true);
                 }
 
                 // send output
@@ -543,7 +550,8 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
             }
         }
         catch (const UserInterruptException& ex) {
-            throw;
+            std::cerr << "User requested program exit." << std::endl;
+            //throw;
         }
         //catch (const mujinclient::MujinException& e) {
         //    _SetStatus(MS_Aborted,"",true);
@@ -1071,7 +1079,7 @@ ptree MujinVisionManager::_GetResultPtree(ManagerStatus status)
     return pt;
 }
 
-ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, const std::string& imagesubscriberConfigFilename, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerIp, const unsigned int robotControllerPort, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& regionname, const std::string& tasktype)
+ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, const std::string& imagesubscriberConfigFilename, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerIp, const unsigned int robotControllerPort, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& regionname, const std::string& targetname, const std::string& tasktype)
 {
     ptree pt;
 
@@ -1167,6 +1175,8 @@ ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, 
     }
     read_json(detectorConfigFilename, pt);
     _pDetector = _pDetectorManager->CreateObjectDetector(pt.get_child("object"),pt.get_child("detection"), region, _mNameColorCamera, _mNameDepthCamera,boost::bind(&MujinVisionManager::_SetStatusMessage,this,_1));
+
+    _targetname = targetname;
     return _GetResultPtree(MS_Succeeded);
 }
 
@@ -1256,9 +1266,13 @@ void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, 
         _pDetector->GetPointCloudObstacle(cameraname, detectedobjectsworld, points, voxelsize);
         totalpoints.insert(totalpoints.end(), points.begin(), points.end());
     }
-    _pBinpickingTask->UpdateEnvironmentState(detectedobjectsworld[0]->name, transformsworld, confidences, totalpoints, pointsize, "__dynamicobstacle__","m");
     std::stringstream ss;
-    ss << "Updating environment with " << detectedobjectsworld.size() << " detected objects and " << (totalpoints.size()/3) << " points.";
+    if (totalpoints.size()>0) {
+        _pBinpickingTask->UpdateEnvironmentState(_targetname, transformsworld, confidences, totalpoints, pointsize, "__dynamicobstacle__","m");
+        ss << "Updating environment with " << detectedobjectsworld.size() << " detected objects and " << (totalpoints.size()/3) << " points.";
+    } else {
+        ss << "Got 0 points, something is wrong with the streamer. Is robot occluding the camera?" << std::endl;
+    }
     _SetStatusMessage(ss.str());
 
 }

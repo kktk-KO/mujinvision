@@ -278,7 +278,7 @@ public:
     /// \brief Unregisters the command. <b>[multi-thread safe]</b>
     virtual void UnregisterCommand(const std::string& cmdname);
 
-private:
+//private:
 
     enum ManagerStatus {
         MS_Lost=0,

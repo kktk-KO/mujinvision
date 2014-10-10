@@ -1300,8 +1300,21 @@ void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, 
 
 ptree MujinVisionManager::DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform)
 {
-    // TODO call detector
-    regiontransform = _GetTransform(regionname);
+    // TODO: use actual cameras
+    std::string colorcameraname = _GetColorCameraNames(regionname, cameranames).at(0);
+    std::string depthcameraname = _GetDepthCameraNames(regionname, cameranames).at(0);
+    mujinvision::Transform regiontransform0 = regiontransform;
+    _pDetector->DetectRegionTransform(colorcameraname, depthcameraname, regiontransform);
+    if (regiontransform.rot.x == regiontransform0.rot.x &&
+        regiontransform.rot.y == regiontransform0.rot.y &&
+        regiontransform.rot.z == regiontransform0.rot.z &&
+        regiontransform.rot.w == regiontransform0.rot.w &&
+        regiontransform.trans.x == regiontransform0.trans.x &&
+        regiontransform.trans.y == regiontransform0.trans.y &&
+        regiontransform.trans.z == regiontransform0.trans.z &&
+        regiontransform.trans.w == regiontransform0.trans.w) {
+        regiontransform = _GetTransform(regionname);
+    }
     return _GetResultPtree(MS_Succeeded);
 }
 

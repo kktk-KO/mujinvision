@@ -360,6 +360,27 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
 
         result_pt = ClearVisualizationOnController();
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+    } else if (command == "DetectRegionTransform") {
+        if (!_pBinpickingTask) {
+            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+            result_ss << "}";
+            _SetStatus(MS_Pending);
+            return;
+        }
+        std::vector<std::string> cameranames;
+        boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
+        if (!!cameranames_pt) {
+            FOREACH(v, *cameranames_pt) {
+                cameranames.push_back(v->second.get<std::string>(""));
+            }
+        }
+        mujinvision::Transform regiontransform;
+        result_pt = DetectRegionTransform(command_pt.get<std::string>("regionname"),
+                                          cameranames,
+                                          regiontransform);
+        result_ss << ParametersBase::GetJsonString("status", result_pt.get<std::string>("status"));
+        result_ss << ", ";
+        result_ss << ParametersBase::GetJsonString(regiontransform);
     } else if (command == "SaveSnapshot") {
         if (!_pBinpickingTask || !_pImagesubscriberManager) {
             result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
@@ -1277,6 +1298,12 @@ void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, 
 
 }
 
+ptree MujinVisionManager::DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform)
+{
+    // TODO call detector
+    regiontransform = _GetTransform(regionname);
+    return _GetResultPtree(MS_Succeeded);
+}
 
 ptree MujinVisionManager::VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>&cameranames, const double pointsize)
 {

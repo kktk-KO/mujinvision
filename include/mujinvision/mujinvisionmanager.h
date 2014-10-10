@@ -226,6 +226,13 @@ public:
      */
     virtual ptree ClearVisualizationOnController();
 
+    /** \brief Detects the transform of region
+        \param regionname name of the region where the detection happens
+        \param cameranames names of the cameras used for detection
+        \param regiontransform detected new transform of the region
+     */
+    virtual ptree DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform);
+
     /** \brief Saves a snapshot for each sensor mapped to the region. If detection was called before, snapshots of the images used for the last detection will be saved. Images are saved to the visionmanager application directory.
      */
     virtual ptree SaveSnapshot(const std::string& regionname, const bool getlatest=true);

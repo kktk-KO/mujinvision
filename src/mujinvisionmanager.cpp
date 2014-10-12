@@ -944,82 +944,17 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname)
         if (raabb.extents.size()!=3 || raabb.pos.size()!=3) {
             throw MujinVisionException("ResultAABB from Mujin controller is invalid!", MVE_ControllerError);
         }
-        //                0                    2                    4
-        //                x                    y                    z
-        double aabb[6] = {0,raabb.extents.at(0)*2,0,raabb.extents.at(1)*2,0,raabb.extents.at(2)*2};
-        double center[3] = {raabb.pos.at(0), raabb.pos.at(1), raabb.pos.at(2)};
 
-        // need to prepare offets to calculate vertices positions
-        Transform O_T_B = _GetTransform(regionname); // region origin in world frame
-        TransformMatrix m_O_T_B(O_T_B);
-        // top left            top right      |---> y world frame
-        // bottom left         bottom right   v
-        //                                    x
-        if (m_O_T_B.trans[0]-center[0]<0 && m_O_T_B.trans[1]-center[1]<0) { // top left
-        } else if (m_O_T_B.trans[0]-center[0]<0 && m_O_T_B.trans[1]-center[1]>0) { // top right
-            // flip y
-            aabb[3] = -aabb[3];
-        } else if (m_O_T_B.trans[0]-center[0]>0 && m_O_T_B.trans[1]-center[1]<0) { // bottom left
-            // flip x
-            aabb[1] = -aabb[1];
-        } else if (m_O_T_B.trans[0]-center[0]>0 && m_O_T_B.trans[1]-center[1]>0) { // bottom right
-            // flip x and y
-            aabb[1] = -aabb[1];
-            aabb[3] = -aabb[3];
-        }
-        //std::cout << "trans " << m_O_T_B.trans[0] << ", " << m_O_T_B.trans[1] << ", " << m_O_T_B.trans[2] <<  " pos " << center[0] << ", " << center[1]<< ", " << center[2] << " aabb " << aabb[0] << ", " << aabb[1] << ", " << aabb[2] << ", " << aabb[3] << ", " << aabb[4] << ", " << aabb[5] << std::endl;
-        Transform O_T_Bvertex[8]; // region vertices in world frame
-        Transform B_T_Bvertex[8]; // region vertices in region frame
-        for (unsigned int i=0; i<8; i++) {
-            O_T_Bvertex[i] = O_T_B;
-        }
-        unsigned int index=0;
-        double minx,maxx,miny,maxy,minz,maxz; // roi in region frame
-        // order of vertices
-        //    .3--------1 z
-        //  .' |      .'|
-        // 7---+----5'  |
-        // |   |    |   |
-        // |y ,2----+---0 o  world frame
-        // |.'      | .'
-        // 6--------4'
-        //         x
-        for (unsigned int i=0; i<2; i++) {
-            for (unsigned int j=2; j<4; j++) {
-                for (unsigned int k=4; k<6; k++) {
-                    // update vertices positions in world frame
-                    O_T_Bvertex[index].trans[0] += aabb[i];
-                    O_T_Bvertex[index].trans[1] += aabb[j];
-                    O_T_Bvertex[index].trans[2] += aabb[k];
-                    // calculate vertices positions in region frame
-                    B_T_Bvertex[index] = O_T_B.inverse() * O_T_Bvertex[index];
-                    // calculate the roi in region frame
-                    if (index==0) {
-                        minx=B_T_Bvertex[index].trans[0];
-                        maxx=B_T_Bvertex[index].trans[0];
-                        miny=B_T_Bvertex[index].trans[1];
-                        maxy=B_T_Bvertex[index].trans[1];
-                        minz=B_T_Bvertex[index].trans[2];
-                        maxz=B_T_Bvertex[index].trans[2];
-                    } else {
-                        minx = std::min(minx, B_T_Bvertex[index].trans[0]);
-                        maxx = std::max(maxx, B_T_Bvertex[index].trans[0]);
-                        miny = std::min(miny, B_T_Bvertex[index].trans[1]);
-                        maxy = std::max(maxy, B_T_Bvertex[index].trans[1]);
-                        minz = std::min(minz, B_T_Bvertex[index].trans[2]);
-                        maxz = std::max(maxz, B_T_Bvertex[index].trans[2]);
-                    }
-                    index++;
-                }
-            }
-        }
-        std::cout << "initialized " << regionname << "\'s roi in region frame: " << minx << " " << maxx << " " << miny << " " << maxy << " " << minz << " " << maxz << std::endl;
-        _mNameRegion[regionname]->pRegionParameters->minx = minx;
-        _mNameRegion[regionname]->pRegionParameters->maxx = maxx;
-        _mNameRegion[regionname]->pRegionParameters->miny = miny;
-        _mNameRegion[regionname]->pRegionParameters->maxy = maxy;
-        _mNameRegion[regionname]->pRegionParameters->minz = minz;
-        _mNameRegion[regionname]->pRegionParameters->maxz = maxz;
+        Transform B_T_O = _GetTransform(regionname).inverse();
+        Vector mins = B_T_O *(Vector(raabb.pos[0]-raabb.extents[0],raabb.pos[1]-raabb.extents[1],raabb.pos[2]-raabb.extents[2]));
+        Vector maxs = B_T_O *(Vector(raabb.pos[0]+raabb.extents[0],raabb.pos[1]+raabb.extents[1],raabb.pos[2]+raabb.extents[2]));
+
+        _mNameRegion[regionname]->pRegionParameters->minx = std::min(mins[0], maxs[0]);
+        _mNameRegion[regionname]->pRegionParameters->maxx = std::max(mins[0], maxs[0]);
+        _mNameRegion[regionname]->pRegionParameters->miny = std::min(mins[1], maxs[1]);
+        _mNameRegion[regionname]->pRegionParameters->maxy = std::max(mins[1], maxs[1]);
+        _mNameRegion[regionname]->pRegionParameters->minz = std::min(mins[2], maxs[2]);
+        _mNameRegion[regionname]->pRegionParameters->maxz = std::max(mins[2], maxs[2]);
         _mNameRegion[regionname]->pRegionParameters->bInitializedRoi = true;
         std::cout << _mNameRegion[regionname]->pRegionParameters->GetJsonString() << std::endl;
     }

@@ -1303,6 +1303,13 @@ ptree MujinVisionManager::DetectRegionTransform(const std::string& regionname, c
     // TODO: use actual cameras
     std::string colorcameraname = _GetColorCameraNames(regionname, cameranames).at(0);
     std::string depthcameraname = _GetDepthCameraNames(regionname, cameranames).at(0);
+    CameraPtr colorcamera = _mNameCamera[colorcameraname];
+    CameraPtr depthcamera = _mNameCamera[depthcameraname];
+    ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname);
+    DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname);
+    _pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
+    _pDetector->SetDepthImage(depthcameraname, depthimage);
+
     mujinvision::Transform regiontransform0 = regiontransform;
     _pDetector->DetectRegionTransform(colorcameraname, depthcameraname, regiontransform);
     if (regiontransform.rot.x == regiontransform0.rot.x &&

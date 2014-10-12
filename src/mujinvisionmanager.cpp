@@ -360,6 +360,27 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
 
         result_pt = ClearVisualizationOnController();
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+    } else if (command == "DetectRegionTransform") {
+        if (!_pBinpickingTask) {
+            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+            result_ss << "}";
+            _SetStatus(MS_Pending);
+            return;
+        }
+        std::vector<std::string> cameranames;
+        boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
+        if (!!cameranames_pt) {
+            FOREACH(v, *cameranames_pt) {
+                cameranames.push_back(v->second.get<std::string>(""));
+            }
+        }
+        mujinvision::Transform regiontransform;
+        result_pt = DetectRegionTransform(command_pt.get<std::string>("regionname"),
+                                          cameranames,
+                                          regiontransform);
+        result_ss << ParametersBase::GetJsonString("status", result_pt.get<std::string>("status"));
+        result_ss << ", ";
+        result_ss << ParametersBase::GetJsonString(regiontransform);
     } else if (command == "SaveSnapshot") {
         if (!_pBinpickingTask || !_pImagesubscriberManager) {
             result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
@@ -1289,6 +1310,32 @@ void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, 
 
 }
 
+ptree MujinVisionManager::DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform)
+{
+    // TODO: use actual cameras
+    std::string colorcameraname = _GetColorCameraNames(regionname, cameranames).at(0);
+    std::string depthcameraname = _GetDepthCameraNames(regionname, cameranames).at(0);
+    CameraPtr colorcamera = _mNameCamera[colorcameraname];
+    CameraPtr depthcamera = _mNameCamera[depthcameraname];
+    ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname);
+    DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname);
+    _pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
+    _pDetector->SetDepthImage(depthcameraname, depthimage);
+
+    mujinvision::Transform regiontransform0 = regiontransform;
+    _pDetector->DetectRegionTransform(colorcameraname, depthcameraname, regiontransform);
+    if (regiontransform.rot.x == regiontransform0.rot.x &&
+        regiontransform.rot.y == regiontransform0.rot.y &&
+        regiontransform.rot.z == regiontransform0.rot.z &&
+        regiontransform.rot.w == regiontransform0.rot.w &&
+        regiontransform.trans.x == regiontransform0.trans.x &&
+        regiontransform.trans.y == regiontransform0.trans.y &&
+        regiontransform.trans.z == regiontransform0.trans.z &&
+        regiontransform.trans.w == regiontransform0.trans.w) {
+        regiontransform = _GetTransform(regionname);
+    }
+    return _GetResultPtree(MS_Succeeded);
+}
 
 ptree MujinVisionManager::VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>&cameranames, const double pointsize)
 {

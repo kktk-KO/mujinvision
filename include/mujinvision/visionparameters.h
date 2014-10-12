@@ -245,7 +245,7 @@ struct MUJINVISION_API ParametersBase
                 ss << ", ";
             }
         }
-        ss << "], ";
+        ss << "]";
         return ss.str();
     }
 

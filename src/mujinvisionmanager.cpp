@@ -602,7 +602,13 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             break;
         }
         BinPickingTaskResource::ResultGetPickedPositions pickedpositions;
-        _pBinpickingTask->GetPickedPositions(pickedpositions,"m");
+        try {
+            _pBinpickingTask->GetPickedPositions(pickedpositions,"m");
+        }
+        catch(const std::exception& ex) {
+            std::cerr << "failed to get picked positions from mujin controller: " << ex.what() << std::endl;
+            continue;
+        }
         const unsigned int numPickedPositions = pickedpositions.transforms.size();
         std::cout << "Got " << numPickedPositions << " picked positions" << std::endl;
 
@@ -654,7 +660,13 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             break;
         }
         std::vector<DetectedObjectPtr> detectedobjects;
-        DetectObjects(regionname, cameranames, detectedobjects);
+        try {
+            DetectObjects(regionname, cameranames, detectedobjects);
+        }
+        catch(const std::exception& ex) {
+            std::cerr << "caugh unhandled exception while debugging: " << ex.what() << std::endl;
+            continue;
+        }
 
         // process results
         if (_bStopDetectionThread) {

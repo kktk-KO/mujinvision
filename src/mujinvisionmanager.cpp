@@ -609,9 +609,9 @@ void MujinVisionManager::_StopDetectionThread()
         _bStopDetectionThread = true;
         if (!!_pDetectionThread) {
             _pDetectionThread->join();
+            _pDetectionThread.reset();
             _SetStatusMessage("Stopped detection thread.");
         }
-        _pDetectionThread.reset();
     }
 }
 
@@ -989,6 +989,9 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
         if (!colorimage) {
             std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", wait for 1 more second." << std::endl;
             boost::this_thread::sleep(boost::posix_time::seconds(1));
+            if (_bStopDetectionThread) {
+                break;
+            }
             continue;
         }
         _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, timestamp, isoccluding);
@@ -1018,6 +1021,9 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
         if (!depthimage) {
             std::cerr << "could not get depth image for camera: " << cameraname << ", wait for 1 more second" << std::endl;
             boost::this_thread::sleep(boost::posix_time::seconds(1));
+            if (_bStopDetectionThread) {
+                break;
+            }
             continue;
         } else {
             _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
@@ -1151,8 +1157,16 @@ ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, 
 void MujinVisionManager::_DeInitialize()
 {
     _StopDetectionThread();
-    _pDetector->DeInitialize();
-    _pImagesubscriberManager->DeInitialize();
+    if (!!_pDetector) {
+        _pDetector.reset();
+        std::cout << "reset _pDetector" << std::endl;
+    }
+    if (!!_pImagesubscriberManager) {
+        _pImagesubscriberManager->DeInitialize();
+        _vSubscribers.clear();
+        std::cout << "cleared _vSubscribers" << std::endl;
+    }
+    _SetStatusMessage("DeInitialized vision manager.");
 }
 
 ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>&detectedobjects)

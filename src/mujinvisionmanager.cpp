@@ -1327,7 +1327,11 @@ ptree MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool
             } else {
                 colorimage = _pDetector->mColorImage[colorcameraname];
             }
-            _pImagesubscriberManager->WriteColorImage(colorimage, filename_ss.str());
+            if (!!colorimage) {
+                _pImagesubscriberManager->WriteColorImage(colorimage, filename_ss.str());
+            } else {
+                std::cerr << "Failed to get colorimage, please try again." << std::endl;
+            }
         }
     }
     FOREACH(iter,_mNameDepthCamera) {
@@ -1341,7 +1345,11 @@ ptree MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool
             } else {
                 depthimage = _pDetector->GetDepthImage(depthcameraname);
             }
-            _pImagesubscriberManager->WriteDepthImage(depthimage, filename_ss.str());
+            if (!!depthimage) {
+                _pImagesubscriberManager->WriteDepthImage(depthimage, filename_ss.str());
+            } else {
+                std::cerr << "Failed to get depthimage, please try again." << std::endl;
+            }
         }
     }
     return _GetResultPtree(MS_Succeeded);

@@ -136,7 +136,7 @@ int main(int argc, char* argv[])
     UserDetectorManagerPtr detectormanager(new UserDetectorManager());
     MujinVisionManagerPtr visionmanager;
     visionmanager.reset(new MujinVisionManager(imagesubscribermanager, detectormanager, visionmanagerConfigFilename));
-    while (!visionmanager->bShutdown) {
+    while (!visionmanager->IsShutdown()) {
         boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
     }
 

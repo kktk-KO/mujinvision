@@ -831,7 +831,7 @@ mujinvision::Transform MujinVisionManager::_GetTransform(const std::string& inst
 {
     mujinclient::Transform t;
     _pBinpickingTask->GetTransform(instobjname,t,"m");
-    return mujinvision::Transform(Vector(t.quaternion[0] /*w*/,t.quaternion[1] /*x*/, t.quaternion[2] /*y*/,t.quaternion[3] /*z*/), Vector(t.translate[0], t.translate[1], t.translate[2]));
+    return _GetTransform(t);
 }
 
 void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::string& cameraname)
@@ -839,7 +839,16 @@ void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::s
     if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
         throw MujinVisionException("Camera "+cameraname+ " is unknown!", MVE_InvalidArgument);
     }
-    Transform O_T_C = _GetTransform(cameraname); // camera transform in world frame
+
+    RobotResource::AttachedSensorResource::SensorData sensordata;
+    utils::GetSensorData(_pControllerClient, _pSceneResource, cameraname, _mNameCamera[cameraname]->pCameraParameters->defaultsensor, sensordata);
+
+
+    Transform O_T_camerabody = _GetTransform(cameraname); // camera body transform in world frame
+    mujinclient::Transform camerabody_T_sensor0;
+    utils::GetSensorTransform(_pControllerClient, _pSceneResource, cameraname, _mNameCamera[cameraname]->pCameraParameters->defaultsensor, camerabody_T_sensor0);
+    Transform camerabody_T_sensor = _GetTransform(camerabody_T_sensor0);
+    Transform O_T_C = O_T_camerabody * camerabody_T_sensor; // sensor transform in world frame
     _mNameCamera[cameraname]->SetWorldTransform(O_T_C);
     std::cout << "setting camera transform to: " << std::endl;
     std::cout << _GetString(_mNameCamera[cameraname]->GetWorldTransform());
@@ -885,9 +894,6 @@ void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::s
     // std::vector<RobotResource::AttachedSensorResourcePtr> attachedsensors;
     // utils::GetAttachedSensors(_pControllerClient, _pSceneResource, cameraname, attachedsensors);
     // RobotResource::AttachedSensorResource::SensorData sensordata = attachedsensors.at(0)->sensordata; // TODO: using first attached sensor for now
-
-    RobotResource::AttachedSensorResource::SensorData sensordata;
-    utils::GetSensorData(_pControllerClient, _pSceneResource, cameraname, _mNameCamera[cameraname]->pCameraParameters->defaultsensor, sensordata);
     
     // project vertices into image
     std::vector<double> pxlist, pylist;

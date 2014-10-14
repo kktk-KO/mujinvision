@@ -613,6 +613,7 @@ void MujinVisionManager::_StopDetectionThread()
             _pDetectionThread.reset();
             _SetStatusMessage("Stopped detection thread.");
         }
+        _bStopDetectionThread = false; // reset so that _GetImage works properly afterwards
     }
 }
 

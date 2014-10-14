@@ -882,8 +882,13 @@ void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::s
         }
     }
     // get sensordata
+    // std::vector<RobotResource::AttachedSensorResourcePtr> attachedsensors;
+    // utils::GetAttachedSensors(_pControllerClient, _pSceneResource, cameraname, attachedsensors);
+    // RobotResource::AttachedSensorResource::SensorData sensordata = attachedsensors.at(0)->sensordata; // TODO: using first attached sensor for now
+
     RobotResource::AttachedSensorResource::SensorData sensordata;
-    utils::GetSensorData(_pControllerClient, _pSceneResource, cameraname, sensordata);
+    utils::GetSensorData(_pControllerClient, _pSceneResource, cameraname, _mNameCamera[cameraname]->pCameraParameters->defaultsensor, sensordata);
+    
     // project vertices into image
     std::vector<double> pxlist, pylist;
     double x,y,px,py;
@@ -1081,8 +1086,11 @@ ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, 
     FOREACH(it, _mNameCameraParameters) {
         name = it->first;
         pcameraparameters = it->second;
+        // std::vector<RobotResource::AttachedSensorResourcePtr> attachedsensors;
+        // utils::GetAttachedSensors(_pControllerClient, _pSceneResource, name, attachedsensors);
+        // RobotResource::AttachedSensorResource::SensorData sensordata = attachedsensors.at(0)->sensordata; // TODO: using first attached sensor for now
         RobotResource::AttachedSensorResource::SensorData sensordata;
-        utils::GetSensorData(_pControllerClient, _pSceneResource, name, sensordata);
+        utils::GetSensorData(_pControllerClient, _pSceneResource, name, pcameraparameters->defaultsensor, sensordata);
 
         CalibrationDataPtr calibrationdata(new CalibrationData());
         calibrationdata->fx           = sensordata.intrinsic[0];

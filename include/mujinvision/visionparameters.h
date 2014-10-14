@@ -320,9 +320,8 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     CameraParameters(const ptree& pt)
     {
         _pt = pt;
-        //name = pt.get<std::string>("name");
         id = pt.get<std::string>("id");
-
+        defaultsensor = pt.get<std::string>("default_sensor");
         minu=maxu=minv=maxv=-1;
         std::vector<int> roi;
         boost::optional<const ptree&> imageroi_pt = pt.get_child_optional("imageroi");
@@ -349,8 +348,8 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     virtual ~CameraParameters() {
     }
 
-    //std::string name;
     std::string id;
+    std::string defaultsensor; ///< name of the default sensor
     bool isColorCamera;
     bool isDepthCamera;
     /// \brief image roi in pixel
@@ -361,9 +360,9 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     std::string GetJsonString()
     {
         std::stringstream ss;
-        //ss << "\"" << name << "\": ";
         ss << "{";
         ss << "\"id\": \"" << id << "\"";
+        ss << ", \"default_sensor\": \"" << defaultsensor << "\"";
         if (minu>0) {
             ss << ", \"imageroi\": ["<< minu << ", " << maxu << ", " << minv << ", " << maxv << "]";
         }
@@ -380,8 +379,8 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     ptree GetPropertyTree()
     {
         if (_pt.empty()) {
-            //ptree pt;
             _pt.put<std::string>("id", id);
+            _pt.put<std::string>("default_sensor", defaultsensor);
             if (minu>0) {
                 ptree imageroi_pt;
                 ptree p;
@@ -401,7 +400,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
             if (!isDepthCamera) {
                 _pt.put<bool>("isDepthCamera", isDepthCamera);
             }
-            //_pt.put_child(name, pt);
         }
         return _pt;
     }

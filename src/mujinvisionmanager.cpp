@@ -842,12 +842,13 @@ void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::s
     }
 
     RobotResource::AttachedSensorResource::SensorData sensordata;
-    utils::GetSensorData(_pControllerClient, _pSceneResource, cameraname, _mNameCamera[cameraname]->pCameraParameters->defaultsensor, sensordata);
+    std::string camerabodyname, sensorname;
+    _ParseCameraName(cameraname, camerabodyname, sensorname);
+    utils::GetSensorData(_pControllerClient, _pSceneResource, camerabodyname, sensorname, sensordata);
 
-
-    Transform O_T_camerabody = _GetTransform(cameraname); // camera body transform in world frame
+    Transform O_T_camerabody = _GetTransform(camerabodyname); // camera body transform in world frame
     mujinclient::Transform camerabody_T_sensor0;
-    utils::GetSensorTransform(_pControllerClient, _pSceneResource, cameraname, _mNameCamera[cameraname]->pCameraParameters->defaultsensor, camerabody_T_sensor0);
+    utils::GetSensorTransform(_pControllerClient, _pSceneResource, camerabodyname, sensorname, camerabody_T_sensor0);
     Transform camerabody_T_sensor = _GetTransform(camerabody_T_sensor0);
     Transform O_T_C = O_T_camerabody * camerabody_T_sensor; // sensor transform in world frame
     _mNameCamera[cameraname]->SetWorldTransform(O_T_C);
@@ -992,26 +993,26 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
     }
 }
 
-ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, const std::string& camerabodyname, const std::string& sensorname)
+ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, const std::string& cameraname)
 {
     ColorImagePtr colorimage;
     unsigned long long timestamp;
     bool isoccluding;
     while (!_bCancelCommand && !_bShutdown) {
-        colorimage = _pImagesubscriberManager->GetColorImage(camerabodyname,timestamp);
+        colorimage = _pImagesubscriberManager->GetColorImage(cameraname,timestamp);
         if (!colorimage) {
-            std::cerr << "[WARN]: Could not get color image for camera: " << camerabodyname << ", wait for 1 more second." << std::endl;
+            std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", wait for 1 more second." << std::endl;
             boost::this_thread::sleep(boost::posix_time::seconds(1));
             if (_bStopDetectionThread) {
                 break;
             }
             continue;
         }
-        _pBinpickingTask->IsRobotOccludingBody(regionname, camerabodyname+"/"+sensorname, timestamp, timestamp, isoccluding);
+        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, timestamp, isoccluding);
         if (!isoccluding) {
             break;
         } else {
-            std::cerr << "[WARN]: Region is occluded in the view of " << camerabodyname << ", will try again." << std::endl;
+            std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
             if (_bStopDetectionThread) {
                 break;
             }
@@ -1024,26 +1025,26 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
     return colorimage;
 }
 
-DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, const std::string& camerabodyname, const std::string& sensorname)
+DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, const std::string& cameraname)
 {
     DepthImagePtr depthimage;
     unsigned long long starttime, endtime;
     bool isoccluding;
     while (!_bCancelCommand && !_bShutdown) {
-        depthimage = _pImagesubscriberManager->GetDepthImage(camerabodyname, _numDepthImagesToAverage, starttime, endtime);
+        depthimage = _pImagesubscriberManager->GetDepthImage(cameraname, _numDepthImagesToAverage, starttime, endtime);
         if (!depthimage) {
-            std::cerr << "could not get depth image for camera: " << camerabodyname << ", wait for 1 more second" << std::endl;
+            std::cerr << "could not get depth image for camera: " << cameraname << ", wait for 1 more second" << std::endl;
             boost::this_thread::sleep(boost::posix_time::seconds(1));
             if (_bStopDetectionThread) {
                 break;
             }
             continue;
         } else {
-            _pBinpickingTask->IsRobotOccludingBody(regionname, camerabodyname+"/"+sensorname, starttime, endtime, isoccluding);
+            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
             if (!isoccluding) {
                 break;
             }else {
-                std::cerr << "[WARN]: Region is occluded in the view of " << camerabodyname << ", will try again." << std::endl;
+                std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
                 if (_bStopDetectionThread) {
                     break;
                 }
@@ -1088,16 +1089,19 @@ ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, 
 
     // set up cameras
     _SetStatusMessage("Setting up cameras.");
-    std::string name;
+    std::string cameraname;
     CameraParametersPtr pcameraparameters;
     FOREACH(it, _mNameCameraParameters) {
-        name = it->first;
+        cameraname = it->first;
         pcameraparameters = it->second;
         // std::vector<RobotResource::AttachedSensorResourcePtr> attachedsensors;
         // utils::GetAttachedSensors(_pControllerClient, _pSceneResource, name, attachedsensors);
         // RobotResource::AttachedSensorResource::SensorData sensordata = attachedsensors.at(0)->sensordata; // TODO: using first attached sensor for now
         RobotResource::AttachedSensorResource::SensorData sensordata;
-        utils::GetSensorData(_pControllerClient, _pSceneResource, name, pcameraparameters->defaultsensor, sensordata);
+        std::string camerabodyname,sensorname;
+        _ParseCameraName(cameraname, camerabodyname, sensorname);
+
+        utils::GetSensorData(_pControllerClient, _pSceneResource, camerabodyname, sensorname, sensordata);
 
         CalibrationDataPtr calibrationdata(new CalibrationData());
         calibrationdata->fx           = sensordata.intrinsic[0];
@@ -1126,16 +1130,16 @@ ptree MujinVisionManager::Initialize(const std::string& detectorConfigFilename, 
             calibrationdata->pixel_height = sensordata.focal_length / sensordata.intrinsic[4];
         }
 
-        if (std::find(region->pRegionParameters->cameranames.begin(), region->pRegionParameters->cameranames.end(), name) != region->pRegionParameters->cameranames.end()) {
-            _mNameCamera[name] = CameraPtr(new Camera(name, pcameraparameters, calibrationdata));
-            _SyncCamera(regionname, name);
+        if (std::find(region->pRegionParameters->cameranames.begin(), region->pRegionParameters->cameranames.end(), cameraname) != region->pRegionParameters->cameranames.end()) {
+            _mNameCamera[cameraname] = CameraPtr(new Camera(cameraname, pcameraparameters, calibrationdata));
+            _SyncCamera(regionname, cameraname);
             if (pcameraparameters->isColorCamera) {
-                _SetStatusMessage("Loading parameters for color camera " + name +".");
-                _mNameColorCamera[name] = _mNameCamera[name];
+                _SetStatusMessage("Loading parameters for color camera " + cameraname +".");
+                _mNameColorCamera[cameraname] = _mNameCamera[cameraname];
             }
             if (pcameraparameters->isDepthCamera) {
-                _SetStatusMessage("Loading parameters for depth camera " + name +".");
-                _mNameDepthCamera[name] = _mNameCamera[name];
+                _SetStatusMessage("Loading parameters for depth camera " + cameraname +".");
+                _mNameDepthCamera[cameraname] = _mNameCamera[cameraname];
             }
         }
     }
@@ -1195,8 +1199,8 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
     CameraPtr depthcamera = _mNameCamera[depthcameraname];
 
     // set up images
-    ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname, colorcamera->pCameraParameters->defaultsensor);
-    DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname, depthcamera->pCameraParameters->defaultsensor);
+    ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname);
+    DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname);
     if (!!originalcolorimage && !!depthimage) {
         _pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
         _pDetector->SetDepthImage(depthcameraname, depthimage);
@@ -1282,8 +1286,8 @@ ptree MujinVisionManager::DetectRegionTransform(const std::string& regionname, c
     std::string depthcameraname = _GetDepthCameraNames(regionname, cameranames).at(0);
     CameraPtr colorcamera = _mNameCamera[colorcameraname];
     CameraPtr depthcamera = _mNameCamera[depthcameraname];
-    ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname, colorcamera->pCameraParameters->defaultsensor);
-    DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname, depthcamera->pCameraParameters->defaultsensor);
+    ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname);
+    DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname);
     _pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
     _pDetector->SetDepthImage(depthcameraname, depthimage);
 
@@ -1312,7 +1316,7 @@ ptree MujinVisionManager::VisualizePointCloudOnController(const std::string& reg
         points.resize(0);
         std::string cameraname = cameranamestobeused.at(i);
         CameraPtr camera = _mNameCamera[cameraname];
-        _pDetector->GetCameraPointCloud(cameranamestobeused[i], _GetDepthImage(regionname, cameraname, camera->pCameraParameters->defaultsensor), points);
+        _pDetector->GetCameraPointCloud(cameranamestobeused[i], _GetDepthImage(regionname, cameraname), points);
         if (points.size()>0) {
             pointslist.push_back(points);
             std::stringstream name_ss;
@@ -1342,7 +1346,7 @@ ptree MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool
             filename_ss << colorcameraname << "_" << GetMilliTime() << ".png";
             ColorImagePtr colorimage;
             if ((getlatest || !_pDetector->mColorImage[colorcameraname]) && !_bStopDetectionThread) {
-                colorimage = _GetColorImage(regionname, colorcameraname, colorcamera->pCameraParameters->defaultsensor);
+                colorimage = _GetColorImage(regionname, colorcameraname);
             } else {
                 colorimage = _pDetector->mColorImage[colorcameraname];
             }
@@ -1361,7 +1365,7 @@ ptree MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool
             filename_ss << depthcameraname << "_" << GetMilliTime() << ".pcd";
             DepthImagePtr depthimage;
             if (getlatest || !_pDetector->DepthImageIsSet(depthcameraname)) {
-                depthimage = _GetDepthImage(regionname, depthcameraname, depthcamera->pCameraParameters->defaultsensor);
+                depthimage = _GetDepthImage(regionname, depthcameraname);
             } else {
                 depthimage = _pDetector->GetDepthImage(depthcameraname);
             }
@@ -1521,6 +1525,16 @@ std::string MujinVisionManager::_GetString(const Transform& transform)
         ss << t.trans[r] << std::endl;
     }
     return ss.str();
+}
+
+void MujinVisionManager::_ParseCameraName(const std::string& cameraname, std::string& camerabodyname, std::string& sensorname)
+{
+    size_t pos = cameraname.find("/");
+    if (pos == std::string::npos) {
+        throw MujinVisionException("cameraname (" + cameraname + ") does not have /", MVE_InvalidArgument);
+    }
+    camerabodyname = cameraname.substr(0,pos);
+    sensorname = cameraname.substr(pos+1);
 }
 
 } // namespace mujinvision

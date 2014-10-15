@@ -321,7 +321,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     {
         _pt = pt;
         id = pt.get<std::string>("id");
-        defaultsensor = pt.get<std::string>("default_sensor");
         minu=maxu=minv=maxv=-1;
         std::vector<int> roi;
         boost::optional<const ptree&> imageroi_pt = pt.get_child_optional("imageroi");
@@ -349,7 +348,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     }
 
     std::string id;
-    std::string defaultsensor; ///< name of the default sensor
     bool isColorCamera;
     bool isDepthCamera;
     /// \brief image roi in pixel
@@ -362,7 +360,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
         std::stringstream ss;
         ss << "{";
         ss << "\"id\": \"" << id << "\"";
-        ss << ", \"default_sensor\": \"" << defaultsensor << "\"";
         if (minu>0) {
             ss << ", \"imageroi\": ["<< minu << ", " << maxu << ", " << minv << ", " << maxv << "]";
         }
@@ -380,7 +377,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     {
         if (_pt.empty()) {
             _pt.put<std::string>("id", id);
-            _pt.put<std::string>("default_sensor", defaultsensor);
             if (minu>0) {
                 ptree imageroi_pt;
                 ptree p;

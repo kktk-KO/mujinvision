@@ -351,11 +351,11 @@ private:
 
     /** \brief Gets a color image (uncropped) from image subscriber manager.
      */
-    ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& camerabodyname, const std::string& sensorname);
+    ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& cameraname);
 
     /** \brief Gets a depth image (uncropped) from image subscriber manager.
      */
-    DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& camerabodyname, const std::string& sensorname);
+    DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& cameraname);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -390,6 +390,8 @@ private:
     /** \brief Gets status json string.
      */
     std::string _GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& message);
+
+    void _ParseCameraName(const std::string& cameraname, std::string& camerabodyname, std::string& sensorname);
 
     boost::array<std::string,8> _vStatusDescriptions;
 

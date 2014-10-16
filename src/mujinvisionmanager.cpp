@@ -1339,10 +1339,12 @@ ptree MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool
     std::vector<std::string> cameranamestobeused = _GetCameraNames(regionname, cameranames);
     FOREACH(iter,_mNameColorCamera) {
         std::string colorcameraname = iter->first;
-        CameraPtr colorcamera = _mNameCamera[colorcameraname];
+        std::string camerabodyname, sensorname;
+        _ParseCameraName(colorcameraname, camerabodyname, sensorname);
+       CameraPtr colorcamera = _mNameCamera[colorcameraname];
         if (std::find(cameranamestobeused.begin(), cameranamestobeused.end(), colorcameraname) != cameranamestobeused.end()) {
             std::stringstream filename_ss;
-            filename_ss << colorcameraname << "_" << GetMilliTime() << ".png";
+            filename_ss << camerabodyname << "-" << sensorname << "-2d-" << GetMilliTime() << ".png";
             ColorImagePtr colorimage;
             if ((getlatest || !_pDetector->mColorImage[colorcameraname]) && !_bStopDetectionThread) {
                 colorimage = _GetColorImage(regionname, colorcameraname);
@@ -1358,10 +1360,12 @@ ptree MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool
     }
     FOREACH(iter,_mNameDepthCamera) {
         std::string depthcameraname = iter->first;
+        std::string camerabodyname, sensorname;
+        _ParseCameraName(depthcameraname, camerabodyname, sensorname);
         CameraPtr depthcamera = _mNameCamera[depthcameraname];
         if (std::find(cameranamestobeused.begin(), cameranamestobeused.end(), depthcameraname) != cameranamestobeused.end()) {
             std::stringstream filename_ss;
-            filename_ss << depthcameraname << "_" << GetMilliTime() << ".pcd";
+            filename_ss << camerabodyname << "-" << sensorname << "-3d-" << GetMilliTime() << ".pcd";
             DepthImagePtr depthimage;
             if (getlatest || !_pDetector->DepthImageIsSet(depthcameraname)) {
                 depthimage = _GetDepthImage(regionname, depthcameraname);

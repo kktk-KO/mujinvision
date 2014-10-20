@@ -350,11 +350,11 @@ private:
 
     /** \brief Gets a color image (uncropped) from image subscriber manager.
      */
-    ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& cameraname);
+    ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval=50);
 
     /** \brief Gets a depth image (uncropped) from image subscriber manager.
      */
-    DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& cameraname);
+    DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval=50);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */

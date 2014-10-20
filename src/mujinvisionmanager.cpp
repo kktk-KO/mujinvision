@@ -992,7 +992,7 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
     }
 }
 
-ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, const std::string& cameraname)
+ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval)
 {
     ColorImagePtr colorimage;
     unsigned long long timestamp;
@@ -1000,8 +1000,8 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
     while (!_bCancelCommand && !_bShutdown) {
         colorimage = _pImagesubscriberManager->GetColorImage(cameraname,timestamp);
         if (!colorimage) {
-            std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", wait for 1 more second." << std::endl;
-            boost::this_thread::sleep(boost::posix_time::seconds(1));
+            std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", try again in  " << waitinterval << " ms." << std::endl;
+            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             if (_bStopDetectionThread) {
                 break;
             }
@@ -1015,7 +1015,7 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
             if (_bStopDetectionThread) {
                 break;
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(200));
+            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
         }
     }
     if (!colorimage) {
@@ -1024,7 +1024,7 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
     return colorimage;
 }
 
-DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, const std::string& cameraname)
+DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval)
 {
     DepthImagePtr depthimage;
     unsigned long long starttime, endtime;
@@ -1032,8 +1032,8 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
     while (!_bCancelCommand && !_bShutdown) {
         depthimage = _pImagesubscriberManager->GetDepthImage(cameraname, _numDepthImagesToAverage, starttime, endtime);
         if (!depthimage) {
-            std::cerr << "could not get depth image for camera: " << cameraname << ", wait for 1 more second" << std::endl;
-            boost::this_thread::sleep(boost::posix_time::seconds(1));
+            std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", try again in  " << waitinterval << " ms." << std::endl;
+            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             if (_bStopDetectionThread) {
                 break;
             }
@@ -1047,7 +1047,7 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
                 if (_bStopDetectionThread) {
                     break;
                 }
-                boost::this_thread::sleep(boost::posix_time::milliseconds(200));
+                boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             }
         }
     }
@@ -1196,10 +1196,10 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
     std::string depthcameraname = _GetDepthCameraNames(regionname, cameranames).at(0);
     CameraPtr colorcamera = _mNameCamera[colorcameraname];
     CameraPtr depthcamera = _mNameCamera[depthcameraname];
-
     // set up images
     ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname);
     DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname);
+    std::cout << " get images took " << ((GetMilliTime() - starttime) / 1000.0f) << std::endl;
     if (!!originalcolorimage && !!depthimage) {
         _pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
         _pDetector->SetDepthImage(depthcameraname, depthimage);

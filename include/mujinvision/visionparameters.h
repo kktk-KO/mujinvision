@@ -245,7 +245,7 @@ struct MUJINVISION_API ParametersBase
                 ss << ", ";
             }
         }
-        ss << "], ";
+        ss << "]";
         return ss.str();
     }
 
@@ -320,9 +320,7 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     CameraParameters(const ptree& pt)
     {
         _pt = pt;
-        //name = pt.get<std::string>("name");
         id = pt.get<std::string>("id");
-
         minu=maxu=minv=maxv=-1;
         std::vector<int> roi;
         boost::optional<const ptree&> imageroi_pt = pt.get_child_optional("imageroi");
@@ -349,7 +347,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     virtual ~CameraParameters() {
     }
 
-    //std::string name;
     std::string id;
     bool isColorCamera;
     bool isDepthCamera;
@@ -361,7 +358,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     std::string GetJsonString()
     {
         std::stringstream ss;
-        //ss << "\"" << name << "\": ";
         ss << "{";
         ss << "\"id\": \"" << id << "\"";
         if (minu>0) {
@@ -380,7 +376,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     ptree GetPropertyTree()
     {
         if (_pt.empty()) {
-            //ptree pt;
             _pt.put<std::string>("id", id);
             if (minu>0) {
                 ptree imageroi_pt;
@@ -401,7 +396,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
             if (!isDepthCamera) {
                 _pt.put<bool>("isDepthCamera", isDepthCamera);
             }
-            //_pt.put_child(name, pt);
         }
         return _pt;
     }
@@ -415,6 +409,7 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
 {
 
     CalibrationData() {
+        distortion_coeffs.resize(5);
     }
 
     CalibrationData(const ptree& pt)
@@ -431,6 +426,12 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
         image_height = pt.get<double>("image_height");
         pixel_width = pt.get<double>("pixel_width");
         pixel_height = pt.get<double>("pixel_height");
+        distortion_model = pt.get<std::string>("distortion_model");
+        unsigned int i=0;
+        FOREACH(v, pt.get_child("distortion_coeffs")) {
+            distortion_coeffs[i] = boost::lexical_cast<double>(v->second.data());
+            i++;
+        }
     }
 
     virtual ~CalibrationData() {
@@ -447,7 +448,8 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
     double image_height;
     double pixel_width;
     double pixel_height;
-    double distortioncoeffs[5];
+    std::string distortion_model;
+    std::vector<double> distortion_coeffs;
     std::vector<double> extra_parameters;
 
     std::string GetJsonString()
@@ -465,6 +467,15 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
         ss << "image_height: " << image_height << ", ";
         ss << "pixel_width: " << pixel_width << ", ";
         ss << "pixel_height: " << pixel_height << ", ";
+        ss << "distortion_model: " << distortion_model << ", ";
+        ss << "distortion_coeffs: [";
+        for (size_t i = 0; i < distortion_coeffs.size(); i++) {
+            ss << distortion_coeffs[i];
+            if (i != distortion_coeffs.size()) {
+                ss << ", ";
+            }
+        }
+        ss << "]";        
         ss << "extra_parameters: [";
         for (size_t iparam = 0; iparam < extra_parameters.size(); iparam++) {
             ss << extra_parameters[iparam];
@@ -539,11 +550,11 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
                 i++;
             }
         }
-        confidence = pt.get<double>("confidence");
+        confidence = pt.get<std::string>("confidence");
     }
 
     /// assume input is in meter
-    DetectedObject(const std::string& n, const Transform& t, const double& c)
+    DetectedObject(const std::string& n, const Transform& t, const std::string& c)
     {
         name = n;
         transform = t;
@@ -555,13 +566,13 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
 
     std::string name;
     Transform transform; ///< in meter
-    double confidence; ///< detection score
+    std::string confidence; ///< detection confidence
 
     std::string GetJsonString()
     {
         std::stringstream ss;
         ss << std::setprecision(std::numeric_limits<double>::digits10+1);
-        //"{\"name\": \"obj\",\"translation_\":[100,200,300],\"quat_\":[1,0,0,0],\"confidence\":0.5}"
+        //"{\"name\": \"obj\",\"translation_\":[100,200,300],\"quat_\":[1,0,0,0],\"confidence\":{}}"
         ss << "{";
         ss << "\"name\": \"" << name << "\", ";
         ss << "\"translation_\": [";
@@ -603,7 +614,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
                 quat_pt.push_back(std::make_pair("",p));
             }
             _pt.put_child("quat_", quat_pt);
-            _pt.put<double>("confidence", confidence);
+            _pt.put<std::string>("confidence", confidence);
         }
         return _pt;
     }
@@ -731,6 +742,16 @@ public:
         return pCameraParameters;
     }
 
+    std::vector<double> GetKK() const
+    {
+        std::vector<double> KK;
+        KK.resize(9);
+        KK[0] = pCalibrationData->fx; KK[1] = pCalibrationData->s; KK[2] = pCalibrationData->pu;
+        KK[3] = 0; KK[4] = pCalibrationData->fy; KK[5] = pCalibrationData->pv;
+        KK[6] = 0; KK[7] = 0; KK[8] = 1;
+        return KK;
+    }
+
 protected:
 
     /// \brief camera transform in world frame
@@ -769,7 +790,19 @@ public:
         return worldTransform;
     }
 
-    bool IsPointInROI(const double px, const double py, const double pz)
+    std::vector<double> GetROI() const
+    {
+        std::vector<double> roi;
+        roi.push_back(pRegionParameters->minx);
+        roi.push_back(pRegionParameters->maxx);
+        roi.push_back(pRegionParameters->miny);
+        roi.push_back(pRegionParameters->maxy);
+        roi.push_back(pRegionParameters->minz);
+        roi.push_back(pRegionParameters->maxz);
+        return roi;
+    }
+
+    bool IsPointInROI(const double px, const double py, const double pz) const
     {
         if (!pRegionParameters->bInitializedRoi) {
             throw MujinVisionException("globalroi3d is not initialized!", MVE_Failed);

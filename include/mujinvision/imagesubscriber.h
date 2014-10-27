@@ -21,14 +21,6 @@
 
 namespace mujinvision {
 
-enum ImageType {
-    IT_Color=0,
-    IT_Depth=1,
-    IT_Ir=2,
-    IT_Depthxyz=3,
-    IT_Any=100,
-};
-
 class MUJINVISION_API ImageSubscriber
 {
 public:

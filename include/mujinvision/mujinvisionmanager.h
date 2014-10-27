@@ -56,7 +56,7 @@ public:
                 ConnectionParametersPtr pimagestreamconnection(new ConnectionParameters(v->second));
                 streamerConnections.push_back(pimagestreamconnection);
             }
-            useLocalArv = pt.get<bool>("use_local_arv");
+
             maxPositionError = pt.get<double>("max_position_error");
             clearRadius = pt.get<double>("clear_radius");
             timeToRemember = pt.get<unsigned int>("time_to_remember");
@@ -73,7 +73,7 @@ public:
         unsigned int statusPort;
         unsigned int rpcPort;
         std::vector<ConnectionParametersPtr > streamerConnections;
-        bool useLocalArv;
+
         double maxPositionError; ///< in meter, max position error to consider detections the same
         double clearRadius; ///< in meter, clear detection results within the radius of the last picked locations
         unsigned int timeToRemember; ///< in millisecond, time to keep detection result before forgetting it
@@ -97,13 +97,6 @@ public:
                 }
             }
             ss << "],";
-            ss << "\"use_local_arv\": ";
-            if (useLocalArv) {
-                ss << "true";
-            } else {
-                ss << "false";
-            }
-            ss << ",";
             ss << ParametersBase::GetJsonString("max_position_error") << ": " << maxPositionError << ",";
             ss << ParametersBase::GetJsonString("clear_radius") << ": " << clearRadius << ",";
             ss << ParametersBase::GetJsonString("time_to_remember") << ": " << timeToRemember << ",";
@@ -125,7 +118,6 @@ public:
                     streamerConnections_pt.push_back(std::make_pair("", streamerConnections[i]->GetPropertyTree()));
                 }
                 _pt.put_child("imagestream_connections", streamerConnections_pt);
-                _pt.put<bool>("use_local_arv", useLocalArv);
             }
             return _pt;
         }
@@ -181,15 +173,15 @@ public:
                              const std::string& controllerIp,
                              const unsigned int controllerPort,
                              const std::string& controllerUsernamePass,
-                             const std::string& robotControllerIp,
-                             const unsigned int robotControllerPort,
+                             const std::string& robotControllerUri,
                              const unsigned int binpickingTaskZmqPort,
                              const unsigned int binpickingTaskHeartbeatPort,
                              const double binpickingTaskHeartbeatTimeout,
                              const std::string& binpickingTaskScenePk,
                              const std::string& robotname,
                              const std::string& regionname,
-			     const std::string& tasktype="binpicking"
+                             const std::string& targetname,
+                             const std::string& tasktype="binpicking"
                              );
 
     /** \brief Detects objects in specified region with specified cameras
@@ -233,6 +225,13 @@ public:
      */
     virtual ptree ClearVisualizationOnController();
 
+    /** \brief Detects the transform of region
+        \param regionname name of the region where the detection happens
+        \param cameranames names of the cameras used for detection
+        \param regiontransform detected new transform of the region
+     */
+    virtual ptree DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform);
+
     /** \brief Saves a snapshot for each sensor mapped to the region. If detection was called before, snapshots of the images used for the last detection will be saved. Images are saved to the visionmanager application directory.
      */
     virtual ptree SaveSnapshot(const std::string& regionname, const bool getlatest=true);
@@ -255,7 +254,8 @@ public:
     virtual ptree SyncCameras(const std::string& regionname,
                               const std::vector<std::string>& cameranames);
 
-    bool bShutdown;
+    void Shutdown();
+    bool IsShutdown();
 
     /// \brief Registers a command.
     typedef boost::function<bool (MujinVisionManager*, const ptree&, std::ostream&)> CustomCommandFn;
@@ -296,10 +296,9 @@ public:
         unsigned int count; ///< count is the number of detections of part.
         Vector meanPosition; ///< meanPosition is the mean position of part's history of detected positions.
         Vector meanRotation; ///< meanRotation is the mean rotation of part's history of detected rotations.
-        double meanScore; ///< meanScore is the mean score of part's detection.
         std::vector<Vector> positions; ///< positions is part's history of detected positions. positions[i] is the i'th history of part's XYZ position.
         std::vector<Vector> rotations; ///< rotations is part's history of detected rotations. rotation[i] is the i'th history of part's rotation.
-        std::vector<double> scores; ///< scores is part's history of detection confidence. rotation[i] is the i'th history of part's score.
+        std::vector<std::string> confidences; ///< confidences is part's history of detection confidence. confidences[i] is the i'th history of part's confidence.
     };
 
     void _DeInitialize();
@@ -351,11 +350,11 @@ public:
 
     /** \brief Gets a color image (uncropped) from image subscriber manager.
      */
-    ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& cameraname);
+    ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval=50);
 
     /** \brief Gets a depth image (uncropped) from image subscriber manager.
      */
-    DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& cameraname);
+    DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval=50);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -377,6 +376,8 @@ public:
      */
     void _SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld);
 
+    void _UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize);
+
     /** \brief Converts mujinclient::Transform to Transform.
      */
     Transform _GetTransform(const mujinclient::Transform& t);
@@ -389,9 +390,9 @@ public:
      */
     std::string _GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& message);
 
-    boost::array<std::string,8> _vStatusDescriptions;
+    void _ParseCameraName(const std::string& cameraname, std::string& camerabodyname, std::string& sensorname);
 
-    bool _initialized;
+    boost::array<std::string,8> _vStatusDescriptions;
 
     ControllerClientPtr _pControllerClient;
     SceneResourcePtr _pSceneResource;
@@ -413,6 +414,7 @@ public:
     boost::mutex _mutexCommandServerMap;
     StatusPublisherPtr _pStatusPublisher;
 
+    std::string _targetname; ///< name of the target object
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
     std::map<std::string, CameraParametersPtr> _mNameCameraParameters; ///< name->camera param
     std::map<std::string, CameraPtr > _mNameCamera; ///< name->camera
@@ -430,6 +432,8 @@ public:
     std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
     std::vector<DetectedInfo> _vDetectedInfo;
     
+    bool _bInitialized;
+    bool _bShutdown;
     bool _bStopStatusThread;
     bool _bStopDetectionThread;
     bool _bCancelCommand;

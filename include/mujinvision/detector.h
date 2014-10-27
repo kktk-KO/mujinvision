@@ -63,6 +63,14 @@ public:
      */
     virtual void GetCameraPointCloud(const std::string& depthcameraname, DepthImageConstPtr depthimage, std::vector<double>& points) = 0;
 
+    /** \brief Detects the transform of the region.
+        \param colorcameraname
+        \param depthcameraname
+        \param regiontransform transform of the region
+     */
+    virtual void DetectRegionTransform(const std::string& colorcameraname, const std::string& depthcameraname, mujinvision::Transform& regiontransform) {
+    }
+
     /** \brief Sets the color image for detector to use.
         \param colorcameraname name of the color camera
         \param colorimage color image

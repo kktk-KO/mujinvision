@@ -592,7 +592,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
             }
         }
         ss << "], ";
-        ss << "\"confidence\": " << "\"" << confidence << "\"";
+        ss << "\"confidence\": " << confidence;
         ss << "}";
         return ss.str();
     }

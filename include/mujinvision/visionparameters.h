@@ -521,6 +521,7 @@ typedef boost::weak_ptr<CalibrationData> CalibrationDataWeakPtr;
 struct MUJINVISION_API DetectedObject : public ParametersBase
 {
     DetectedObject() {
+        confidence = "{global_confidence: 0.0}";
     }
 
     /// assume input is in milimeter

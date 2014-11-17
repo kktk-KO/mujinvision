@@ -37,6 +37,8 @@ void ZmqSubscriber::_InitializeSocket()
     port_stream << _port;
     _socket->connect (("tcp://" + _host + ":" + port_stream.str()).c_str());
     _socket->setsockopt(ZMQ_SUBSCRIBE, "", 0);
+    int val = 1;
+    _socket->setsockopt(ZMQ_CONFLATE,&val,sizeof(val));
 }
 
 void ZmqSubscriber::_DestroySocket()
@@ -72,6 +74,8 @@ void ZmqPublisher::_InitializeSocket()
 {
     _context.reset(new zmq::context_t (1));
     _socket.reset(new zmq::socket_t ((*(zmq::context_t*)_context.get()), ZMQ_PUB));
+    int val = 1;
+    _socket->setsockopt(ZMQ_CONFLATE,&val,sizeof(val));
     std::ostringstream port_stream;
     port_stream << _port;
     _socket->bind (("tcp://*:" + port_stream.str()).c_str());

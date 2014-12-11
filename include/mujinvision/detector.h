@@ -17,7 +17,7 @@
 #ifndef MUJIN_DETECTOR_H
 #define MUJIN_DETECTOR_H
 
-#include <mujinvision/visionparameters.h>
+#include "mujinvision/visionparameters.h"
 
 namespace mujinvision {
 

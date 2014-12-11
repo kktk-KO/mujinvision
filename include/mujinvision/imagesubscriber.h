@@ -17,7 +17,7 @@
 #ifndef MUJIN_IMAGE_SUBSCRIBER_H
 #define MUJIN_IMAGE_SUBSCRIBER_H
 
-#include <mujinvision/visionparameters.h>
+#include "mujinvision/visionparameters.h"
 
 namespace mujinvision {
 

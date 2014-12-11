@@ -19,7 +19,7 @@
 
 namespace mujinvision {
 
-#include <mujinvision/config.h>
+#include "mujinvision/config.h"
 
 enum MujinVisionErrorCode
 {

@@ -18,10 +18,10 @@
 #define MUJIN_VISION_MANAGER_H
 
 #include <mujincontrollerclient/binpickingtask.h>
-#include <mujinvision/visionparameters.h>
-#include <mujinvision/mujinzmq.h>
-#include <mujinvision/imagesubscribermanager.h>
-#include <mujinvision/detectormanager.h>
+#include <mujincontrollerclient/mujinzmq.hpp>
+#include "mujinvision/visionparameters.h"
+#include "mujinvision/imagesubscribermanager.h"
+#include "mujinvision/detectormanager.h"
 
 #include <queue>
 #include <boost/filesystem.hpp>
@@ -30,6 +30,7 @@
 namespace mujinvision {
 
 using namespace mujinclient;
+using namespace mujinzmq;
 
 class MUJINVISION_API MujinVisionManager
 {

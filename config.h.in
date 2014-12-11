@@ -23,14 +23,14 @@
 // Now we use the generic helper definitions above to define MUJINVISION_API and MUJINVISION_LOCAL.
 // MUJINVISION_API is used for the public API symbols. It either DLL imports or DLL exports (or does nothing for static build)
 // MUJINVISION_LOCAL is used for non-api symbols.
-#if defined(MUJINVISION_DLL) || defined(MUJINVISION_CORE_DLL) // defined if OpenRAVE is compiled as a DLL
-  #ifdef MUJINVISION_DLL_EXPORTS // defined if we are building the OpenRAVE DLL (instead of using it)
+#if defined(MUJINVISION_DLL) || defined(MUJINVISION_CORE_DLL) // defined if compiled as a DLL
+  #ifdef MUJINVISION_DLL_EXPORTS // defined if we are building the DLL (instead of using it)
     #define MUJINVISION_API MUJINVISION_HELPER_DLL_EXPORT
   #else
     #define MUJINVISION_API MUJINVISION_HELPER_DLL_IMPORT
   #endif // MUJINVISION_DLL_EXPORTS
   #define MUJINVISION_LOCAL MUJINVISION_HELPER_DLL_LOCAL
-#else // MUJINVISION_DLL is not defined: this means OpenRAVE is a static lib.
+#else // MUJINVISION_DLL is not defined: this means building a static lib.
   #define MUJINVISION_API
   #define MUJINVISION_LOCAL
 #endif // MUJINVISION_DLL

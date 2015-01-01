@@ -1030,7 +1030,7 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
     while (!_bCancelCommand && !_bShutdown) {
         depthimage = _pImagesubscriberManager->GetDepthImage(cameraname, _numDepthImagesToAverage, starttime, endtime);
         if (!depthimage) {
-            std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", try again in  " << waitinterval << " ms." << std::endl;
+            std::cerr << "[WARN]: Could not get depth image for camera: " << cameraname << ", try again in  " << waitinterval << " ms." << std::endl;
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             if (_bStopDetectionThread) {
                 break;
@@ -1053,6 +1053,70 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
         std::cerr << "returning empty image. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
     }
     return depthimage;
+}
+
+unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval, std::vector<ColorImagePtr>& colorimages)
+{
+    unsigned long long starttime, endtime;
+    bool isoccluding;
+    while (!_bCancelCommand && !_bShutdown) {
+        _pImagesubscriberManager->GetColorImages(cameraname, starttime, endtime, colorimages);
+        if (colorimages->size()==0) {
+            std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", try again in  " << waitinterval << " ms." << std::endl;
+            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+            if (_bStopDetectionThread) {
+                break;
+            }
+            continue;
+        } else {
+            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+            if (!isoccluding) {
+                break;
+            }else {
+                std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+                if (_bStopDetectionThread) {
+                    break;
+                }
+                boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+            }
+        }
+    }
+    if (colorimages->size()==0) {
+        std::cerr << "returning empty image. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
+    }
+    return colorimages->size();
+}
+
+unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval, std::vector<DepthImagePtr>& depthimages)
+{
+    unsigned long long starttime, endtime;
+    bool isoccluding;
+    while (!_bCancelCommand && !_bShutdown) {
+        _pImagesubscriberManager->GetDepthImages(cameraname, _numDepthImagesToAverage, starttime, endtime, depthimages);
+        if (depthimages->size()==0) {
+            std::cerr << "[WARN]: Could not get depth image for camera: " << cameraname << ", try again in  " << waitinterval << " ms." << std::endl;
+            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+            if (_bStopDetectionThread) {
+                break;
+            }
+            continue;
+        } else {
+            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+            if (!isoccluding) {
+                break;
+            }else {
+                std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+                if (_bStopDetectionThread) {
+                    break;
+                }
+                boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+            }
+        }
+    }
+    if (depthimages->size()==0) {
+        std::cerr << "returning empty image. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
+    }
+    return depthimages->size();
 }
 
 ptree MujinVisionManager::_GetResultPtree(ManagerStatus status)
@@ -1195,12 +1259,18 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
     CameraPtr colorcamera = _mNameCamera[colorcameraname];
     CameraPtr depthcamera = _mNameCamera[depthcameraname];
     // set up images
-    ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname);
-    DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname);
+    //ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname);
+    std::vector<ColorImagePtr> colorimages;
+    _GetColorImages(regionname, colorcameraname, colorimages);
+    std::vector<DepthImagePtr> depthimages;
+    //DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname);
+    _GetDepthImages(regionname, depthcameraname, depthimages);
     std::cout << " get images took " << ((GetMilliTime() - starttime) / 1000.0f) << std::endl;
     if (!!originalcolorimage && !!depthimage) {
-        _pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
-        _pDetector->SetDepthImage(depthcameraname, depthimage);
+        //_pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
+        _pDetector->mColorImages[colorcameraname] = colorimages;
+        //_pDetector->SetDepthImage(depthcameraname, depthimage);
+        _pDetector->mDepthImages[depthcameraname] = depthimages;
         // detect objects
         _pDetector->DetectObjects(colorcameraname, depthcameraname, detectedobjects);
         std::stringstream msgss;

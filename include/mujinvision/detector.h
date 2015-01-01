@@ -93,8 +93,29 @@ public:
         return !!mMergedDepthImage[depthcameraname];
     }
 
+    virtual void AddColorImage(const std::string& cameraname, ColorImagePtr image) {
+        if (mColorImages.find(cameraname) == mColorImages.end()) {
+            std::vector<ColorImagePtr> images;
+            images.push_back(image);
+            mColorImages[cameraname] = images;
+        } else {
+            mColorImages[cameraname].push_back(image);
+        }
+    }
+
+    virtual void AddDepthImage(const std::string& cameraname, DepthImagePtr image) {
+        if (mDepthImages.find(cameraname) == mDepthImages.end()) {
+            std::vector<DepthImagePtr> images;
+            images.push_back(image);
+            mDepthImages[cameraname] = images;
+        } else {
+            mDepthImages[cameraname].push_back(image);
+        }
+    }
+
     std::map<std::string, ColorImagePtr> mColorImage; ///< cameraname -> image
     std::map<std::string, DepthImagePtr> mMergedDepthImage; ///< cameraname -> image
+    std::map<std::string, std::vector<ColorImagePtr > > mColorImages; ///< cameraname -> images
     std::map<std::string, std::vector<DepthImagePtr > > mDepthImages; ///< cameraname -> images
 
 };

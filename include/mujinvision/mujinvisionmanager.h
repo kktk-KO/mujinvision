@@ -352,12 +352,12 @@ private:
     /** \brief Gets a color image (uncropped) from image subscriber manager.
      */
     ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval=50);
-    unsigned int _GetColorImages(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval=50, std::vector<ColorImagePtr>& images);
+    unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, const uint32_t waitinterval=50, std::vector<ColorImagePtr>& images);
 
     /** \brief Gets a depth image (uncropped) from image subscriber manager.
      */
     DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval=50);
-    unsigned int _GetDepthImages(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval=50, std::vector<DepthImagePtr>& images);
+    unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, const uint32_t waitinterval=50, std::vector<DepthImagePtr>& images);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */

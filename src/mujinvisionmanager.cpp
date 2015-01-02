@@ -1055,66 +1055,97 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
     return depthimage;
 }
 
-unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval, std::vector<ColorImagePtr>& colorimages)
+unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, const uint32_t waitinterval, std::vector<ColorImagePtr>& colorimages)
 {
-    unsigned long long starttime, endtime;
+    colorimages.reset();
+    unsigned long long timestamp;
     bool isoccluding;
+    std::string cameraname;
     while (!_bCancelCommand && !_bShutdown) {
-        _pImagesubscriberManager->GetColorImages(cameraname, starttime, endtime, colorimages);
-        if (colorimages->size()==0) {
-            std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", try again in  " << waitinterval << " ms." << std::endl;
-            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+        cameraname = cameranames.at(colorimages.size());
+        ColorImagePtr colorimage = _pImagesubscriberManager->GetColorImage(cameraname, timestamp);
+
+        if (!colorimage) {
             if (_bStopDetectionThread) {
+                std::cout << "StopDetectionLoop was called, exiting _GetColorImages" << std::endl;
                 break;
-            }
-            continue;
-        } else {
-            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
-            if (!isoccluding) {
-                break;
-            }else {
-                std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
-                if (_bStopDetectionThread) {
-                    break;
-                }
+            } else {
+                std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", will try again in  " << waitinterval << " ms." << std::endl;
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                continue;
+            }
+        } else {
+            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, timestamp, isoccluding);
+            if (!isoccluding) {
+                colorimages->push_back(colorimage);
+                if (colorimages->size() == cameranames.size()) {
+                    // got one image for each camera, exit
+                    break;
+                } else {
+                    // move on to get image for the next camera
+                    continue;
+                }
+            } else {
+                if (_bStopDetectionThread) {
+                    std::cout << "StopDetectionLoop was called, exiting _GetColorImages" << std::endl;
+                    break;
+                } else {
+                    std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
+                    boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                    continue;
+                }
             }
         }
     }
-    if (colorimages->size()==0) {
-        std::cerr << "returning empty image. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
+    if (colorimages->size()<cameranames.size()) {
+        std::cerr << "got " << colorimages->size() << "/" << cameranames.size() << " images. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
     }
     return colorimages->size();
 }
 
-unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval, std::vector<DepthImagePtr>& depthimages)
+unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, const uint32_t waitinterval, std::vector<DepthImagePtr>& depthimages)
 {
+    depthimages.reset();
     unsigned long long starttime, endtime;
     bool isoccluding;
+    std::string cameraname;
     while (!_bCancelCommand && !_bShutdown) {
-        _pImagesubscriberManager->GetDepthImages(cameraname, _numDepthImagesToAverage, starttime, endtime, depthimages);
-        if (depthimages->size()==0) {
-            std::cerr << "[WARN]: Could not get depth image for camera: " << cameraname << ", try again in  " << waitinterval << " ms." << std::endl;
-            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+        cameraname = cameranames.at(depthimages.size());
+        DepthImagePtr _pImagesubscriberManager->GetDepthImage(cameraname, _numDepthImagesToAverage, starttime, endtime);
+        if (!depthimage) {
             if (_bStopDetectionThread) {
+                std::cout << "StopDetectionLoop was called, exiting _GetDepthImages" << std::endl;
                 break;
+            } else {
+                std::cerr << "[WARN]: Could not get depth image for camera: " << cameraname << ", will try again in  " << waitinterval << " ms." << std::endl;
+                boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                continue;
             }
-            continue;
         } else {
             _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
             if (!isoccluding) {
-                break;
-            }else {
-                std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
-                if (_bStopDetectionThread) {
+                depthimage->push_back(depthimage);
+                if (depthimage->size() == cameranames.size()) {
+                    // got one image for each camera, exit
                     break;
+                } else {
+                    // move on to get image for the next camera
+                    continue;
                 }
-                boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+            }else {
+                if (_bStopDetectionThread) {
+                    std::cout << "StopDetectionLoop was called, exiting _GetDepthImages" << std::endl;
+                    break;
+                } else {
+                    std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
+                    boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                    continue;
+                }
             }
         }
     }
-    if (depthimages->size()==0) {
-        std::cerr << "returning empty image. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
+    if (depthimages->size()<cameraname.size()) {
+        std::cerr << "got " << depthimages->size() << "/" << cameranames.size() << " images. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
     }
     return depthimages->size();
 }
@@ -1253,18 +1284,18 @@ void MujinVisionManager::_DeInitialize()
 ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>&detectedobjects)
 {
     uint64_t starttime = GetMilliTime();
-    // TODO: use actual cameras
-    std::string colorcameraname = _GetColorCameraNames(regionname, cameranames).at(0);
-    std::string depthcameraname = _GetDepthCameraNames(regionname, cameranames).at(0);
+
+    std::vector<std::string> colorcameranames = _GetColorCameraNames(regionname, cameranames);
+    std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
     CameraPtr colorcamera = _mNameCamera[colorcameraname];
     CameraPtr depthcamera = _mNameCamera[depthcameraname];
     // set up images
     //ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname);
     std::vector<ColorImagePtr> colorimages;
-    _GetColorImages(regionname, colorcameraname, colorimages);
+    _GetColorImages(regionname, colorcameranames, colorimages);
     std::vector<DepthImagePtr> depthimages;
     //DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname);
-    _GetDepthImages(regionname, depthcameraname, depthimages);
+    _GetDepthImages(regionname, depthcameranames, depthimages);
     std::cout << " get images took " << ((GetMilliTime() - starttime) / 1000.0f) << std::endl;
     if (!!originalcolorimage && !!depthimage) {
         //_pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
@@ -1272,7 +1303,7 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
         //_pDetector->SetDepthImage(depthcameraname, depthimage);
         _pDetector->mDepthImages[depthcameraname] = depthimages;
         // detect objects
-        _pDetector->DetectObjects(colorcameraname, depthcameraname, detectedobjects);
+        _pDetector->DetectObjects(colorcameranames, depthcameranames, detectedobjects);
         std::stringstream msgss;
         msgss << "Detected " << detectedobjects.size() << " objects. Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
         _SetStatusMessage(msgss.str());

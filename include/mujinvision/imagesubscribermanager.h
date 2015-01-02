@@ -69,21 +69,6 @@ public:
      */
     virtual ImageSubscriberPtr CreateImageSubscriber(const std::string& ip, const unsigned int port, const ptree& params_pt) = 0;
 
-    virtual unsigned int GetColorImages(const std::string& cameraname unsigned long long& starttime, unsigned long long& endtime, std::vector<ColorImagePtr>& images) {
-        unsigned long long timestamp;
-        images.reset();
-        images->push_back(GetColorImage(cameraname, timestamp));
-        starttime = timestamp;
-        endtime = timestamp;
-        return images->size();
-    };
-
-    virtual unsigned int GetDepthImages(const std::string& cameraname, const unsigned int n, unsigned long long& starttime, unsigned long long& endtime, std::vector<DepthImagePtr>& images) {
-        images.reset();
-        images->push_back(GetDepthImage(cameraname, n, starttime, endtime));
-        return images->size();
-    };
-
 protected:
 
     std::vector<ImageSubscriberPtr> _vSubscribers;

@@ -1301,11 +1301,15 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
     if (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size()) {
         //_pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
         for (size_t i=0; i<colorimages.size(); ++i) {
-            _pDetector->AddColorImage(colorcameranames.at(i), colorimages.at(i));
+            std::string cameraname = colorcameranames.at(i);
+            CameraPtr camera = _mNameCamera[cameraname];
+            _pDetector->SetColorImage(cameraname, colorimages.at(i), camera->pCameraParameters->minu, camera->pCameraParameters->maxu, camera->pCameraParameters->minv, camera->pCameraParameters->maxv);
         }
         //_pDetector->SetDepthImage(depthcameraname, depthimage);
         for (size_t i=0; i<depthimages.size(); ++i) {
-            _pDetector->AddDepthImage(depthcameranames.at(i), depthimages.at(i));
+            std::string cameraname = depthcameranames.at(i);
+            CameraPtr camera= _mNameCamera[cameraname];
+            _pDetector->SetDepthImage(cameraname, depthimages.at(i));
         }
         // detect objects
         _pDetector->DetectObjects(colorcameranames, depthcameranames, detectedobjects);

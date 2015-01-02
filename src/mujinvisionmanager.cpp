@@ -1055,9 +1055,9 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
     return depthimage;
 }
 
-unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, const uint32_t waitinterval, std::vector<ColorImagePtr>& colorimages)
+unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& colorimages, const uint32_t waitinterval)
 {
-    colorimages.reset();
+    colorimages.resize(0);
     unsigned long long timestamp;
     bool isoccluding;
     std::string cameraname;
@@ -1077,8 +1077,8 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
         } else {
             _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, timestamp, isoccluding);
             if (!isoccluding) {
-                colorimages->push_back(colorimage);
-                if (colorimages->size() == cameranames.size()) {
+                colorimages.push_back(colorimage);
+                if (colorimages.size() == cameranames.size()) {
                     // got one image for each camera, exit
                     break;
                 } else {
@@ -1097,21 +1097,21 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
             }
         }
     }
-    if (colorimages->size()<cameranames.size()) {
-        std::cerr << "got " << colorimages->size() << "/" << cameranames.size() << " images. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
+    if (colorimages.size()<cameranames.size()) {
+        std::cerr << "got " << colorimages.size() << "/" << cameranames.size() << " images. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
     }
-    return colorimages->size();
+    return colorimages.size();
 }
 
-unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, const uint32_t waitinterval, std::vector<DepthImagePtr>& depthimages)
+unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<DepthImagePtr>& depthimages, const uint32_t waitinterval)
 {
-    depthimages.reset();
+    depthimages.resize(0);
     unsigned long long starttime, endtime;
     bool isoccluding;
     std::string cameraname;
     while (!_bCancelCommand && !_bShutdown) {
         cameraname = cameranames.at(depthimages.size());
-        DepthImagePtr _pImagesubscriberManager->GetDepthImage(cameraname, _numDepthImagesToAverage, starttime, endtime);
+        DepthImagePtr depthimage = _pImagesubscriberManager->GetDepthImage(cameraname, _numDepthImagesToAverage, starttime, endtime);
         if (!depthimage) {
             if (_bStopDetectionThread) {
                 std::cout << "StopDetectionLoop was called, exiting _GetDepthImages" << std::endl;
@@ -1124,8 +1124,8 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
         } else {
             _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
             if (!isoccluding) {
-                depthimage->push_back(depthimage);
-                if (depthimage->size() == cameranames.size()) {
+                depthimages.push_back(depthimage);
+                if (depthimages.size() == cameranames.size()) {
                     // got one image for each camera, exit
                     break;
                 } else {
@@ -1144,10 +1144,10 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
             }
         }
     }
-    if (depthimages->size()<cameraname.size()) {
-        std::cerr << "got " << depthimages->size() << "/" << cameranames.size() << " images. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
+    if (depthimages.size()<cameraname.size()) {
+        std::cerr << "got " << depthimages.size() << "/" << cameranames.size() << " images. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
     }
-    return depthimages->size();
+    return depthimages.size();
 }
 
 ptree MujinVisionManager::_GetResultPtree(ManagerStatus status)
@@ -1287,8 +1287,8 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
 
     std::vector<std::string> colorcameranames = _GetColorCameraNames(regionname, cameranames);
     std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
-    CameraPtr colorcamera = _mNameCamera[colorcameraname];
-    CameraPtr depthcamera = _mNameCamera[depthcameraname];
+    //CameraPtr colorcamera = _mNameCamera[colorcameraname];
+    //CameraPtr depthcamera = _mNameCamera[depthcameraname];
     // set up images
     //ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname);
     std::vector<ColorImagePtr> colorimages;
@@ -1297,11 +1297,16 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
     //DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname);
     _GetDepthImages(regionname, depthcameranames, depthimages);
     std::cout << " get images took " << ((GetMilliTime() - starttime) / 1000.0f) << std::endl;
-    if (!!originalcolorimage && !!depthimage) {
+    //if (!!originalcolorimage && !!depthimage) {
+    if (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size()) {
         //_pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
-        _pDetector->mColorImages[colorcameraname] = colorimages;
+        for (size_t i=0; i<colorimages.size(); ++i) {
+            _pDetector->AddColorImage(colorcameranames.at(i), colorimages.at(i));
+        }
         //_pDetector->SetDepthImage(depthcameraname, depthimage);
-        _pDetector->mDepthImages[depthcameraname] = depthimages;
+        for (size_t i=0; i<depthimages.size(); ++i) {
+            _pDetector->AddDepthImage(depthcameranames.at(i), depthimages.at(i));
+        }
         // detect objects
         _pDetector->DetectObjects(colorcameranames, depthcameranames, detectedobjects);
         std::stringstream msgss;

@@ -115,7 +115,7 @@ public:
 
     virtual void DetectObjects(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects) {
         if (colorcameranames.size()>0 && depthcameranames.size()>0) {
-            DetectObjects(colorcameraname.at(0), depthcameraname.at(0), detectedobjects);
+            DetectObjects(colorcameranames.at(0), depthcameranames.at(0), detectedobjects);
         }
     };
 

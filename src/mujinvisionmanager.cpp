@@ -990,7 +990,7 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
     }
 }
 
-ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval)
+ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval, const bool ignoreocclusion)
 {
     ColorImagePtr colorimage;
     unsigned long long timestamp;
@@ -1005,15 +1005,19 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
             }
             continue;
         }
-        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, timestamp, isoccluding);
-        if (!isoccluding) {
-            break;
-        } else {
-            std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
-            if (_bStopDetectionThread) {
+        if (!ignoreocclusion) {
+            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, timestamp, isoccluding);
+            if (!isoccluding) {
                 break;
+            } else {
+                std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+                if (_bStopDetectionThread) {
+                    break;
+                }
+                boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+        } else {
+            break;
         }
     }
     if (!colorimage) {
@@ -1022,7 +1026,7 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
     return colorimage;
 }
 
-DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval)
+DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval, const bool ignoreocclusion)
 {
     DepthImagePtr depthimage;
     unsigned long long starttime, endtime;
@@ -1037,15 +1041,19 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
             }
             continue;
         } else {
-            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
-            if (!isoccluding) {
-                break;
-            }else {
-                std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
-                if (_bStopDetectionThread) {
+            if (!ignoreocclusion) {
+                _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+                if (!isoccluding) {
                     break;
+                }else {
+                    std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+                    if (_bStopDetectionThread) {
+                        break;
+                    }
+                    boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 }
-                boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+            } else {
+                break;
             }
         }
     }
@@ -1455,7 +1463,7 @@ ptree MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool
             filename_ss << camerabodyname << "-" << sensorname << "-2d-" << GetMilliTime() << ".png";
             ColorImagePtr colorimage;
             if ((getlatest || !_pDetector->mColorImage[colorcameraname]) && !_bStopDetectionThread) {
-                colorimage = _GetColorImage(regionname, colorcameraname);
+                colorimage = _GetColorImage(regionname, colorcameraname, true, true);
             } else {
                 colorimage = _pDetector->mColorImage[colorcameraname];
             }

@@ -1484,7 +1484,7 @@ ptree MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool
             filename_ss << camerabodyname << "-" << sensorname << "-3d-" << GetMilliTime() << ".pcd";
             DepthImagePtr depthimage;
             if (getlatest || !_pDetector->DepthImageIsSet(depthcameraname)) {
-                depthimage = _GetDepthImage(regionname, depthcameraname);
+                depthimage = _GetDepthImage(regionname, depthcameraname, true ,true);
             } else {
                 depthimage = _pDetector->GetDepthImage(depthcameraname);
             }

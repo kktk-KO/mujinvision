@@ -293,10 +293,12 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         }
         double voxelsize = command_pt.get("voxelsize",0.01);
         double pointsize = command_pt.get("pointsize",0.005);
+        bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
         result_pt = StartDetectionLoop(command_pt.get<std::string>("regionname"),
                                        cameranames,
                                        voxelsize,
-                                       pointsize);
+                                       pointsize,
+                                       ignoreocclusion);
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else if (command == "StopDetectionLoop") {
         result_pt = StopDetectionLoop();
@@ -991,7 +993,7 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
     }
 }
 
-ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval, const bool ignoreocclusion)
+ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion, const uint32_t waitinterval)
 {
     ColorImagePtr colorimage;
     unsigned long long timestamp;
@@ -1027,7 +1029,7 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
     return colorimage;
 }
 
-DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval, const bool ignoreocclusion)
+DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion, const uint32_t waitinterval)
 {
     DepthImagePtr depthimage;
     unsigned long long starttime, endtime;
@@ -1064,7 +1066,7 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
     return depthimage;
 }
 
-unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& colorimages, const uint32_t waitinterval, const bool ignoreocclusion)
+unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& colorimages, const bool ignoreocclusion, const uint32_t waitinterval)
 {
     colorimages.resize(0);
     unsigned long long timestamp;
@@ -1116,7 +1118,7 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
     return colorimages.size();
 }
 
-unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<DepthImagePtr>& depthimages, const uint32_t waitinterval, const bool ignoreocclusion)
+unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<DepthImagePtr>& depthimages, const bool ignoreocclusion, const uint32_t waitinterval)
 {
     depthimages.resize(0);
     unsigned long long starttime, endtime;

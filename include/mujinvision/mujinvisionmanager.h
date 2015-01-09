@@ -354,13 +354,13 @@ private:
 
     /** \brief Gets a color image (uncropped) from image subscriber manager.
      */
-    ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval=50, const bool ignoreocclusion=false);
-    unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& images, const uint32_t waitinterval=50, const bool ignoreocclusion=false);
+    ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion=false, const uint32_t waitinterval=50);
+    unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& images, const bool ignoreocclusion=false, const uint32_t waitinterval=50);
 
     /** \brief Gets a depth image (uncropped) from image subscriber manager.
      */
-    DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& cameraname, const uint32_t waitinterval=50, const bool ignoreocclusion=false);
-    unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<DepthImagePtr>& images, const uint32_t waitinterval=50, const bool ignoreocclusion=false);
+    DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion=false, const uint32_t waitinterval=50);
+    unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<DepthImagePtr>& images, const bool ignoreocclusion=false, const uint32_t waitinterval=50);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */

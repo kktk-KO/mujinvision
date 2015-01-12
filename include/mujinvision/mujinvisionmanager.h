@@ -190,11 +190,13 @@ public:
         \param cameranames names of the cameras
         \param detectedobjects detection results in meters in world frame
         \param ignoreocclusion whether to skip occlusion check
+        \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
      */
     virtual ptree DetectObjects(const std::string& regionname,
                                 const std::vector<std::string>& cameranames,
                                 std::vector<DetectedObjectPtr>& detectedobjectsworld,
-                                const bool ignoreocclusion=false);
+                                const bool ignoreocclusion=false,
+                                const unsigned int maxage=0);
 
     /** \brief starts detection thread to continuously detect objects and sends detection results to mujin controller
      */
@@ -202,7 +204,8 @@ public:
                                      const std::vector<std::string>& cameranames,
                                      const double voxelsize=0.01,
                                      const double pointsize=0.005,
-                                     const bool ignoreocclusion=false);
+                                     const bool ignoreocclusion=false,
+                                     const unsigned int maxage=0);
 
     virtual ptree StopDetectionLoop();
 
@@ -223,7 +226,9 @@ public:
      */
     virtual ptree VisualizePointCloudOnController(const std::string& regionname,
                                                   const std::vector<std::string>& cameranames,
-                                                  const double pointsize=0.005);
+                                                  const double pointsize=0.005,
+                                                  const bool ignoreocclusion=false,
+                                                  const unsigned int maxage=0);
 
     /** \brief Clears visualization made by VisualizePointCloudOnController on mujin controller.
      */
@@ -233,12 +238,14 @@ public:
         \param regionname name of the region where the detection happens
         \param cameranames names of the cameras used for detection
         \param regiontransform detected new transform of the region
+        \param ignoreocclusion whether to skip occlusion check
+        \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
      */
-    virtual ptree DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform);
+    virtual ptree DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage=0);
 
     /** \brief Saves a snapshot for each sensor mapped to the region. If detection was called before, snapshots of the images used for the last detection will be saved. Images are saved to the visionmanager application directory.
      */
-    virtual ptree SaveSnapshot(const std::string& regionname, const bool getlatest=true);
+    virtual ptree SaveSnapshot(const std::string& regionname, const bool ignoreocclusion=true, const unsigned int maxage=0);
 
     /** \brief Updates the locally maintained list of the detected objects
         \param detectedobjectsworld detection result in world frame
@@ -335,8 +342,8 @@ private:
     void _StartStatusPublisher(const unsigned int port);
     void _PublishStopStatus();
 
-    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion);
+    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage);
     void _StopDetectionThread();
 
 
@@ -354,13 +361,13 @@ private:
 
     /** \brief Gets a color image (uncropped) from image subscriber manager.
      */
-    ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion=false, const uint32_t waitinterval=50);
-    unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& images, const bool ignoreocclusion=false, const uint32_t waitinterval=50);
+    ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int waitinterval=50);
+    unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int waitinterval=50);
 
     /** \brief Gets a depth image (uncropped) from image subscriber manager.
      */
-    DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion=false, const uint32_t waitinterval=50);
-    unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<DepthImagePtr>& images, const bool ignoreocclusion=false, const uint32_t waitinterval=50);
+    DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int waitinterval=50);
+    unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<DepthImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int waitinterval=50);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */

@@ -33,42 +33,46 @@ public:
     /** \brief sets up object detector
         \param oparams_pt boost property tree describing object parameters
         \param dparams_pt boost property tree describing detection parameters
-        \param region where objects are to be detected
-        \param mColorCamera map to color cameras from names
-        \param mDepthCamera map to depth cameras from names
+        \param mNameRegion map to detection regions from names
+        \param mRegionColorCameraMap map to color camera maps from region names
+        \param mRegionDepthCameraMap map to depth camera maps from region names
      */
-    virtual void Initialize(const ptree& oparams_pt,  const ptree& dparams_pt, RegionConstPtr region, std::map<std::string, CameraPtr > mColorCamera, std::map<std::string, CameraPtr > mDepthCamera ) = 0;
+    virtual void Initialize(const ptree& oparams_pt,  const ptree& dparams_pt, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap) = 0;
 
     virtual void DeInitialize() = 0;
 
     /** Detects objects from color and depth images. Assuming SetColorImage and mMergedDepthImage were called.
+        \param regionname
         \param colorcameraname
         \param depthcameraname
         \param detectedobjects in world frame
      */
-    virtual void DetectObjects(const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects) = 0;
+    virtual void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects) = 0;
 
     /** \brief Gets point cloud obstacle from depth data and detection result.
+        \param regionname
         \param depthcameraname name of the depth camera
         \param resultsworld detection result in world frame
         \param points result points representing the point cloud obstacle in world frame
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
      */
-    virtual void GetPointCloudObstacle(const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsworld, std::vector<double>& points, const double voxelsize=0.01) = 0;
+    virtual void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsworld, std::vector<double>& points, const double voxelsize=0.01) = 0;
 
     /** \brief Gets point cloud in world frame from depth image.
+        \param regionname
         \param depthcameraname name of the depth camera
         \param depthimage depth image
         \param points result points representing the point cloud in world frame
      */
-    virtual void GetCameraPointCloud(const std::string& depthcameraname, DepthImageConstPtr depthimage, std::vector<double>& points) = 0;
+    virtual void GetCameraPointCloud(const std::string& regionname, const std::string& depthcameraname, DepthImageConstPtr depthimage, std::vector<double>& points) = 0;
 
     /** \brief Detects the transform of the region.
+        \param regionname
         \param colorcameraname
         \param depthcameraname
         \param regiontransform transform of the region
      */
-    virtual void DetectRegionTransform(const std::string& colorcameraname, const std::string& depthcameraname, mujinvision::Transform& regiontransform) {
+    virtual void DetectRegionTransform(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, mujinvision::Transform& regiontransform) {
     }
 
     /** \brief Sets the color image for detector to use.
@@ -82,47 +86,52 @@ public:
     virtual void SetColorImage(const std::string& colorcameraname, ColorImageConstPtr colorimage, const unsigned int minu, const unsigned int maxu, const unsigned int minv, const unsigned int maxv) = 0;
 
     virtual void SetDepthImage(const std::string& depthcameraname, DepthImagePtr depthimage) {
-        mMergedDepthImage[depthcameraname] = depthimage;
+        _mMergedDepthImage[depthcameraname] = depthimage;
     }
 
     virtual DepthImagePtr GetDepthImage(const std::string& depthcameraname) {
-        return mMergedDepthImage[depthcameraname];
+        return _mMergedDepthImage[depthcameraname];
     }
 
     virtual bool DepthImageIsSet(const std::string& depthcameraname) {
-        return !!mMergedDepthImage[depthcameraname];
+        return !!_mMergedDepthImage[depthcameraname];
     }
 
     virtual void AddColorImage(const std::string& cameraname, ColorImagePtr image) {
-        if (mColorImages.find(cameraname) == mColorImages.end()) {
+        if (_mColorImages.find(cameraname) == _mColorImages.end()) {
             std::vector<ColorImagePtr> images;
             images.push_back(image);
-            mColorImages[cameraname] = images;
+            _mColorImages[cameraname] = images;
         } else {
-            mColorImages[cameraname].push_back(image);
+            _mColorImages[cameraname].push_back(image);
         }
     }
 
     virtual void AddDepthImage(const std::string& cameraname, DepthImagePtr image) {
-        if (mDepthImages.find(cameraname) == mDepthImages.end()) {
+        if (_mDepthImages.find(cameraname) == _mDepthImages.end()) {
             std::vector<DepthImagePtr> images;
             images.push_back(image);
-            mDepthImages[cameraname] = images;
+            _mDepthImages[cameraname] = images;
         } else {
-            mDepthImages[cameraname].push_back(image);
+            _mDepthImages[cameraname].push_back(image);
         }
     }
 
-    virtual void DetectObjects(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects) {
+    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects) {
         if (colorcameranames.size()>0 && depthcameranames.size()>0) {
-            DetectObjects(colorcameranames.at(0), depthcameranames.at(0), detectedobjects);
+            DetectObjects(regionname, colorcameranames.at(0), depthcameranames.at(0), detectedobjects);
         }
     };
 
-    std::map<std::string, ColorImagePtr> mColorImage; ///< cameraname -> image
-    std::map<std::string, DepthImagePtr> mMergedDepthImage; ///< cameraname -> image
-    std::map<std::string, std::vector<ColorImagePtr > > mColorImages; ///< cameraname -> images
-    std::map<std::string, std::vector<DepthImagePtr > > mDepthImages; ///< cameraname -> images
+protected:
+
+    std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
+    std::map<std::string, ColorImagePtr> _mColorImage; ///< cameraname -> image
+    std::map<std::string, DepthImagePtr> _mMergedDepthImage; ///< cameraname -> image
+    std::map<std::string, std::vector<ColorImagePtr> > _mColorImages; ///< cameraname -> images
+    std::map<std::string, std::vector<DepthImagePtr> > _mDepthImages; ///< cameraname -> images
+    std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
+    std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
 
 };
 

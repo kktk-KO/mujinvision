@@ -33,12 +33,12 @@ public:
     /** Creates object detector.
         \param objectparams_pt boost property tree describing object parameters
         \param detectionparams_pt boost property tree describing detection parameters
-        \param region where objects are to be detected
-        \param mColorCamera map to color cameras from names
-        \param mDepthCamera map to depth cameras from names
+        \param mNameRegion map to detection regions from names
+        \param mRegionColorCameraMap map to color camera maps from region names
+        \param mRegionDepthCameraMap map to depth camera maps from region names
         \param setstatusfn function the detector can use to set status
      */
-    virtual ObjectDetectorPtr CreateObjectDetector(const ptree& objectparams_pt, const ptree& detectionparams_pt, RegionConstPtr region, std::map<std::string, CameraPtr> mColorCamera, std::map<std::string, CameraPtr> mDepthCamera, const boost::function<void(const std::string& msg)>& setstatusfn) = 0;
+    virtual ObjectDetectorPtr CreateObjectDetector(const ptree& objectparams_pt, const ptree& detectionparams_pt, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap, const boost::function<void(const std::string& msg)>& setstatusfn) = 0;
 };
 
 typedef boost::shared_ptr<DetectorManager> DetectorManagerPtr;

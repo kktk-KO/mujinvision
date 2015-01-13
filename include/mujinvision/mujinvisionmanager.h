@@ -180,7 +180,6 @@ public:
                              const double binpickingTaskHeartbeatTimeout,
                              const std::string& binpickingTaskScenePk,
                              const std::string& robotname,
-                             const std::string& regionname,
                              const std::string& targetname,
                              const std::string& tasktype="binpicking"
                              );
@@ -431,13 +430,14 @@ private:
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
     std::map<std::string, CameraParametersPtr> _mNameCameraParameters; ///< name->camera param
     std::map<std::string, CameraPtr > _mNameCamera; ///< name->camera
-    std::map<std::string, CameraPtr > _mNameColorCamera; ///< name->camera
-    std::map<std::string, CameraPtr > _mNameDepthCamera; ///< name->camera
+    std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
+    std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
 
     std::vector<ImageSubscriberPtr> _vSubscribers;
     unsigned int _numDepthImagesToAverage;
     ImageSubscriberManagerPtr _pImagesubscriberManager;
 
+    //std::map<std::string, ObjectDetectorPtr> _mDetector; ///< regionname->detector
     ObjectDetectorPtr _pDetector;
     boost::mutex _mutexDetector;
     DetectorManagerPtr _pDetectorManager;

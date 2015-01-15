@@ -1077,7 +1077,13 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
                 continue;
             } else {
                 if (!ignoreocclusion) {
-                    _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, timestamp, isoccluding);
+                    try {
+                        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, timestamp, isoccluding);
+                    } catch (...) {
+                        std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                        continue;
+                    }
                 } else {
                     isoccluding = false;
                 }
@@ -1117,7 +1123,13 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
                 continue;
             } else {
                 if (!ignoreocclusion) {
-                    _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+                    try {
+                        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+                    } catch (...) {
+                        std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                        continue;
+                    }
                 } else {
                     isoccluding = false;
                 }
@@ -1159,7 +1171,13 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                 continue;
             } else {
                 if (!ignoreocclusion) {
-                    _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, timestamp, isoccluding);
+                    try {
+                        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, timestamp, isoccluding);
+                    } catch (...) {
+                        std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                        continue;
+                    }
                 } else {
                     isoccluding = false;
                 }
@@ -1209,7 +1227,13 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                 continue;
             } else {
                 if (!ignoreocclusion) {
-                    _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+                    try {
+                        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+                    } catch (...) {
+                        std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                        continue;
+                    }
                 } else {
                     isoccluding = false;
                 }

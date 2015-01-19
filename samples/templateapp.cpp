@@ -44,7 +44,7 @@ public:
     void DeInitialize() {
     }
 
-    ColorImagePtr GetColorImage(const std::string& cameraname, unsigned long long& timestamp)
+    ColorImagePtr GetColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp)
     {
         return ColorImagePtr();
     }

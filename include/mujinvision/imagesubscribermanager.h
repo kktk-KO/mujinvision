@@ -41,9 +41,10 @@ public:
     /** \brief Gets the latest color image from camera and its timestamp.
         \param cameraname name of the camera
         \param timestamp timestamp of the color image
+        \param endtimestamp endtimestamp of the color image
         \return pointer to the color image
      */
-    virtual ColorImagePtr GetColorImage(const std::string& cameraname, unsigned long long& timestamp) = 0;
+    virtual ColorImagePtr GetColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp) = 0;
 
     /** \brief Gets the depth image from the latest n images with depth data, and the min/max timestamps of the images used.
         \param cameraname name of the camera

@@ -1064,10 +1064,10 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
 ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion, const unsigned int maxage, const unsigned int waitinterval)
 {
     ColorImagePtr colorimage;
-    unsigned long long timestamp;
+    unsigned long long timestamp, endtimestamp;
     bool isoccluding = true;
     while (!_bCancelCommand && !_bShutdown && !_bStopDetectionThread) {
-        colorimage = _pImagesubscriberManager->GetColorImage(cameraname,timestamp);
+        colorimage = _pImagesubscriberManager->GetColorImage(cameraname,timestamp, endtimestamp);
         if (_bStopDetectionThread) {
             break;
         } else {
@@ -1078,7 +1078,7 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
             } else {
                 if (!ignoreocclusion) {
                     try {
-                        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, timestamp, isoccluding);
+                        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, endtimestamp, isoccluding);
                     } catch (...) {
                         std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
                         boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
@@ -1156,12 +1156,12 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
 unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& colorimages, const bool ignoreocclusion, const unsigned int maxage, const unsigned int waitinterval)
 {
     colorimages.resize(0);
-    unsigned long long timestamp;
+    unsigned long long timestamp, endtimestamp;
     bool isoccluding = true;
     std::string cameraname;
     while (!_bCancelCommand && !_bShutdown) {
         cameraname = cameranames.at(colorimages.size());
-        ColorImagePtr colorimage = _pImagesubscriberManager->GetColorImage(cameraname, timestamp);
+        ColorImagePtr colorimage = _pImagesubscriberManager->GetColorImage(cameraname, timestamp, endtimestamp);
         if (_bStopDetectionThread) {
             break;
         } else {
@@ -1172,7 +1172,7 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
             } else {
                 if (!ignoreocclusion) {
                     try {
-                        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, timestamp, isoccluding);
+                        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, endtimestamp, isoccluding);
                     } catch (...) {
                         std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
                         boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));

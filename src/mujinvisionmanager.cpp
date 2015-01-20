@@ -1193,6 +1193,10 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                 if (!isoccluding) {
                     if (maxage>0 && GetMilliTime()-timestamp>maxage) {
                         //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
+                        if (colorimages.size()>0) {
+                            //std::cerr << "[WARN]: One of the color images is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), start over." << std::endl;
+                            colorimages.resize(0); // need to start over, all color images need to be equally new
+                        }
                         continue;
                     } else {
                         colorimages.push_back(colorimage);
@@ -1252,6 +1256,10 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                 if (!isoccluding) {
                     if (maxage>0 && GetMilliTime()-starttime>maxage) {
                         //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
+                        if (depthimages.size()>0) {
+                            //std::cerr << "[WARN]: One of the depth images is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), start over." << std::endl;
+                            depthimages.resize(0); // need to start over, all color images need to be equally new
+                        }
                         continue;
                     } else {
                         depthimages.push_back(depthimage);
@@ -1444,6 +1452,7 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
     //DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname);
     _GetDepthImages(regionname, depthcameranames, depthimages, ignoreocclusion, maxage);
     std::cout << "[DEBUG]: Getting images took " << ((GetMilliTime() - starttime) / 1000.0f) << std::endl;
+    starttime = GetMilliTime();
     //if (!!originalcolorimage && !!depthimage) {
     if (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size()) {
         //_pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);

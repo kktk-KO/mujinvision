@@ -1077,7 +1077,7 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
             break;
         } else {
             if (!colorimage) {
-                //std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", try again in  " << waitinterval << " ms." << std::endl;
+                std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", try again in  " << waitinterval << " ms." << std::endl;
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
@@ -1125,7 +1125,7 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
             break;
         } else {
             if (!depthimage) {
-                //std::cerr << "[WARN]: Could not get depth image for camera: " << cameraname << ", try again in  " << waitinterval << " ms." << std::endl;
+                std::cerr << "[WARN]: Could not get depth image for camera: " << cameraname << ", try again in  " << waitinterval << " ms." << std::endl;
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
@@ -1175,7 +1175,7 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
             break;
         } else {
             if (!colorimage) {
-                //std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", will try again in  " << waitinterval << " ms." << std::endl;
+                std::cerr << "[WARN]: Could not get color image for camera: " << cameraname << ", will try again in  " << waitinterval << " ms." << std::endl;
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
@@ -1238,7 +1238,7 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
             break;
         } else {
             if (!depthimage) {
-                //std::cerr << "[WARN]: Could not get depth image for camera: " << cameraname << ", will try again in  " << waitinterval << " ms." << std::endl;
+                std::cerr << "[WARN]: Could not get depth image for camera: " << cameraname << ", will try again in  " << waitinterval << " ms." << std::endl;
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
@@ -1703,7 +1703,9 @@ std::vector<std::string> MujinVisionManager::_GetCameraNames(const std::string& 
         cameranamestobeused = mappedcameranames;
     } else {
         for (unsigned int i=0; i<cameranames.size(); i++) {
-            cameranamestobeused.push_back(cameranames[i]);
+            if (std::find(mappedcameranames.begin(), mappedcameranames.end(), cameranames[i]) != mappedcameranames.end()) {
+                cameranamestobeused.push_back(cameranames[i]);
+            }
         }
     }
     return cameranamestobeused;

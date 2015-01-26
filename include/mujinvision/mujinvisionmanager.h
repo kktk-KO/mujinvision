@@ -204,7 +204,8 @@ public:
                                      const double voxelsize=0.01,
                                      const double pointsize=0.005,
                                      const bool ignoreocclusion=false,
-                                     const unsigned int maxage=0);
+                                     const unsigned int maxage=0,
+                                     const std::string& obstaclename="__dynamicobstacle__");
 
     virtual ptree StopDetectionLoop();
 
@@ -219,7 +220,8 @@ public:
                                                      const std::vector<std::string>& cameranames,
                                                      const std::vector<DetectedObjectPtr>& detectedobjectsworld,
                                                      const double voxelsize=0.01,
-                                                     const double pointsize=0.005);
+                                                     const double pointsize=0.005,
+                                                     const std::string obstaclename="__dynamicobstacle__");
 
     /** \brief Visualizes the raw camera point clouds on mujin controller
      */
@@ -341,8 +343,8 @@ private:
     void _StartStatusPublisher(const unsigned int port);
     void _PublishStopStatus();
 
-    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage);
+    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename);
     void _StopDetectionThread();
 
 
@@ -388,7 +390,7 @@ private:
      */
     void _SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld);
 
-    void _UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize);
+    void _UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize, const std::string& obstaclename="__dynamicobstacle__");
 
     /** \brief Converts mujinclient::Transform to Transform.
      */

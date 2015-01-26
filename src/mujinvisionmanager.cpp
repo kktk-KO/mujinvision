@@ -309,12 +309,14 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         double pointsize = command_pt.get("pointsize",0.005);
         bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
         unsigned int maxage = command_pt.get("maxage",0);
+        std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
         result_pt = StartDetectionLoop(regionname,
                                        cameranames,
                                        voxelsize,
                                        pointsize,
                                        ignoreocclusion,
-                                       maxage
+                                       maxage,
+                                       obstaclename
                                        );
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else if (command == "StopDetectionLoop") {
@@ -349,13 +351,15 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 detectedobjects.push_back(DetectedObjectPtr(new DetectedObject(v->second.get_child(""))));
             }
         }
-        double voxelsize = command_pt.get("voxelsize",0.01);
-        double pointsize = command_pt.get("pointsize",0.005);
+        double voxelsize = command_pt.get("voxelsize", 0.01);
+        double pointsize = command_pt.get("pointsize", 0.005);
+        std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
         result_pt = SendPointCloudObstacleToController(regionname,
                                                        cameranames,
                                                        detectedobjects,
                                                        voxelsize,
-                                                       pointsize);
+                                                       pointsize,
+                                                       obstaclename);
         result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
     } else if (command == "VisualizePointCloudOnController") {
         if (command_pt.count("regionname") == 0) {
@@ -663,13 +667,13 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
     _StopCommandServer(port);
 }
 
-void MujinVisionManager::_StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage)
+void MujinVisionManager::_StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename)
 {
     if (!!_pDetectionThread && !_bStopDetectionThread) {
         _SetStatusMessage("Detection thread is already running, do nothing.");
     } else {
         _bStopDetectionThread = false;
-        _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage)));
+        _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, obstaclename)));
     }
 }
 
@@ -687,7 +691,7 @@ void MujinVisionManager::_StopDetectionThread()
     }
 }
 
-void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage)
+void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename)
 {
     uint64_t time0;
     while (!_bStopDetectionThread) {
@@ -892,7 +896,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         //std::cout << "Sending " << newdetectedobjects.size() << " detected objects to the mujin controller." << std::endl;
         //SendPointCloudObstacleToController(regionname, cameranames, newdetectedobjects, voxelsize, pointsize);
         //UpdateDetectedObjects(newdetectedobjects, true);
-        _UpdateEnvironmentState(regionname, cameranames, newdetectedobjects, voxelsize, pointsize);
+        _UpdateEnvironmentState(regionname, cameranames, newdetectedobjects, voxelsize, pointsize, obstaclename);
         // visualize results
         if (_bStopDetectionThread) {
             break;
@@ -1476,9 +1480,9 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
     return _GetResultPtree(MS_Succeeded);
 }
 
-ptree MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>&cameranames,const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage)
+ptree MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>&cameranames,const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename)
 {
-    _StartDetectionThread(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage);
+    _StartDetectionThread(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, obstaclename);
     return _GetResultPtree(MS_Succeeded);
 }
 
@@ -1488,7 +1492,7 @@ ptree MujinVisionManager::StopDetectionLoop()
     return _GetResultPtree(MS_Succeeded);
 }
 
-ptree MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize)
+ptree MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize, const std::string obstaclename)
 {
     std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
     // set up images
@@ -1508,13 +1512,13 @@ ptree MujinVisionManager::SendPointCloudObstacleToController(const std::string& 
             std::stringstream ss;
             ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
             _SetStatusMessage(ss.str());
-            _pBinpickingTask->AddPointCloudObstacle(points, pointsize, "__dynamicobstacle__");
+            _pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename);
         }
     }
     return _GetResultPtree(MS_Succeeded);
 }
 
-void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize)
+void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize, const std::string& obstaclename)
 {
     std::vector<mujinclient::Transform> transformsworld;
     std::vector<std::string> confidences;
@@ -1541,7 +1545,7 @@ void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, 
     }
     std::stringstream ss;
     if (totalpoints.size()>0) {
-        _pBinpickingTask->UpdateEnvironmentState(_targetname, transformsworld, confidences, totalpoints, pointsize, "__dynamicobstacle__","m");
+        _pBinpickingTask->UpdateEnvironmentState(_targetname, transformsworld, confidences, totalpoints, pointsize, obstaclename,"m");
         ss << "Updating environment with " << detectedobjectsworld.size() << " detected objects and " << (totalpoints.size()/3) << " points.";
     } else {
         ss << "Got 0 points, something is wrong with the streamer. Is robot occluding the camera?" << std::endl;

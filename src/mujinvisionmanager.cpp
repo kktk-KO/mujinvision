@@ -1522,6 +1522,7 @@ void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, 
 {
     std::vector<mujinclient::Transform> transformsworld;
     std::vector<std::string> confidences;
+    std::vector<uint64_t> timestamps;
     for (unsigned int i=0; i<detectedobjectsworld.size(); i++) {
         mujinclient::Transform transform;
         transform.quaternion[0] = detectedobjectsworld[i]->transform.rot[0];
@@ -1533,6 +1534,7 @@ void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, 
         transform.translate[2] = detectedobjectsworld[i]->transform.trans[2];
         transformsworld.push_back(transform);
         confidences.push_back(detectedobjectsworld[i]->confidence);
+        timestamps.push_back(detectedobjectsworld[i]->timestamp);
     }
     std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
     std::vector<Real> totalpoints;
@@ -1545,7 +1547,7 @@ void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, 
     }
     std::stringstream ss;
     if (totalpoints.size()>0) {
-        _pBinpickingTask->UpdateEnvironmentState(_targetname, transformsworld, confidences, totalpoints, pointsize, obstaclename,"m");
+        _pBinpickingTask->UpdateEnvironmentState(_targetname, transformsworld, confidences, timestamps, totalpoints, pointsize, obstaclename,"m");
         ss << "Updating environment with " << detectedobjectsworld.size() << " detected objects and " << (totalpoints.size()/3) << " points.";
     } else {
         ss << "Got 0 points, something is wrong with the streamer. Is robot occluding the camera?" << std::endl;

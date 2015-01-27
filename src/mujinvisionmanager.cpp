@@ -1085,28 +1085,28 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
-                if (!ignoreocclusion) {
-                    try {
-                        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, endtimestamp, isoccluding);
-                    } catch (...) {
-                        std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
-                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
-                        continue;
-                    }
+                if (maxage>0 && GetMilliTime() - timestamp > maxage) {
+                    //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
+                    continue;
                 } else {
-                    isoccluding = false;
-                }
-                if (!isoccluding) {
-                    if (maxage>0 && GetMilliTime() - timestamp > maxage) {
-                        //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
-                        continue;
+                    std::cout << "[DEBUG]: Got color image that is " << GetMilliTime()-timestamp << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
+                    if (!ignoreocclusion) {
+                        try {
+                            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, endtimestamp, isoccluding);
+                        } catch (...) {
+                            std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                            continue;
+                        }
                     } else {
-                        std::cout << "[DEBUG]: Got color image that is " << GetMilliTime()-timestamp << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
-                        break;
+                        isoccluding = false;
                     }
-                } else {
-                    std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
-                    boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                    if (!isoccluding) {
+                        break;
+                    } else {
+                        std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                    }
                 }
             }
         }
@@ -1133,28 +1133,28 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
-                if (!ignoreocclusion) {
-                    try {
-                        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
-                    } catch (...) {
-                        std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
-                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
-                        continue;
-                    }
+                if (maxage>0 && GetMilliTime()-starttime>maxage) {
+                    //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
+                    continue;
                 } else {
-                    isoccluding = false;
-                }
-                if (!isoccluding) {
-                    if (maxage>0 && GetMilliTime()-starttime>maxage) {
-                        //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
-                        continue;
+                    std::cout << "[DEBUG]: Got depth image that is " << GetMilliTime()-starttime << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
+                    if (!ignoreocclusion) {
+                        try {
+                            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+                        } catch (...) {
+                            std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                            continue;
+                        }
                     } else {
-                        std::cout << "[DEBUG]: Got depth image that is " << GetMilliTime()-starttime << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
-                        break;
+                        isoccluding = false;
                     }
-                } else {
-                    std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
-                    boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                    if (!isoccluding) {
+                        break;
+                    } else {
+                        std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                    }
                 }
             }
         }
@@ -1183,41 +1183,40 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
-                if (!ignoreocclusion) {
-                    try {
-                        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, endtimestamp, isoccluding);
-                    } catch (...) {
-                        std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
-                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
-                        continue;
+                if (maxage>0 && GetMilliTime()-timestamp>maxage) {
+                    //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
+                    if (colorimages.size()>0) {
+                        //std::cerr << "[WARN]: One of the color images is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), start over." << std::endl;
+                        colorimages.resize(0); // need to start over, all color images need to be equally new
                     }
+                    continue;
                 } else {
-                    isoccluding = false;
-                }
-                if (!isoccluding) {
-                    if (maxage>0 && GetMilliTime()-timestamp>maxage) {
-                        //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
-                        if (colorimages.size()>0) {
-                            //std::cerr << "[WARN]: One of the color images is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), start over." << std::endl;
-                            colorimages.resize(0); // need to start over, all color images need to be equally new
+                    std::cout << "[DEBUG]: Got color image that is " << GetMilliTime()-timestamp << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
+                    if (!ignoreocclusion) {
+                        try {
+                            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, endtimestamp, isoccluding);
+                        } catch (...) {
+                            std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                            continue;
                         }
-                        continue;
                     } else {
+                        isoccluding = false;
+                    }
+                    if (!isoccluding) {
                         colorimages.push_back(colorimage);
                         if (colorimages.size() == cameranames.size()) {
-                            std::cout << "[DEBUG]: Got color image that is " << GetMilliTime()-timestamp << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
                             // got one image for each camera, exit
                             break;
                         } else {
-                            std::cout << "[DEBUG]: Got color image that is " << GetMilliTime()-timestamp << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
                             // move on to get image for the next camera
                             continue;
                         }
+                    } else {
+                        std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                        continue;
                     }
-                } else {
-                    std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
-                    boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
-                    continue;
                 }
             }
         }
@@ -1246,42 +1245,41 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
-                if (!ignoreocclusion) {
-                    try {
-                        _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
-                    } catch (...) {
-                        std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
-                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
-                        continue;
+                if (maxage>0 && GetMilliTime()-starttime>maxage) {
+                    //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
+                    if (depthimages.size()>0) {
+                        //std::cerr << "[WARN]: One of the depth images is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), start over." << std::endl;
+                        depthimages.resize(0); // need to start over, all color images need to be equally new
                     }
+                    continue;
                 } else {
-                    isoccluding = false;
-                }
-                if (!isoccluding) {
-                    if (maxage>0 && GetMilliTime()-starttime>maxage) {
-                        //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
-                        if (depthimages.size()>0) {
-                            //std::cerr << "[WARN]: One of the depth images is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), start over." << std::endl;
-                            depthimages.resize(0); // need to start over, all color images need to be equally new
+                    std::cout << "[DEBUG]: Got depth image that is " << GetMilliTime()-starttime << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
+                    if (!ignoreocclusion) {
+                        try {
+                            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+                        } catch (...) {
+                            std::cerr << "[WARN]: Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                            continue;
                         }
-                        continue;
                     } else {
+                        isoccluding = false;
+                    }
+                    if (!isoccluding) {
                         depthimages.push_back(depthimage);
                         if (depthimages.size() == cameranames.size()) {
-                            std::cout << "[DEBUG]: Got depth image that is " << GetMilliTime()-starttime << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
                             // got one image for each camera, exit
                             break;
                         } else {
-                            std::cout << "[DEBUG]: Got depth image that is " << GetMilliTime()-starttime << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
                             // move on to get image for the next camera
                             continue;
                         }
+                    } else {
+                        std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                        continue;
                     }
-                } else {
-                    std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
-                    boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
-                    continue;
-                }
+                } 
             }
         }
     }

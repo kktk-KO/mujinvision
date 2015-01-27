@@ -552,14 +552,16 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
             }
         }
         confidence = pt.get<std::string>("confidence");
+        timestamp = pt.get<uint64_t>("timestamp");
     }
 
     /// assume input is in meter
-    DetectedObject(const std::string& n, const Transform& t, const std::string& c)
+    DetectedObject(const std::string& n, const Transform& t, const std::string& c, const uint64_t ts)
     {
         name = n;
         transform = t;
         confidence = c;
+        timestamp = ts;
     }
 
     virtual ~DetectedObject() {
@@ -568,6 +570,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
     std::string name;
     Transform transform; ///< in meter
     std::string confidence; ///< detection confidence
+    uint64_t timestamp; ///< timestamp of the detection
 
     std::string GetJsonString()
     {
@@ -593,6 +596,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
         }
         ss << "], ";
         ss << "\"confidence\": " << confidence;
+        ss << ",\"timestamp\": " << timestamp;
         ss << "}";
         return ss.str();
     }
@@ -616,6 +620,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
             }
             _pt.put_child("quat_", quat_pt);
             _pt.put<std::string>("confidence", confidence);
+            _pt.put<uint64_t>("timestamp", timestamp);
         }
         return _pt;
     }

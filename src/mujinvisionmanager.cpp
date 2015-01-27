@@ -775,7 +775,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             _vDetectedInfo.resize(0);
         }
         for (unsigned int i=0; i<detectedobjects.size(); i++) {
-            unsigned long long timestamp = GetMilliTime();
+            unsigned long long timestamp = detectedobjects[i]->timestamp;
             std::string confidence = detectedobjects[i]->confidence;
             Transform transform = detectedobjects[i]->transform;
             TransformMatrix mat(transform);
@@ -883,7 +883,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 Transform transform;
                 transform.trans = _vDetectedInfo.at(i).meanPosition;
                 transform.rot = _vDetectedInfo.at(i).meanRotation;
-                DetectedObjectPtr obj(new DetectedObject(detectedobjects[0]->name, transform, _vDetectedInfo.at(i).confidences.at(0)));
+                DetectedObjectPtr obj(new DetectedObject(detectedobjects[0]->name, transform, _vDetectedInfo.at(i).confidences.at(0), _vDetectedInfo.at(i).timestamp));
                 newdetectedobjects.push_back(obj);
                 //obj->Print();
             }
@@ -1783,7 +1783,7 @@ void Utils::TransformDetectedObjects(const std::vector<DetectedObjectPtr>& detec
     const std::string name = detectedobjectsfrom.at(0)->name;
     for (size_t i=0; i<detectedobjectsfrom.size(); i++) {
         Transform G_T_A = G_T_S * detectedobjectsfrom.at(i)->transform;
-        DetectedObjectPtr detectedobj(new DetectedObject(name, G_T_A, detectedobjectsfrom.at(i)->confidence));
+        DetectedObjectPtr detectedobj(new DetectedObject(name, G_T_A, detectedobjectsfrom.at(i)->confidence, detectedobjectsfrom.at(i)->timestamp));
         detectedobjectsto.push_back(detectedobj);
     }
     BOOST_ASSERT(detectedobjectsfrom.size() == detectedobjectsto.size());

@@ -1104,8 +1104,7 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
                     if (!isoccluding) {
                         break;
                     } else {
-                        std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
-                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                        std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
                     }
                 }
             }
@@ -1152,8 +1151,7 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
                     if (!isoccluding) {
                         break;
                     } else {
-                        std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
-                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                        std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
                     }
                 }
             }
@@ -1213,8 +1211,7 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                             continue;
                         }
                     } else {
-                        std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
-                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                        std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
                         continue;
                     }
                 }
@@ -1275,8 +1272,7 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                             continue;
                         }
                     } else {
-                        std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again in " << waitinterval << " ms." << std::endl;
-                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                        std::cerr << "[WARN]: Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
                         continue;
                     }
                 } 

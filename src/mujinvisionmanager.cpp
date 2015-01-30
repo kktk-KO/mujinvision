@@ -849,15 +849,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
         }
 
-        // if picked recently, skip detection once to make sure there is no occlusion
-        if (_bStopDetectionThread) {
-            break;
-        }
-        if (pickedRecently) {
-            std::cout << "An object was just picked, skip detection once to make sure there is no occlusion." << std::endl;
-            continue;
-        }
-
         // detect objects
         if (_bStopDetectionThread) {
             break;

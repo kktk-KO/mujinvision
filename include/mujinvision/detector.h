@@ -83,7 +83,7 @@ public:
         \param minv min horizontal pixel defining the region of interest of the image
         \param maxv max horizontal pixel defining the region of interest of the image
      */
-    virtual void SetColorImage(const std::string& colorcameraname, ColorImageConstPtr colorimage, const unsigned int minu, const unsigned int maxu, const unsigned int minv, const unsigned int maxv) = 0;
+    virtual void SetColorImage(const std::string& colorcameraname, ColorImageConstPtr colorimage) = 0;
 
     virtual void SetDepthImage(const std::string& depthcameraname, DepthImagePtr depthimage) {
         _mMergedDepthImage[depthcameraname] = depthimage;

@@ -105,7 +105,7 @@ public:
     void GetCameraPointCloud(const std::string& regionname, const std::string& depthcameraname, DepthImageConstPtr depthimage, std::vector<double>& points) {
     }
 
-    void SetColorImage(const std::string& colorcameraname, ColorImageConstPtr colorimage, const unsigned int minu, const unsigned int maxu, const unsigned int minv, const unsigned int maxv) {
+    void SetColorImage(const std::string& colorcameraname, ColorImageConstPtr colorimage) {
     }
 };
 typedef boost::shared_ptr<UserObjectDetector> UserObjectDetectorPtr;

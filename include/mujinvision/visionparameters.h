@@ -208,7 +208,7 @@ typedef boost::shared_ptr<DepthImage const> DepthImageConstPtr;
 typedef boost::weak_ptr<DepthImage> DepthImageWeakPtr;
 
 /// \brief information about camera
-struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto compute imageroi
+struct MUJINVISION_API CameraParameters : public ParametersBase
 {
     CameraParameters() {
     }
@@ -217,25 +217,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     {
         _pt = pt;
         id = pt.get<std::string>("id");
-        minu=maxu=minv=maxv=-1;
-        std::vector<int> roi;
-        boost::optional<const ptree&> imageroi_pt = pt.get_child_optional("imageroi");
-        if (!!imageroi_pt) {
-            FOREACH(rv, *imageroi_pt) {
-                roi.push_back(boost::lexical_cast<double>(rv->second.data()));
-            }
-            minu = roi[0];
-            maxu = roi[1];
-            minv = roi[2];
-            maxv = roi[3];
-        }
-        xs.resize(8);
-        ys.resize(8);
-        for (unsigned int i=0; i<8; i++) {
-            xs[i] = -1;
-            ys[i] = -1;
-        }
-        
         isColorCamera = pt.get<bool>("is_color_camera", true);
         isDepthCamera = pt.get<bool>("is_depth_camera", true);
     }
@@ -246,19 +227,12 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     std::string id;
     bool isColorCamera;
     bool isDepthCamera;
-    /// \brief image roi in pixel
-    int minu,maxu,minv,maxv;
-    /// \brief 2d projections of 3d roi
-    std::vector<int> xs,ys;
 
     std::string GetJsonString()
     {
         std::stringstream ss;
         ss << "{";
         ss << "\"id\": \"" << id << "\"";
-        if (minu>0) {
-            ss << ", \"imageroi\": ["<< minu << ", " << maxu << ", " << minv << ", " << maxv << "]";
-        }
         if (!isColorCamera) {
             ss << ", \"is_color_camera\": false";
         }
@@ -273,19 +247,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase // TODO: auto co
     {
         if (_pt.empty()) {
             _pt.put<std::string>("id", id);
-            if (minu>0) {
-                ptree imageroi_pt;
-                ptree p;
-                p.put("",minu);
-                imageroi_pt.push_back(std::make_pair("", p));
-                p.put("",maxu);
-                imageroi_pt.push_back(std::make_pair("", p));
-                p.put("",minv);
-                imageroi_pt.push_back(std::make_pair("", p));
-                p.put("",maxv);
-                imageroi_pt.push_back(std::make_pair("", p));
-                _pt.put_child("imageroi", imageroi_pt);
-            }
             if (!isColorCamera) {
                 _pt.put<bool>("isColorCamera", isColorCamera);
             }
@@ -658,8 +619,6 @@ protected:
 
     /// \brief camera transform in world frame
     Transform worldTransform;
-
-    int _roiminu, _roimaxu, _roiminv, _roimaxv; ///< TODO image ROI computed automatically from the global ROI
 
 };
 typedef boost::shared_ptr<Camera> CameraPtr;

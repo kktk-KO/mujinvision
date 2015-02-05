@@ -1100,8 +1100,12 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
-                if (maxage>0 && GetMilliTime() - timestamp > maxage) {
-                    //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
+                if (GetMilliTime() < timestamp) {
+                    std::cerr << "[ERROR]: Image timestamp is in the future, please ensure that clocks are synchronized." << std::endl;
+                    continue;
+                }
+                else if (maxage>0 && GetMilliTime() - timestamp > maxage) {
+                    std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
                     continue;
                 } else {
                     std::cout << "[DEBUG]: Got color image that is " << GetMilliTime()-timestamp << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
@@ -1147,8 +1151,12 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
-                if (maxage>0 && GetMilliTime()-starttime>maxage) {
-                    //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
+                if (GetMilliTime() < starttime) {
+                    std::cerr << "[ERROR]: Image timestamp is in the future, please ensure that clocks are synchronized." << std::endl;
+                    continue;
+                }
+                else if (maxage>0 && GetMilliTime()-starttime>maxage) {
+                    std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
                     continue;
                 } else {
                     std::cout << "[DEBUG]: Got depth image that is " << GetMilliTime()-starttime << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
@@ -1196,10 +1204,14 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
-                if (maxage>0 && GetMilliTime()-timestamp>maxage) {
-                    //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
+                if (GetMilliTime() < timestamp) {
+                    std::cerr << "[ERROR]: Image timestamp is in the future, please ensure that clocks are synchronized." << std::endl;
+                    continue;
+                }
+                else if (maxage>0 && GetMilliTime()-timestamp>maxage) {
+                    std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
                     if (colorimages.size()>0) {
-                        //std::cerr << "[WARN]: One of the color images is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), start over." << std::endl;
+                        std::cerr << "[WARN]: One of the color images is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), start over." << std::endl;
                         colorimages.resize(0); // need to start over, all color images need to be equally new
                     }
                     continue;
@@ -1257,10 +1269,14 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
-                if (maxage>0 && GetMilliTime()-starttime>maxage) {
-                    //std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
+                if (GetMilliTime() < starttime) {
+                    std::cerr << "[ERROR]: Image timestamp is in the future, please ensure that clocks are synchronized." << std::endl;
+                    continue;
+                }
+                else if (maxage>0 && GetMilliTime()-starttime>maxage) {
+                    std::cerr << "[WARN]: Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
                     if (depthimages.size()>0) {
-                        //std::cerr << "[WARN]: One of the depth images is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), start over." << std::endl;
+                        std::cerr << "[WARN]: One of the depth images is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), start over." << std::endl;
                         depthimages.resize(0); // need to start over, all color images need to be equally new
                     }
                     continue;

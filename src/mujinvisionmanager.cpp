@@ -328,16 +328,61 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         _bExecutingUserCommand = true;
     }
     std::string command = command_pt.get<std::string>("command");
-    if (command == "Initialize") {
-        if (_bInitialized) {
-            _SetStatusMessage("Vision manager was initialized, de-initialize it first.");
-            _DeInitialize();
-        } else {
-            _bInitialized = true;
+    if (command == "StartDetectionLoop" || command == "StopDetectionLoop") {
+        if (command == "StartDetectionLoop") {
+            if (command_pt.count("regionname") == 0) {
+                result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
+            std::string regionname = command_pt.get<std::string>("regionname");
+            if (!_pDetector || !_pBinpickingTask) {
+                result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
+
+            std::vector<std::string> cameranames;
+            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
+            if (!!cameranames_pt) {
+                FOREACH(v, *cameranames_pt) {
+                    cameranames.push_back(v->second.get<std::string>(""));
+                }
+            }
+            double voxelsize = command_pt.get("voxelsize",0.01);
+            double pointsize = command_pt.get("pointsize",0.005);
+            bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
+            unsigned int maxage = command_pt.get("maxage",0);
+            std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
+            result_pt = StartDetectionLoop(regionname,
+                                           cameranames,
+                                           voxelsize,
+                                           pointsize,
+                                           ignoreocclusion,
+                                           maxage,
+                                           obstaclename
+                                           );
+            result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+        } else if (command == "StopDetectionLoop") {
+            result_pt = StopDetectionLoop();
+            result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+
         }
-        bool succeeded=false;
-        while (!succeeded) {
-            //try {
+    } else if (!!_pDetectionThread && !_bStopDetectionThread) {
+            _SetStatusMessage("Detection thread is running, please stop it first.");
+    } else {
+        if (command == "Initialize") {
+            if (_bInitialized) {
+                _SetStatusMessage("Vision manager was initialized, de-initialize it first.");
+                _DeInitialize();
+            } else {
+                _bInitialized = true;
+            }
+            bool succeeded=false;
+            while (!succeeded) {
+                //try {
                 result_pt = Initialize(command_pt.get<std::string>("detectorConfigurationFilename"),
                                        command_pt.get<std::string>("imagesubscriberConfigurationFilename"),
                                        command_pt.get<std::string>("mujinControllerIp", ""),
@@ -358,280 +403,243 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 //_SetStatusMessage("Failed to initialize. Try again in 1 second...");
                 //boost::this_thread::sleep(boost::posix_time::seconds(1));
                 //}
-        }
-    } else if (command == "DetectObjects") {
-        if (command_pt.count("regionname") == 0) {
-            result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-        std::string regionname = command_pt.get<std::string>("regionname");
-        if (!_pDetector || !_pBinpickingTask) {
-            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-        std::vector<std::string> cameranames;
-        boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-        if (!!cameranames_pt) {
-            FOREACH(v, *cameranames_pt) {
-                cameranames.push_back(v->second.get<std::string>(""));
             }
-        }
-        bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
-        unsigned int maxage = command_pt.get("maxage",0);
-        std::vector<DetectedObjectPtr> detectedobjects;
-        result_pt = DetectObjects(regionname, cameranames, detectedobjects, ignoreocclusion, maxage);
-        result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
-        result_ss << ", ";
-        result_ss << _GetJsonString(detectedobjects);
-    } else if (command == "StartDetectionLoop") {
-        if (command_pt.count("regionname") == 0) {
-            result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-        std::string regionname = command_pt.get<std::string>("regionname");
-        if (!_pDetector || !_pBinpickingTask) {
-            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
+        } else if (command == "DetectObjects") {
+            if (command_pt.count("regionname") == 0) {
+                result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
+            std::string regionname = command_pt.get<std::string>("regionname");
+            if (!_pDetector || !_pBinpickingTask) {
+                result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
+            std::vector<std::string> cameranames;
+            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
+            if (!!cameranames_pt) {
+                FOREACH(v, *cameranames_pt) {
+                    cameranames.push_back(v->second.get<std::string>(""));
+                }
+            }
+            bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
+            unsigned int maxage = command_pt.get("maxage",0);
+            std::vector<DetectedObjectPtr> detectedobjects;
+            result_pt = DetectObjects(regionname, cameranames, detectedobjects, ignoreocclusion, maxage);
+            result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+            result_ss << ", ";
+            result_ss << _GetJsonString(detectedobjects);
+        } else if (command == "SendPointCloudObstacleToController") {
+            if (command_pt.count("regionname") == 0) {
+                result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
+            std::string regionname = command_pt.get<std::string>("regionname");
+            if (!_pDetector || !_pBinpickingTask) {
+                result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
 
-        std::vector<std::string> cameranames;
-        boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-        if (!!cameranames_pt) {
-            FOREACH(v, *cameranames_pt) {
-                cameranames.push_back(v->second.get<std::string>(""));
+            std::vector<std::string> cameranames;
+            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
+            if (!!cameranames_pt) {
+                FOREACH(v, *cameranames_pt) {
+                    cameranames.push_back(v->second.get<std::string>(""));
+                }
             }
-        }
-        double voxelsize = command_pt.get("voxelsize",0.01);
-        double pointsize = command_pt.get("pointsize",0.005);
-        bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
-        unsigned int maxage = command_pt.get("maxage",0);
-        std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
-        result_pt = StartDetectionLoop(regionname,
-                                       cameranames,
-                                       voxelsize,
-                                       pointsize,
-                                       ignoreocclusion,
-                                       maxage,
-                                       obstaclename
-                                       );
-        result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
-    } else if (command == "StopDetectionLoop") {
-        result_pt = StopDetectionLoop();
-        result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
-    } else if (command == "SendPointCloudObstacleToController") {
-        if (command_pt.count("regionname") == 0) {
-            result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-        std::string regionname = command_pt.get<std::string>("regionname");
-        if (!_pDetector || !_pBinpickingTask) {
-            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
+            std::vector<DetectedObjectPtr> detectedobjects;
+            boost::optional<const ptree&> detectedobjects_pt(command_pt.get_child_optional("detectedobjects"));
+            if (!!detectedobjects_pt) {
+                FOREACH(v, *detectedobjects_pt) {
+                    detectedobjects.push_back(DetectedObjectPtr(new DetectedObject(v->second.get_child(""))));
+                }
+            }
+            double voxelsize = command_pt.get("voxelsize", 0.01);
+            double pointsize = command_pt.get("pointsize", 0.005);
+            std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
+            result_pt = SendPointCloudObstacleToController(regionname,
+                                                           cameranames,
+                                                           detectedobjects,
+                                                           voxelsize,
+                                                           pointsize,
+                                                           obstaclename);
+            result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+        } else if (command == "VisualizePointCloudOnController") {
+            if (command_pt.count("regionname") == 0) {
+                result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
+            std::string regionname = command_pt.get<std::string>("regionname");
+            if (!_pDetector || !_pBinpickingTask) {
+                result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
+            std::vector<std::string> cameranames;
+            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
+            if (!!cameranames_pt) {
+                FOREACH(v, *cameranames_pt) {
+                    cameranames.push_back(v->second.get<std::string>(""));
+                }
+            }
+            double pointsize = command_pt.get("pointsize",0.005);
+            bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
+            unsigned int maxage = command_pt.get("maxage",0);
+            result_pt = VisualizePointCloudOnController(regionname,
+                                                        cameranames,
+                                                        pointsize,
+                                                        ignoreocclusion,
+                                                        maxage);
+            result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+        } else if (command == "ClearVisualizationOnController") {
+            if (!_pBinpickingTask) {
+                result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
 
-        std::vector<std::string> cameranames;
-        boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-        if (!!cameranames_pt) {
-            FOREACH(v, *cameranames_pt) {
-                cameranames.push_back(v->second.get<std::string>(""));
+            result_pt = ClearVisualizationOnController();
+            result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+        } else if (command == "DetectRegionTransform") {
+            if (command_pt.count("regionname") == 0) {
+                result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
             }
-        }
-        std::vector<DetectedObjectPtr> detectedobjects;
-        boost::optional<const ptree&> detectedobjects_pt(command_pt.get_child_optional("detectedobjects"));
-        if (!!detectedobjects_pt) {
-            FOREACH(v, *detectedobjects_pt) {
-                detectedobjects.push_back(DetectedObjectPtr(new DetectedObject(v->second.get_child(""))));
+            std::string regionname = command_pt.get<std::string>("regionname");
+            if (!_pDetector || !_pBinpickingTask) {
+                result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
             }
-        }
-        double voxelsize = command_pt.get("voxelsize", 0.01);
-        double pointsize = command_pt.get("pointsize", 0.005);
-        std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
-        result_pt = SendPointCloudObstacleToController(regionname,
-                                                       cameranames,
-                                                       detectedobjects,
-                                                       voxelsize,
-                                                       pointsize,
-                                                       obstaclename);
-        result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
-    } else if (command == "VisualizePointCloudOnController") {
-        if (command_pt.count("regionname") == 0) {
-            result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-        std::string regionname = command_pt.get<std::string>("regionname");
-        if (!_pDetector || !_pBinpickingTask) {
-            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-        std::vector<std::string> cameranames;
-        boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-        if (!!cameranames_pt) {
-            FOREACH(v, *cameranames_pt) {
-                cameranames.push_back(v->second.get<std::string>(""));
+            std::vector<std::string> cameranames;
+            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
+            if (!!cameranames_pt) {
+                FOREACH(v, *cameranames_pt) {
+                    cameranames.push_back(v->second.get<std::string>(""));
+                }
             }
-        }
-        double pointsize = command_pt.get("pointsize",0.005);
-        bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
-        unsigned int maxage = command_pt.get("maxage",0);
-        result_pt = VisualizePointCloudOnController(regionname,
-                                                    cameranames,
-                                                    pointsize,
-                                                    ignoreocclusion,
-                                                    maxage);
-        result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
-    } else if (command == "ClearVisualizationOnController") {
-        if (!_pBinpickingTask) {
-            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
+            bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
+            unsigned int maxage = command_pt.get("maxage",0);
+            mujinvision::Transform regiontransform;
+            result_pt = DetectRegionTransform(regionname,
+                                              cameranames,
+                                              regiontransform,
+                                              ignoreocclusion,
+                                              maxage);
+            result_ss << ParametersBase::GetJsonString("status", result_pt.get<std::string>("status"));
+            result_ss << ", ";
+            result_ss << ParametersBase::GetJsonString(regiontransform);
+        } else if (command == "SaveSnapshot") {
+            if (!_pBinpickingTask || !_pImagesubscriberManager) {
+                result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
 
-        result_pt = ClearVisualizationOnController();
-        result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
-    } else if (command == "DetectRegionTransform") {
-        if (command_pt.count("regionname") == 0) {
-            result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-        std::string regionname = command_pt.get<std::string>("regionname");
-        if (!_pDetector || !_pBinpickingTask) {
-            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-        std::vector<std::string> cameranames;
-        boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-        if (!!cameranames_pt) {
-            FOREACH(v, *cameranames_pt) {
-                cameranames.push_back(v->second.get<std::string>(""));
+            bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
+            unsigned int maxage = command_pt.get("maxage",0);
+            result_pt = SaveSnapshot(command_pt.get<std::string>("regionname"), ignoreocclusion, maxage);
+            result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+        } else if (command == "UpdateDetectedObjects") {
+            if (command_pt.count("regionname") == 0) {
+                result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
             }
-        }
-        bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
-        unsigned int maxage = command_pt.get("maxage",0);
-        mujinvision::Transform regiontransform;
-        result_pt = DetectRegionTransform(regionname,
-                                          cameranames,
-                                          regiontransform,
-                                          ignoreocclusion,
-                                          maxage);
-        result_ss << ParametersBase::GetJsonString("status", result_pt.get<std::string>("status"));
-        result_ss << ", ";
-        result_ss << ParametersBase::GetJsonString(regiontransform);
-    } else if (command == "SaveSnapshot") {
-        if (!_pBinpickingTask || !_pImagesubscriberManager) {
-            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-
-        bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
-        unsigned int maxage = command_pt.get("maxage",0);
-        result_pt = SaveSnapshot(command_pt.get<std::string>("regionname"), ignoreocclusion, maxage);
-        result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
-    } else if (command == "UpdateDetectedObjects") {
-        if (command_pt.count("regionname") == 0) {
-            result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-        std::string regionname = command_pt.get<std::string>("regionname");
-        if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
-            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-
-        std::vector<DetectedObjectPtr> detectedobjects;
-        boost::optional<const ptree&> detectedobjects_pt(command_pt.get_child_optional("detectedobjects"));
-        if (!!detectedobjects_pt) {
-            FOREACH(v, *detectedobjects_pt) {
-                detectedobjects.push_back(DetectedObjectPtr(new DetectedObject(v->second.get_child(""))));
+            std::string regionname = command_pt.get<std::string>("regionname");
+            if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
+                result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
             }
-        }
-        result_pt = UpdateDetectedObjects(detectedobjects,
-                                          command_pt.get<bool>("sendtocontroller"));
-        result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
-    } else if (command == "SyncRegion") {
-        if (command_pt.count("regionname") == 0) {
-            result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-        std::string regionname = command_pt.get<std::string>("regionname");
-        if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
-            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-        result_pt = SyncRegion(regionname);
-        result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
-    } else if (command == "SyncCameras") {
-        if (command_pt.count("regionname") == 0) {
-            result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
-        std::string regionname = command_pt.get<std::string>("regionname");
-        if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
-            result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
-            result_ss << "}";
-            _SetStatus(MS_Pending);
-            return;
-        }
 
-        std::vector<std::string> cameranames;
-        boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-        if (!!cameranames_pt) {
-            FOREACH(v, *cameranames_pt) {
-                cameranames.push_back(v->second.get<std::string>(""));
+            std::vector<DetectedObjectPtr> detectedobjects;
+            boost::optional<const ptree&> detectedobjects_pt(command_pt.get_child_optional("detectedobjects"));
+            if (!!detectedobjects_pt) {
+                FOREACH(v, *detectedobjects_pt) {
+                    detectedobjects.push_back(DetectedObjectPtr(new DetectedObject(v->second.get_child(""))));
+                }
             }
-        }
-        result_pt = SyncCameras(regionname,
-                                cameranames);
-        result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
-    } else {
-        CMDMAP::iterator it = __mapCommands.find(command);
-        if( it == __mapCommands.end() ) {
-            std::stringstream ss;
-            ss << "Received unknown command " << command << ".";
-            throw MujinVisionException(ss.str(), MVE_CommandNotSupported);
-        }
-        boost::shared_ptr<CustomCommand> customcommand = it->second;
-        std::stringstream jsonss;
-        if( customcommand->fn(this, command_pt, jsonss) ) {
-            result_ss << ParametersBase::GetJsonString("status","succeeded");
+            result_pt = UpdateDetectedObjects(detectedobjects,
+                                              command_pt.get<bool>("sendtocontroller"));
+            result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+        } else if (command == "SyncRegion") {
+            if (command_pt.count("regionname") == 0) {
+                result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
+            std::string regionname = command_pt.get<std::string>("regionname");
+            if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
+                result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
+            result_pt = SyncRegion(regionname);
+            result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
+        } else if (command == "SyncCameras") {
+            if (command_pt.count("regionname") == 0) {
+                result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
+            std::string regionname = command_pt.get<std::string>("regionname");
+            if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
+                result_ss << ParametersBase::GetJsonString("status","visionclient is not initialized");
+                result_ss << "}";
+                _SetStatus(MS_Pending);
+                return;
+            }
+
+            std::vector<std::string> cameranames;
+            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
+            if (!!cameranames_pt) {
+                FOREACH(v, *cameranames_pt) {
+                    cameranames.push_back(v->second.get<std::string>(""));
+                }
+            }
+            result_pt = SyncCameras(regionname,
+                                    cameranames);
+            result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
         } else {
-            result_ss << ParametersBase::GetJsonString("status","failed");
-            std::cout << str(boost::format("command failed in custom command %s: %s\n")%command%jsonss) << std::endl;
+            CMDMAP::iterator it = __mapCommands.find(command);
+            if( it == __mapCommands.end() ) {
+                std::stringstream ss;
+                ss << "Received unknown command " << command << ".";
+                throw MujinVisionException(ss.str(), MVE_CommandNotSupported);
+            } else {
+                boost::shared_ptr<CustomCommand> customcommand = it->second;
+                std::stringstream jsonss;
+                if( customcommand->fn(this, command_pt, jsonss) ) {
+                    result_ss << ParametersBase::GetJsonString("status","succeeded");
+                } else {
+                    result_ss << ParametersBase::GetJsonString("status","failed");
+                    std::cout << str(boost::format("command failed in custom command %s: %s\n")%command%jsonss) << std::endl;
+                }
+                result_ss << ", ";
+                result_ss << "\"customresult\": " << jsonss.str();
+            }
         }
-        result_ss << ", ";
-        result_ss << "\"customresult\": " << jsonss.str();
     }
     _SetStatus(MS_Pending);
     result_ss << "}";

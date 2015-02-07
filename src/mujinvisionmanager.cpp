@@ -328,7 +328,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         _bExecutingUserCommand = true;
     }
     std::string command = command_pt.get<std::string>("command");
-    if (command == "StartDetectionLoop" || command == "StopDetectionLoop") {
+    if (command == "StartDetectionLoop" || command == "StopDetectionLoop" || command == "GetCameraId") {
         if (command == "StartDetectionLoop") {
             if (command_pt.count("regionname") == 0) {
                 result_ss << ParametersBase::GetJsonString("status", "regionname is not specified.");
@@ -369,9 +369,18 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_pt = StopDetectionLoop();
             result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
 
+        } else if (command == "GetCameraId") {
+            std::string cameraname = command_pt.get<std::string>("cameraname");
+            std::string cameraid;
+            result_pt = GetCameraId(cameraname, cameraid);
+            result_ss << ParametersBase::GetJsonString("status", result_pt.get<std::string>("status"));
+            result_ss << ", ";
+            result_ss << ParametersBase::GetJsonString("cameraid", cameraid);
         }
     } else if (!!_pDetectionThread && !_bStopDetectionThread) {
             _SetStatusMessage("Detection thread is running, please stop it first.");
+            result_pt = _GetResultPtree(MS_Active);
+            result_ss << ParametersBase::GetJsonString("status", result_pt.get<std::string>("status"));
     } else {
         if (command == "Initialize") {
             if (_bInitialized) {
@@ -1710,6 +1719,15 @@ ptree MujinVisionManager::SyncCameras(const std::string& regionname, const std::
         _SyncCamera(regionname, cameranamestobeused[i]);
     }
     // TODO: update cameras in detector
+    return _GetResultPtree(MS_Succeeded);
+}
+
+ptree MujinVisionManager::GetCameraId(const std::string& cameraname, std::string& cameraid)
+{
+    if (_mNameCameraParameters.find(cameraname) == _mNameCameraParameters.end()) {
+        throw MujinVisionException(cameraname + " is not defined in visionmanager config file.", MVE_ConfigurationFileError);
+    }
+    cameraid = _mNameCameraParameters[cameraname]->id;
     return _GetResultPtree(MS_Succeeded);
 }
 

@@ -266,6 +266,8 @@ public:
     virtual ptree SyncCameras(const std::string& regionname,
                               const std::vector<std::string>& cameranames);
 
+    virtual ptree GetCameraId(const std::string& cameraname, std::string& cameraid);
+
     void Shutdown();
     bool IsShutdown();
 

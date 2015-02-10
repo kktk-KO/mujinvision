@@ -727,16 +727,16 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 }
                 catch (const UserInterruptException& ex) { // need to catch it here, otherwise zmq will be in bad state
                     if (port == _pVisionServerParameters->configurationPort) {
-                        std::cerr << "User requested program exit." << std::endl;
+                        std::cerr << "[INFO] User requested program exit." << std::endl;
                         //throw;
                     } else {
                         _SetStatus(MS_Preempted,"",true);
-                        std::cerr << "User interruped command execution." << std::endl;
+                        std::cerr << "[INFO] User interruped command execution." << std::endl;
                         result_ss << "{" << ParametersBase::GetJsonString("status", _vStatusDescriptions[MS_Preempted]) << "}";
                     }
                 }
                 catch (const MujinVisionException& e) {
-                    std::cerr << "MujinVisionException " << e.message() << std::endl;
+                    std::cerr << "[ERROR] MujinVisionException " << e.message() << std::endl;
                     if (e.GetCode() == MVE_CommandNotSupported) {
                         result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
                     } else if (e.GetCode() == MVE_InvalidArgument) {
@@ -753,7 +753,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 }
                 catch (std::exception& e) {
                     result_ss << "{\"error\": \"" << e.what() << "\"}";
-                    std::cerr << "unhandled exception, " << e.what() << std::endl; 
+                    std::cerr << "[ERROR] unhandled exception, " << e.what() << std::endl; 
                     _SetStatus(MS_Aborted,e.what(),true);
                 }
 
@@ -767,7 +767,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
         }
         catch (const UserInterruptException& ex) {
             throw;
-            std::cerr << "User requested program exit." << std::endl;
+            std::cerr << "[INFO] User requested program exit." << std::endl;
             //throw;
         }
         //catch (const mujinclient::MujinException& e) {
@@ -878,7 +878,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             DetectObjects(regionname, cameranames, detectedobjects, ignoreocclusion, maxage);
         }
         catch(const std::exception& ex) {
-            std::cerr << "caugh unhandled exception while debugging: " << ex.what() << std::endl;
+            std::cerr << "[ERROR] caugh unhandled exception while debugging: " << ex.what() << std::endl;
             continue;
         }
 
@@ -1147,7 +1147,7 @@ ColorImagePtr MujinVisionManager::_GetColorImage(const std::string& regionname, 
         }
     }
     if (!colorimage) {
-        std::cerr << "returning empty image. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
+        std::cerr << "[WARN] returning empty image. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
     }
     return colorimage;
 }
@@ -1198,7 +1198,7 @@ DepthImagePtr MujinVisionManager::_GetDepthImage(const std::string& regionname, 
         }
     }
     if (!depthimage) {
-        std::cerr << "returning empty image. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
+        std::cerr << "[WARN] returning empty image. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
     }
     return depthimage;
 }
@@ -1514,7 +1514,11 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
             _pDetector->SetDepthImage(cameraname, depthimages.at(i));
         }
         // detect objects
-        _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects);
+        std::string errmsg;
+        _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, errmsg);
+        if (errmsg != "") {
+            throw MujinVisionException(errmsg, MVE_RecognitionError);
+        }
         std::stringstream msgss;
         msgss << "Detected " << detectedobjects.size() << " objects. Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
         _SetStatusMessage(msgss.str());
@@ -1549,8 +1553,11 @@ ptree MujinVisionManager::SendPointCloudObstacleToController(const std::string& 
             _pDetector->SetDepthImage(cameraname, depthimages.at(i));
             // get point cloud obstacle
             std::vector<Real> points;
-            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize);
-
+            std::string errmsg;
+            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, errmsg, voxelsize);
+            if (errmsg != "") {
+                throw MujinVisionException(errmsg, MVE_RecognitionError);
+            }
             std::stringstream ss;
             ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
             _SetStatusMessage(ss.str());
@@ -1584,7 +1591,11 @@ void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, 
         std::string cameraname = cameranamestobeused[i];
         // get point cloud obstacle
         std::vector<Real> points;
-        _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize);
+        std::string errmsg;
+        _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, errmsg, voxelsize);
+        if (errmsg != "") {
+            throw MujinVisionException(errmsg, MVE_RecognitionError);
+        }
         totalpoints.insert(totalpoints.end(), points.begin(), points.end());
     }
     std::stringstream ss;
@@ -1611,7 +1622,12 @@ ptree MujinVisionManager::DetectRegionTransform(const std::string& regionname, c
     _pDetector->SetDepthImage(depthcameraname, depthimage);
 
     mujinvision::Transform regiontransform0 = regiontransform;
-    _pDetector->DetectRegionTransform(regionname, colorcameraname, depthcameraname, regiontransform);
+    std::string errmsg;
+    _pDetector->DetectRegionTransform(regionname, colorcameraname, depthcameraname, regiontransform, errmsg);
+    if (errmsg != "") {
+        throw MujinVisionException(errmsg, MVE_RecognitionError);
+    }
+
     if (regiontransform.rot.x == regiontransform0.rot.x &&
         regiontransform.rot.y == regiontransform0.rot.y &&
         regiontransform.rot.z == regiontransform0.rot.z &&
@@ -1670,7 +1686,7 @@ ptree MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool
             if (!!colorimage) {
                 _pImagesubscriberManager->WriteColorImage(colorimage, filename_ss.str());
             } else {
-                std::cerr << "Failed to get colorimage, please try again." << std::endl;
+                std::cerr << "[ERROR] Failed to get colorimage, please try again." << std::endl;
             }
         }
     }
@@ -1687,7 +1703,7 @@ ptree MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool
             if (!!depthimage) {
                 _pImagesubscriberManager->WriteDepthImage(depthimage, filename_ss.str());
             } else {
-                std::cerr << "Failed to get depthimage, please try again." << std::endl;
+                std::cerr << "[ERROR] Failed to get depthimage, please try again." << std::endl;
             }
         }
     }

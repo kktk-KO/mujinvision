@@ -46,17 +46,19 @@ public:
         \param colorcameraname
         \param depthcameraname
         \param detectedobjects in world frame
+        \param errmsg error message
      */
-    virtual void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects) = 0;
+    virtual void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects, std::string& errmsg) = 0;
 
     /** \brief Gets point cloud obstacle from depth data and detection result.
         \param regionname
         \param depthcameraname name of the depth camera
         \param resultsworld detection result in world frame
         \param points result points representing the point cloud obstacle in world frame
+        \param errmsg error message
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
      */
-    virtual void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsworld, std::vector<double>& points, const double voxelsize=0.01) = 0;
+    virtual void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsworld, std::vector<double>& points, std::string& errmsg, const double voxelsize=0.01) = 0;
 
     /** \brief Gets point cloud in world frame from depth image.
         \param regionname
@@ -71,8 +73,9 @@ public:
         \param colorcameraname
         \param depthcameraname
         \param regiontransform transform of the region
+        \param errmsg error message
      */
-    virtual void DetectRegionTransform(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, mujinvision::Transform& regiontransform) {
+    virtual void DetectRegionTransform(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, mujinvision::Transform& regiontransform, std::string& errmsg) {
     }
 
     /** \brief Sets the color image for detector to use.
@@ -117,9 +120,9 @@ public:
         }
     }
 
-    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects) {
+    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& errmsg) {
         if (colorcameranames.size()>0 && depthcameranames.size()>0) {
-            DetectObjects(regionname, colorcameranames.at(0), depthcameranames.at(0), detectedobjects);
+            DetectObjects(regionname, colorcameranames.at(0), depthcameranames.at(0), detectedobjects, errmsg);
         }
     };
 

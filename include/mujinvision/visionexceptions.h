@@ -30,6 +30,7 @@ enum MujinVisionErrorCode
     MVE_ImageAcquisitionError=4,
     MVE_RecognitionError=5,
     MVE_ConfigurationFileError=6,
+    MVE_NotImplemented=7,
     MVE_ControllerError=10,
 };
 
@@ -43,6 +44,7 @@ inline const char* GetErrorCodeString(MujinVisionErrorCode error)
     case MVE_ImageAcquisitionError: return "ImageAcquisitionError";
     case MVE_RecognitionError: return "RecognitionError";
     case MVE_ConfigurationFileError: return "ConfigurationFileError";
+    case MVE_NotImplemented: return "NotImplemented";
     case MVE_ControllerError: return "ControllerError";
     }
     // throw an exception?

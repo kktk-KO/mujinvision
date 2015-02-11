@@ -1514,11 +1514,7 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
             _pDetector->SetDepthImage(cameraname, depthimages.at(i));
         }
         // detect objects
-        std::string errmsg;
-        _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, errmsg);
-        if (errmsg != "") {
-            throw MujinVisionException(errmsg, MVE_RecognitionError);
-        }
+        _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects);
         std::stringstream msgss;
         msgss << "Detected " << detectedobjects.size() << " objects. Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
         _SetStatusMessage(msgss.str());
@@ -1553,11 +1549,7 @@ ptree MujinVisionManager::SendPointCloudObstacleToController(const std::string& 
             _pDetector->SetDepthImage(cameraname, depthimages.at(i));
             // get point cloud obstacle
             std::vector<Real> points;
-            std::string errmsg;
-            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, errmsg, voxelsize);
-            if (errmsg != "") {
-                throw MujinVisionException(errmsg, MVE_RecognitionError);
-            }
+            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize);
             std::stringstream ss;
             ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
             _SetStatusMessage(ss.str());
@@ -1591,11 +1583,7 @@ void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, 
         std::string cameraname = cameranamestobeused[i];
         // get point cloud obstacle
         std::vector<Real> points;
-        std::string errmsg;
-        _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, errmsg, voxelsize);
-        if (errmsg != "") {
-            throw MujinVisionException(errmsg, MVE_RecognitionError);
-        }
+        _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize);
         totalpoints.insert(totalpoints.end(), points.begin(), points.end());
     }
     std::stringstream ss;
@@ -1622,11 +1610,7 @@ ptree MujinVisionManager::DetectRegionTransform(const std::string& regionname, c
     _pDetector->SetDepthImage(depthcameraname, depthimage);
 
     mujinvision::Transform regiontransform0 = regiontransform;
-    std::string errmsg;
-    _pDetector->DetectRegionTransform(regionname, colorcameraname, depthcameraname, regiontransform, errmsg);
-    if (errmsg != "") {
-        throw MujinVisionException(errmsg, MVE_RecognitionError);
-    }
+    _pDetector->DetectRegionTransform(regionname, colorcameraname, depthcameraname, regiontransform);
 
     if (regiontransform.rot.x == regiontransform0.rot.x &&
         regiontransform.rot.y == regiontransform0.rot.y &&

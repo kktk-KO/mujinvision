@@ -36,8 +36,9 @@ public:
         \param mNameRegion map to detection regions from names
         \param mRegionColorCameraMap map to color camera maps from region names
         \param mRegionDepthCameraMap map to depth camera maps from region names
+        \param extraInitializationOptions optional extra options
      */
-    virtual void Initialize(const ptree& oparams_pt,  const ptree& dparams_pt, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap) = 0;
+    virtual void Initialize(const ptree& oparams_pt, const ptree& dparams_pt, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>()) = 0;
 
     virtual void DeInitialize() = 0;
 

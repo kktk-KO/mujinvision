@@ -1488,26 +1488,20 @@ ptree MujinVisionManager::DetectObjects(const std::string& regionname, const std
 
     std::vector<std::string> colorcameranames = _GetColorCameraNames(regionname, cameranames);
     std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
-    //CameraPtr colorcamera = _mNameCamera[colorcameraname];
-    //CameraPtr depthcamera = _mNameCamera[depthcameraname];
+
     // set up images
-    //ColorImagePtr originalcolorimage = _GetColorImage(regionname, colorcameraname);
     std::vector<ColorImagePtr> colorimages;
     _GetColorImages(regionname, colorcameranames, colorimages, ignoreocclusion, maxage);
     std::vector<DepthImagePtr> depthimages;
-    //DepthImagePtr depthimage = _GetDepthImage(regionname, depthcameraname);
     _GetDepthImages(regionname, depthcameranames, depthimages, ignoreocclusion, maxage);
     std::cout << "[DEBUG] Getting images took " << ((GetMilliTime() - starttime) / 1000.0f) << std::endl;
     starttime = GetMilliTime();
-    //if (!!originalcolorimage && !!depthimage) {
     if (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size()) {
-        //_pDetector->SetColorImage(colorcameraname, originalcolorimage, colorcamera->pCameraParameters->minu, colorcamera->pCameraParameters->maxu, colorcamera->pCameraParameters->minv, colorcamera->pCameraParameters->maxv);
         for (size_t i=0; i<colorimages.size(); ++i) {
             std::string cameraname = colorcameranames.at(i);
             CameraPtr camera = _mNameCamera[cameraname];
             _pDetector->SetColorImage(cameraname, colorimages.at(i));
         }
-        //_pDetector->SetDepthImage(depthcameraname, depthimage);
         for (size_t i=0; i<depthimages.size(); ++i) {
             std::string cameraname = depthcameranames.at(i);
             CameraPtr camera= _mNameCamera[cameraname];

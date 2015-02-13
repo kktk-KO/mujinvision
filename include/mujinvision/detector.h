@@ -42,7 +42,7 @@ public:
 
     virtual void DeInitialize() = 0;
 
-    /** Detects objects from color and depth images. Assuming SetColorImage and mMergedDepthImage were called.
+    /** Detects objects from color and depth images.
         \param regionname
         \param colorcameraname
         \param depthcameraname
@@ -76,26 +76,16 @@ public:
     virtual void DetectRegionTransform(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, mujinvision::Transform& regiontransform) {
     }
 
-    /** \brief Sets the color image for detector to use.
-        \param colorcameraname name of the color camera
-        \param colorimage color image
-        \param minu min vertical pixel defining the region of interest of the image
-        \param maxu max vertical pixel defining the region of interest of the image
-        \param minv min horizontal pixel defining the region of interest of the image
-        \param maxv max horizontal pixel defining the region of interest of the image
-     */
-    virtual void SetColorImage(const std::string& colorcameraname, ColorImageConstPtr colorimage) = 0;
+    virtual void SetColorImage(const std::string& colorcameraname, ColorImagePtr colorimage) {
+        _mColorImage[colorcameraname] = colorimage;
+    }
 
     virtual void SetDepthImage(const std::string& depthcameraname, DepthImagePtr depthimage) {
-        _mMergedDepthImage[depthcameraname] = depthimage;
+        _mDepthImage[depthcameraname] = depthimage;
     }
 
     virtual DepthImagePtr GetDepthImage(const std::string& depthcameraname) {
-        return _mMergedDepthImage[depthcameraname];
-    }
-
-    virtual bool DepthImageIsSet(const std::string& depthcameraname) {
-        return !!_mMergedDepthImage[depthcameraname];
+        return _mDepthImage[depthcameraname];
     }
 
     virtual void AddColorImage(const std::string& cameraname, ColorImagePtr image) {
@@ -128,7 +118,7 @@ protected:
 
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
     std::map<std::string, ColorImagePtr> _mColorImage; ///< cameraname -> image
-    std::map<std::string, DepthImagePtr> _mMergedDepthImage; ///< cameraname -> image
+    std::map<std::string, DepthImagePtr> _mDepthImage; ///< cameraname -> image
     std::map<std::string, std::vector<ColorImagePtr> > _mColorImages; ///< cameraname -> images
     std::map<std::string, std::vector<DepthImagePtr> > _mDepthImages; ///< cameraname -> images
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera

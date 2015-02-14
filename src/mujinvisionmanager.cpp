@@ -391,7 +391,6 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             bool succeeded=false;
             while (!succeeded) {
-                //try {
                 result_pt = Initialize(command_pt.get<std::string>("detectorConfigurationFilename"),
                                        command_pt.get<std::string>("imagesubscriberConfigurationFilename"),
                                        command_pt.get<std::string>("mujinControllerIp", ""),
@@ -408,10 +407,6 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                                        );
                 result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
                 succeeded = true;
-                //} catch (...) {
-                //_SetStatusMessage("Failed to initialize. Try again in 1 second...");
-                //boost::this_thread::sleep(boost::posix_time::seconds(1));
-                //}
             }
         } else if (command == "DetectObjects") {
             if (command_pt.count("regionname") == 0) {
@@ -766,24 +761,10 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
             }
         }
         catch (const UserInterruptException& ex) {
-            throw;
+            _SetStatus(MS_Aborted,"",true);
             std::cerr << "[INFO] User requested program exit." << std::endl;
-            //throw;
+            throw;
         }
-        //catch (const mujinclient::MujinException& e) {
-        //    _SetStatus(MS_Aborted,"",true);
-        //    std::cerr << "mujinclient::MujinException " << e.message() << std::endl;
-        //    throw;
-        //} catch (const zmq::error_t& e) {
-        //    _SetStatus(MS_Aborted,"",true);
-        //    std::cerr << "zmq exception " << e.what() << std::endl;
-        //    throw;
-        //}
-        //catch (const std::exception& e) {
-        //    _SetStatus(MS_Aborted,"",true);
-        //    std::cerr << "std::exception " << e.what() << std::endl;
-        //    throw;
-        //}
     }
     _StopCommandServer(port);
 }
@@ -1010,9 +991,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         if (_bStopDetectionThread) {
             break;
         }
-        //std::cout << "Sending " << newdetectedobjects.size() << " detected objects to the mujin controller." << std::endl;
-        //SendPointCloudObstacleToController(regionname, cameranames, newdetectedobjects, voxelsize, pointsize);
-        //UpdateDetectedObjects(newdetectedobjects, true);
         _UpdateEnvironmentState(regionname, cameranames, newdetectedobjects, voxelsize, pointsize, obstaclename);
         // visualize results
         if (_bStopDetectionThread) {

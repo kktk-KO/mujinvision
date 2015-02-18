@@ -196,7 +196,7 @@ bool MujinVisionManager::IsShutdown()
     return _bShutdown;
 }
 
-void MujinVisionManager::_SetStatus(ManagerStatus status, const std::string& msg, const bool disableInterrupt)
+void MujinVisionManager::_SetStatus(ManagerStatus status, const std::string& msg, const bool allowInterrupt)
 {
     if (status == MS_Preempted) {
         {
@@ -204,7 +204,7 @@ void MujinVisionManager::_SetStatus(ManagerStatus status, const std::string& msg
             _bCancelCommand = false;
         }
     }
-    if( _bCancelCommand && !disableInterrupt ) {
+    if(_bCancelCommand && allowInterrupt) {
         throw UserInterruptException("Cancelling command.");
     }
     std::cout << "[INFO] " << GetMilliTime() << " " << _vStatusDescriptions.at(status) << ": " << msg << std::endl;
@@ -217,7 +217,7 @@ void MujinVisionManager::_SetStatus(ManagerStatus status, const std::string& msg
 void MujinVisionManager::_SetStatusMessage(const std::string& msg)
 {
     if (_statusQueue.size()>0) {
-        _SetStatus(_statusQueue.front(), msg, false);
+        _SetStatus(_statusQueue.front(), msg);
     } else {
         throw MujinVisionException("VisionManager is in invalid state.", MVE_Failed);
     }
@@ -301,7 +301,7 @@ void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, s
         boost::mutex::scoped_lock lock(_mutexCancelCommand);
         if (_bExecutingUserCommand) { // only cancel when user command is being executed
             _bCancelCommand = true;
-            _SetStatus(MS_Preempting, "", true);
+            _SetStatus(MS_Preempting, "", false);
         } else {
             _SetStatusMessage("No command is being excuted, do nothing.");
         }
@@ -626,13 +626,12 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                                     cameranames);
             result_ss << ParametersBase::GetJsonString("status",result_pt.get<std::string>("status"));
         } else {
-            CMDMAP::iterator it = __mapCommands.find(command);
-            if( it == __mapCommands.end() ) {
+            if(_mNameCommand.find(command) == _mNameCommand.end()) {
                 std::stringstream ss;
                 ss << "Received unknown command " << command << ".";
                 throw MujinVisionException(ss.str(), MVE_CommandNotSupported);
             } else {
-                boost::shared_ptr<CustomCommand> customcommand = it->second;
+                boost::shared_ptr<CustomCommand> customcommand = _mNameCommand[command];
                 std::stringstream jsonss;
                 if( customcommand->fn(this, command_pt, jsonss) ) {
                     result_ss << ParametersBase::GetJsonString("status","succeeded");
@@ -725,7 +724,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                         std::cerr << "[INFO] User requested program exit." << std::endl;
                         //throw;
                     } else {
-                        _SetStatus(MS_Preempted,"",true);
+                        _SetStatus(MS_Preempted, "", false);
                         std::cerr << "[INFO] User interruped command execution." << std::endl;
                         result_ss << "{" << ParametersBase::GetJsonString("status", _vStatusDescriptions[MS_Preempted]) << "}";
                     }
@@ -744,12 +743,12 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                         result_ss << "{\"error\": \"Unhandled MujinVisionException\"}";
                         //throw;
                     }
-                    _SetStatus(MS_Aborted,e.message(),true);
+                    _SetStatus(MS_Aborted, e.message(), false);
                 }
                 catch (std::exception& e) {
                     result_ss << "{\"error\": \"" << e.what() << "\"}";
                     std::cerr << "[ERROR] unhandled exception, " << e.what() << std::endl; 
-                    _SetStatus(MS_Aborted,e.what(),true);
+                    _SetStatus(MS_Aborted, e.what(), false);
                 }
 
                 // send output
@@ -761,7 +760,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
             }
         }
         catch (const UserInterruptException& ex) {
-            _SetStatus(MS_Aborted,"",true);
+            _SetStatus(MS_Aborted, "", false);
             std::cerr << "[INFO] User requested program exit." << std::endl;
             throw;
         }
@@ -1065,17 +1064,16 @@ void MujinVisionManager::RegisterCustomCommand(const std::string& cmdname, Custo
     if((cmdname.size() == 0) || (cmdname == "commands")) {
         throw MujinVisionException(boost::str(boost::format("command '%s' invalid")%cmdname), MVE_Failed);
     }
-    if( __mapCommands.find(cmdname) != __mapCommands.end() ) {
+    if(_mNameCommand.find(cmdname) != _mNameCommand.end()) {
         throw MujinVisionException(str(boost::format("command '%s' already registered")%cmdname),MVE_Failed);
     }
-    __mapCommands[cmdname] = boost::shared_ptr<CustomCommand>(new CustomCommand(fncmd));
+    _mNameCommand[cmdname] = boost::shared_ptr<CustomCommand>(new CustomCommand(fncmd));
 }
 
 void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
 {
-    CMDMAP::iterator it = __mapCommands.find(cmdname);
-    if( it != __mapCommands.end() ) {
-        __mapCommands.erase(it);
+    if(_mNameCommand.find(cmdname) != _mNameCommand.end()) {
+        _mNameCommand.erase(_mNameCommand.find(cmdname));
     }
 }
 

@@ -63,7 +63,6 @@ public:
             timeToRemember = pt.get<unsigned int>("time_to_remember");
             timeToIgnore = pt.get<unsigned int>("time_to_ignore");
             numDetectionsToKeep = pt.get<unsigned int>("num_detections_to_keep");
-            monitorbinpickingheartbeat = pt.get<bool>("monitorbinpickingheartbeat",true);
         }
 
         virtual ~VisionServerParameters() {
@@ -80,7 +79,6 @@ public:
         unsigned int timeToRemember; ///< in millisecond, time to keep detection result before forgetting it
         unsigned int timeToIgnore; ///< in millisecond, time to ignore detection result after picking in the region
         unsigned int numDetectionsToKeep; ///< number of detection history to keep
-        bool monitorbinpickingheartbeat;
 
         std::string GetJsonString()
         {
@@ -266,13 +264,22 @@ public:
     virtual ptree SyncCameras(const std::string& regionname,
                               const std::vector<std::string>& cameranames);
 
+    /** \brief Gets id of the camera from name
+     */
     virtual ptree GetCameraId(const std::string& cameraname, std::string& cameraid);
 
+    /** \brief Shutsdown visionmanager
+     */
     void Shutdown();
+
+    /** \brief Whether visionmanager is shut down
+     */
     bool IsShutdown();
 
-    /// \brief Registers a command.
+    /** \brief Registers a command.
+     */
     typedef boost::function<bool (MujinVisionManager*, const ptree&, std::ostream&)> CustomCommandFn;
+
     class MUJINVISION_API CustomCommand
     {
 public:
@@ -283,13 +290,14 @@ public:
         CustomCommandFn fn; ///< command function to run
     };
 
-    /// \brief Registers a command and its help string. <b>[multi-thread safe]</b>
-    ///
-    /// \param cmdname - command name, converted to lower case
-    /// \param fncmd function to execute for the command
+    /** \brief Registers a command and its help string. <b>[multi-thread safe]</b>
+        \param cmdname - command name, converted to lower case
+        \param fncmd function to execute for the command
+    */
     virtual void RegisterCustomCommand(const std::string& cmdname, CustomCommandFn fncmd);
 
-    /// \brief Unregisters the command. <b>[multi-thread safe]</b>
+    /** \brief Unregisters the command. <b>[multi-thread safe]</b>
+     */
     virtual void UnregisterCommand(const std::string& cmdname);
 
 private:
@@ -318,7 +326,7 @@ private:
     void _DeInitialize();
     
     void _SetStatusMessage(const std::string& msg);
-    void _SetStatus(ManagerStatus status, const std::string& msg="", const bool disableInterrupt=false);
+    void _SetStatus(ManagerStatus status, const std::string& msg="", const bool allowInterrupt=true);
 
     /** \brief Executes command in json string. Returns result in json string.
      */
@@ -363,13 +371,27 @@ private:
     void _SyncCamera(const std::string& regionname, const std::string& cameraname);
 
     /** \brief Gets a color image (uncropped) from image subscriber manager.
+        \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
+        \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
      */
     ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int waitinterval=50);
+    /** \brief Gets color images (uncropped) from image subscriber manager.
+        \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
+        \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
+        \return number of images fetched
+     */
     unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int waitinterval=50);
 
     /** \brief Gets a depth image (uncropped) from image subscriber manager.
+        \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
+        \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
      */
     DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int waitinterval=50);
+    /** \brief Gets depth images (uncropped) from image subscriber manager.
+        \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
+        \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
+        \return number of images fetched
+     */
     unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<DepthImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int waitinterval=50);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
@@ -389,9 +411,17 @@ private:
     std::vector<std::string> _GetDepthCameraNames(const std::string& regionname, const std::vector<std::string>& cameranames);
 
     /** \brief Sends detected object list to mujin controller.
+        \param detectobjectsworld detected objects in world frame
      */
     void _SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld);
 
+    /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
+        \param regionname name of the region of which the pointcloud obstacle represents
+        \param cameranames names of the cameras to be used to capture the pointcloud obstacle
+        \param detectobjectsworld detected objects in world frame
+        \param voxelsize size of the voxel grid in meters used for simplifying the cloud
+        \param pointsize size of the point in meters to be sent to the mujin controller
+     */
     void _UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize, const std::string& obstaclename="__dynamicobstacle__");
 
     /** \brief Converts mujinclient::Transform to Transform.
@@ -406,6 +436,11 @@ private:
      */
     std::string _GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& message);
 
+    /** \brief Breaks the camera name string into camerabodyname and sensorname.
+        \param cameraname string such as 'camerabodyname/sensorname'
+        \param camerabodyname name of the camera kinbody
+        \param sensorname name of the attached sensor
+     */
     void _ParseCameraName(const std::string& cameraname, std::string& camerabodyname, std::string& sensorname);
 
     boost::array<std::string,8> _vStatusDescriptions;
@@ -436,12 +471,12 @@ private:
     std::map<std::string, CameraPtr > _mNameCamera; ///< name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
+    std::map<std::string, boost::shared_ptr<CustomCommand> > _mNameCommand; ///< all registered commands, command name -> custom command
 
     std::vector<ImageSubscriberPtr> _vSubscribers;
     unsigned int _numDepthImagesToAverage;
     ImageSubscriberManagerPtr _pImagesubscriberManager;
 
-    //std::map<std::string, ObjectDetectorPtr> _mDetector; ///< regionname->detector
     ObjectDetectorPtr _pDetector;
     boost::mutex _mutexDetector;
     DetectorManagerPtr _pDetectorManager;
@@ -449,16 +484,13 @@ private:
     std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
     std::vector<DetectedInfo> _vDetectedInfo;
     
-    bool _bInitialized;
-    bool _bShutdown;
-    bool _bStopStatusThread;
-    bool _bStopDetectionThread;
-    bool _bCancelCommand;
+    bool _bInitialized; ///< whether visionmanager is initialized
+    bool _bShutdown; ///< whether the visionmanager is shut down
+    bool _bStopStatusThread; ///< whether status thread is being stopped
+    bool _bStopDetectionThread; ///< whether detection thread is being stopped
+    bool _bCancelCommand; ///< whether the current user command is being canceled
     bool _bExecutingUserCommand; ///< true if currently executing a user command
-    std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool
-
-    typedef std::map<std::string, boost::shared_ptr<CustomCommand> > CMDMAP;
-    CMDMAP __mapCommands; ///< all registered commands
+    std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether the command thread of specified port is being stopped
 
 };
 typedef boost::shared_ptr<MujinVisionManager> MujinVisionManagerPtr;

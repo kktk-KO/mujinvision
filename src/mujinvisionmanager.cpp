@@ -382,7 +382,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         _SetStatusMessage(msg);
         result_pt = _GetResultPtree(MS_Active);
         result_ss << ParametersBase::GetJsonString("status", result_pt.get<std::string>("status"));
-        result_ss << ", " << ParametersBase::GetJsonString("error", msg) << "}";
+        result_ss << ", " << ParametersBase::GetJsonString("error", msg);
     } else {
         if (command == "Initialize") {
             if (_bInitialized) {

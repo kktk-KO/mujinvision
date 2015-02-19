@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// Copyright (C) 2012-2014 MUJIN Inc. <rosen.diankov@mujin.co.jp>
+// Copyright (C) 2012-2015 MUJIN Inc. <rosen.diankov@mujin.co.jp>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -142,6 +142,16 @@ struct MUJINVISION_API ParametersBase
             }
         }
         ss << "]";
+        return ss.str();
+    }
+
+    static std::string GetJsonString(const MujinVisionException& exception)
+    {
+        std::stringstream ss;
+        ss << GetJsonString("error") << ": {";
+        ss << GetJsonString("type") << ": " << GetJsonString(exception.GetCodeString()) << ",";
+        ss << GetJsonString("desc") << ": " << GetJsonString(exception.message());
+        ss << "}";
         return ss.str();
     }
 

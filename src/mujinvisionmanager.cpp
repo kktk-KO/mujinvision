@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// Copyright (C) 2012-2013 MUJIN Inc. <rosen.diankov@mujin.co.jp>
+// Copyright (C) 2012-2015 MUJIN Inc. <rosen.diankov@mujin.co.jp>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -287,7 +287,6 @@ void MujinVisionManager::_StopCommandServer(const unsigned int port)
 
 void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, std::stringstream& result_ss)
 {
-    result_ss << "{";
     std::string command = command_pt.get<std::string>("command");
     if (command == "Cancel") {
         boost::mutex::scoped_lock lock(_mutexCancelCommand);
@@ -297,7 +296,9 @@ void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, s
         } else {
             _SetStatusMessage("No command is being excuted, do nothing.");
         }
+        result_ss << "{";
         result_ss << ParametersBase::GetJsonString("status", _GetManagerStatusString(MS_Preempting));
+        result_ss << "}";
     } else if (command == "Quit") {
         // throw exception, shutdown gracefully
         _bShutdown=true;
@@ -305,12 +306,11 @@ void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, s
         _StopCommandThread(_pVisionServerParameters->rpcPort);
         throw UserInterruptException("User requested exit.");
     }
-    result_ss << "}";
 }
 
 void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::stringstream& result_ss)
 {
-    result_ss << "{";
+    uint64_t starttime = GetMilliTime();
     _SetStatus(MS_Active);
     {
         // only one command thread is running, so _bExecutingUserCommand must be false at this point, and _bCancelCommand must not be true, therefore no race condition of setting _bCancelCommand from true to false
@@ -342,13 +342,22 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             unsigned int maxage = command_pt.get("maxage",0);
             std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
             StartDetectionLoop(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, obstaclename);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else if (command == "StopDetectionLoop") {
             StopDetectionLoop();
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else if (command == "GetCameraId") {
             std::string cameraname = command_pt.get<std::string>("cameraname");
             std::string cameraid;
             GetCameraId(cameraname, cameraid);
-            result_ss << ParametersBase::GetJsonString("cameraid", cameraid);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("cameraid", cameraid) << ", ";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         }
     } else if (!!_pDetectionThread && !_bStopDetectionThread) {
         throw MujinVisionException("Detection thread is running, please stop it first.", MVE_Busy);
@@ -374,6 +383,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<std::string>("targetname"),
                        command_pt.get<std::string>("tasktype","binpicking")
                        );
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else if (command == "DetectObjects") {
             if (command_pt.count("regionname") == 0) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
@@ -393,7 +405,10 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             unsigned int maxage = command_pt.get("maxage",0);
             std::vector<DetectedObjectPtr> detectedobjects;
             DetectObjects(regionname, cameranames, detectedobjects, ignoreocclusion, maxage);
-            result_ss << _GetJsonString(detectedobjects);
+            result_ss << "{";
+            result_ss << _GetJsonString(detectedobjects) << ", ";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else if (command == "SendPointCloudObstacleToController") {
             if (command_pt.count("regionname") == 0) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
@@ -421,6 +436,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             double pointsize = command_pt.get("pointsize", 0.005);
             std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
             SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, voxelsize, pointsize, obstaclename);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else if (command == "VisualizePointCloudOnController") {
             if (command_pt.count("regionname") == 0) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
@@ -440,12 +458,17 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
             unsigned int maxage = command_pt.get("maxage",0);
             VisualizePointCloudOnController(regionname, cameranames, pointsize, ignoreocclusion, maxage);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else if (command == "ClearVisualizationOnController") {
             if (!_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_Failed);
             }
-
             ClearVisualizationOnController();
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else if (command == "DetectRegionTransform") {
             if (command_pt.count("regionname") == 0) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
@@ -465,7 +488,10 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             unsigned int maxage = command_pt.get("maxage",0);
             mujinvision::Transform regiontransform;
             DetectRegionTransform(regionname, cameranames, regiontransform, ignoreocclusion, maxage);
-            result_ss << ParametersBase::GetJsonString(regiontransform);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString(regiontransform) << ", ";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else if (command == "SaveSnapshot") {
             if (!_pBinpickingTask || !_pImagesubscriberManager) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_Failed);
@@ -474,6 +500,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
             unsigned int maxage = command_pt.get("maxage",0);
             SaveSnapshot(command_pt.get<std::string>("regionname"), ignoreocclusion, maxage);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else if (command == "UpdateDetectedObjects") {
             if (command_pt.count("regionname") == 0) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
@@ -491,6 +520,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 }
             }
             UpdateDetectedObjects(detectedobjects, command_pt.get<bool>("sendtocontroller"));
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else if (command == "SyncRegion") {
             if (command_pt.count("regionname") == 0) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
@@ -500,6 +532,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_Failed);
             }
             SyncRegion(regionname);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else if (command == "SyncCameras") {
             if (command_pt.count("regionname") == 0) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
@@ -517,6 +552,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 }
             }
             SyncCameras(regionname, cameranames);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else {
             if(_mNameCommand.find(command) == _mNameCommand.end()) {
                 std::stringstream ss;
@@ -526,12 +564,14 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 boost::shared_ptr<CustomCommand> customcommand = _mNameCommand[command];
                 std::stringstream customresultss;
                 customcommand->fn(this, command_pt, customresultss);
+                result_ss << "{";
                 result_ss << "\"customresult\": " << customresultss.str();
+                result_ss << ", " << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+                result_ss << "}";
             }
         }
     }
     _SetStatus(MS_Pending);
-    result_ss << "}";
 }
 
 void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned int ms)
@@ -608,7 +648,6 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 catch (const UserInterruptException& ex) { // need to catch it here, otherwise zmq will be in bad state
                     if (port == _pVisionServerParameters->configurationPort) {
                         std::cerr << "[INFO] User requested program exit." << std::endl;
-                        //throw;
                     } else {
                         _SetStatus(MS_Preempted, "", false);
                         std::cerr << "[INFO] User interruped command execution." << std::endl;
@@ -617,27 +656,20 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 }
                 catch (const MujinVisionException& e) {
                     std::cerr << "[ERROR] MujinVisionException " << e.message() << std::endl;
-                    if (e.GetCode() == MVE_InvalidArgument) {
-                        result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
-                    } else if (e.GetCode() == MVE_CommandNotSupported) {
-                        result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
-                    } else if (e.GetCode() == MVE_ConnectionError) {
-                        result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
-                    } else if (e.GetCode() == MVE_ImageAcquisitionError) {
-                        result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
-                    } else if (e.GetCode() == MVE_RecognitionError) {
-                        result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
-                    } else if (e.GetCode() == MVE_ConfigurationFileError) {
-                        result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
-                    } else if (e.GetCode() == MVE_NotImplemented) {
-                        result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
-                    } else if (e.GetCode() == MVE_Busy) {
-                        result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
-                    } else if (e.GetCode() == MVE_ControllerError) {
-                        result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
-                    } else {
-                        result_ss << "{" << ParametersBase::GetJsonString("error", e.message()) << "}";
+                    switch (e.GetCode()) {
+                    case MVE_Failed: break;
+                    case MVE_InvalidArgument: break;
+                    case MVE_CommandNotSupported: break;
+                    case MVE_ConnectionError: break;
+                    case MVE_ImageAcquisitionError: break;
+                    case MVE_RecognitionError: break;
+                    case MVE_ConfigurationFileError: break;
+                    case MVE_NotImplemented: break;
+                    case MVE_Busy: break;
+                    case MVE_ControllerError: break;
+                    default: break;
                     }
+                    result_ss << "{" << ParametersBase::GetJsonString(e) << "}";
                     _SetStatus(MS_Aborted, e.message(), false);
                 }
                 catch (std::exception& e) {
@@ -647,6 +679,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 }
 
                 // send output
+                // TODO: verify validity
                 _mPortCommandServer[port]->Send(result_ss.str());
 
             } else {

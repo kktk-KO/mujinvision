@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// Copyright (C) 2012-2014 MUJIN Inc. <rosen.diankov@mujin.co.jp>
+// Copyright (C) 2012-2015 MUJIN Inc. <rosen.diankov@mujin.co.jp>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,6 +84,11 @@ public:
     MujinVisionErrorCode GetCode() const
     {
         return _error;
+    }
+
+    char const* GetCodeString() const
+    {
+        return GetErrorCodeString(GetCode());
     }
 
 private:

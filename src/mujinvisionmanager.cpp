@@ -378,9 +378,11 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << ParametersBase::GetJsonString("cameraid", cameraid);
         }
     } else if (!!_pDetectionThread && !_bStopDetectionThread) {
-            _SetStatusMessage("Detection thread is running, please stop it first.");
-            result_pt = _GetResultPtree(MS_Active);
-            result_ss << ParametersBase::GetJsonString("status", result_pt.get<std::string>("status"));
+        std::string msg = "Detection thread is running, please stop it first.";
+        _SetStatusMessage(msg);
+        result_pt = _GetResultPtree(MS_Active);
+        result_ss << ParametersBase::GetJsonString("status", result_pt.get<std::string>("status"));
+        result_ss << ParametersBase::GetJsonString("error", msg) << "}";
     } else {
         if (command == "Initialize") {
             if (_bInitialized) {

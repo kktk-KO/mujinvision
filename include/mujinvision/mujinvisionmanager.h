@@ -167,20 +167,20 @@ public:
         - connect to the mujin controller
         - initialize detection
      */
-    virtual ptree Initialize(const std::string& detectorConfigurationFilename, ///< object model, detection parameters
-                             const std::string& imagesubscriberConfigurationFilename, ///< subscriber parameters
-                             const std::string& controllerIp,
-                             const unsigned int controllerPort,
-                             const std::string& controllerUsernamePass,
-                             const std::string& robotControllerUri,
-                             const unsigned int binpickingTaskZmqPort,
-                             const unsigned int binpickingTaskHeartbeatPort,
-                             const double binpickingTaskHeartbeatTimeout,
-                             const std::string& binpickingTaskScenePk,
-                             const std::string& robotname,
-                             const std::string& targetname,
-                             const std::string& tasktype="binpicking"
-                             );
+    virtual void Initialize(const std::string& detectorConfigurationFilename, ///< object model, detection parameters
+                            const std::string& imagesubscriberConfigurationFilename, ///< subscriber parameters
+                            const std::string& controllerIp,
+                            const unsigned int controllerPort,
+                            const std::string& controllerUsernamePass,
+                            const std::string& robotControllerUri,
+                            const unsigned int binpickingTaskZmqPort,
+                            const unsigned int binpickingTaskHeartbeatPort,
+                            const double binpickingTaskHeartbeatTimeout,
+                            const std::string& binpickingTaskScenePk,
+                            const std::string& robotname,
+                            const std::string& targetname,
+                            const std::string& tasktype="binpicking"
+                            );
 
     /** \brief Detects objects in specified region with specified cameras
         \param regionname name of the region
@@ -189,23 +189,23 @@ public:
         \param ignoreocclusion whether to skip occlusion check
         \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
      */
-    virtual ptree DetectObjects(const std::string& regionname,
-                                const std::vector<std::string>& cameranames,
-                                std::vector<DetectedObjectPtr>& detectedobjectsworld,
-                                const bool ignoreocclusion=false,
-                                const unsigned int maxage=0);
+    virtual void DetectObjects(const std::string& regionname,
+                               const std::vector<std::string>& cameranames,
+                               std::vector<DetectedObjectPtr>& detectedobjectsworld,
+                               const bool ignoreocclusion=false,
+                               const unsigned int maxage=0);
 
     /** \brief starts detection thread to continuously detect objects and sends detection results to mujin controller
      */
-    virtual ptree StartDetectionLoop(const std::string& regionname,
-                                     const std::vector<std::string>& cameranames,
-                                     const double voxelsize=0.01,
-                                     const double pointsize=0.005,
-                                     const bool ignoreocclusion=false,
-                                     const unsigned int maxage=0,
-                                     const std::string& obstaclename="__dynamicobstacle__");
+    virtual void StartDetectionLoop(const std::string& regionname,
+                                    const std::vector<std::string>& cameranames,
+                                    const double voxelsize=0.01,
+                                    const double pointsize=0.005,
+                                    const bool ignoreocclusion=false,
+                                    const unsigned int maxage=0,
+                                    const std::string& obstaclename="__dynamicobstacle__");
 
-    virtual ptree StopDetectionLoop();
+    virtual void StopDetectionLoop();
 
     /** \brief Updates the point cloud obstacle and sends it to mujin controller
         \param regionname name of the region where the detection happens
@@ -214,24 +214,24 @@ public:
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
         \param pointsize size of the point in meters to be sent to the mujin controller
      */
-    virtual ptree SendPointCloudObstacleToController(const std::string& regionname,
-                                                     const std::vector<std::string>& cameranames,
-                                                     const std::vector<DetectedObjectPtr>& detectedobjectsworld,
-                                                     const double voxelsize=0.01,
-                                                     const double pointsize=0.005,
-                                                     const std::string obstaclename="__dynamicobstacle__");
+    virtual void SendPointCloudObstacleToController(const std::string& regionname,
+                                                    const std::vector<std::string>& cameranames,
+                                                    const std::vector<DetectedObjectPtr>& detectedobjectsworld,
+                                                    const double voxelsize=0.01,
+                                                    const double pointsize=0.005,
+                                                    const std::string obstaclename="__dynamicobstacle__");
 
     /** \brief Visualizes the raw camera point clouds on mujin controller
      */
-    virtual ptree VisualizePointCloudOnController(const std::string& regionname,
-                                                  const std::vector<std::string>& cameranames,
-                                                  const double pointsize=0.005,
-                                                  const bool ignoreocclusion=false,
-                                                  const unsigned int maxage=0);
+    virtual void VisualizePointCloudOnController(const std::string& regionname,
+                                                 const std::vector<std::string>& cameranames,
+                                                 const double pointsize=0.005,
+                                                 const bool ignoreocclusion=false,
+                                                 const unsigned int maxage=0);
 
     /** \brief Clears visualization made by VisualizePointCloudOnController on mujin controller.
      */
-    virtual ptree ClearVisualizationOnController();
+    virtual void ClearVisualizationOnController();
 
     /** \brief Detects the transform of region
         \param regionname name of the region where the detection happens
@@ -240,33 +240,33 @@ public:
         \param ignoreocclusion whether to skip occlusion check
         \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
      */
-    virtual ptree DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage=0);
+    virtual void DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage=0);
 
     /** \brief Saves a snapshot for each sensor mapped to the region. If detection was called before, snapshots of the images used for the last detection will be saved. Images are saved to the visionmanager application directory.
      */
-    virtual ptree SaveSnapshot(const std::string& regionname, const bool ignoreocclusion=true, const unsigned int maxage=0);
+    virtual void SaveSnapshot(const std::string& regionname, const bool ignoreocclusion=true, const unsigned int maxage=0);
 
     /** \brief Updates the locally maintained list of the detected objects
         \param detectedobjectsworld detection result in world frame
         \param sendtocontroller whether to send the list to mujin controller
      */
-    virtual ptree UpdateDetectedObjects(const std::vector<DetectedObjectPtr>& detectobjectsworld, const bool sendtocontroller=false);
+    virtual void UpdateDetectedObjects(const std::vector<DetectedObjectPtr>& detectobjectsworld, const bool sendtocontroller=false);
 
     /** \brief Updates the region info from the mujin controller
         - updates position of the region
         - updates globalroi3d of the region
      */
-    virtual ptree SyncRegion(const std::string& regionname);
+    virtual void SyncRegion(const std::string& regionname);
 
     /** \brief Updates info about the cameras associated with the region from the mujin controller. If no cameraname is provided, then update all cameras mapped to the region.
         - updates positions of the cameras
      */
-    virtual ptree SyncCameras(const std::string& regionname,
+    virtual void SyncCameras(const std::string& regionname,
                               const std::vector<std::string>& cameranames);
 
     /** \brief Gets id of the camera from name
      */
-    virtual ptree GetCameraId(const std::string& cameraname, std::string& cameraid);
+    virtual void GetCameraId(const std::string& cameraname, std::string& cameraid);
 
     /** \brief Shutsdown visionmanager
      */
@@ -313,6 +313,20 @@ private:
         MS_Aborted=7,
     };
 
+    inline const char* _GetManagerStatusString(ManagerStatus status) {
+        switch (status) {
+        case MS_Lost: return "Lost";
+        case MS_Pending: return "Pending";
+        case MS_Active: return "Active";
+        case MS_Preempting: return "Preempting";
+        case MS_Preempted: return "Preempted";
+        case MS_Succeeded: return "Succeeded";
+        case MS_Paused: return "Paused";
+        case MS_Aborted: return "Aborted";
+        }
+        return "";
+    };
+
     struct DetectedInfo {
         unsigned long long timestamp; ///< timestamp of part's last detection.
         unsigned int count; ///< count is the number of detections of part.
@@ -332,10 +346,6 @@ private:
      */
     void _ExecuteConfigurationCommand(const ptree& command_pt, std::stringstream& result_ss);
     void _ExecuteUserCommand(const ptree& command_pt, std::stringstream& result_ss);
-
-    /** \brief Gets result ptree from status.
-     */
-    ptree _GetResultPtree(ManagerStatus status);
 
     /** \brief Receives and executes commands from the user and sends results back.
      */
@@ -442,8 +452,6 @@ private:
         \param sensorname name of the attached sensor
      */
     void _ParseCameraName(const std::string& cameraname, std::string& camerabodyname, std::string& sensorname);
-
-    boost::array<std::string,8> _vStatusDescriptions;
 
     ControllerClientPtr _pControllerClient;
     SceneResourcePtr _pSceneResource;

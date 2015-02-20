@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include "mujinvision/mujinvisionmanager.h"
-
+#include <boost/algorithm/string.hpp>
 #include <time.h>
 
 #ifndef _WIN32
@@ -625,7 +625,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
     std::string incomingmessage;
     ptree command_pt;
     std::stringstream command_ss, result_ss;
-
+    std::string resultstr;
     while (!_mPortStopCommandThread[port]) {
         try {
             // receive message
@@ -680,7 +680,9 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
 
                 // send output
                 // TODO: verify validity
-                _mPortCommandServer[port]->Send(result_ss.str());
+                resultstr = result_ss.str();
+                boost::replace_all(resultstr, "\n", "\\n");
+                _mPortCommandServer[port]->Send(resultstr);
 
             } else {
                 // wait for command

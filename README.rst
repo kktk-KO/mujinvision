@@ -4,7 +4,7 @@ mujinvision
 Library for Coordinating Vision Application and MUJIN Controller
 
 ZeroMQ (REQ) RPC Messages
--------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Everything is in JSON.
 
@@ -33,7 +33,8 @@ When everything is ok, return parameters depending on command::
 When error happens, response will be filled with an error field::
 
   {
-    "error":{
+    "error":
+    {
       "type":"InvalidArguments",
       "desc":"more thorough description of what happened"
     }
@@ -42,68 +43,44 @@ When error happens, response will be filled with an error field::
 - type - comes from the MujinVisionErrorCode enum. Use GetErrorCodeString(MVC_X).
 - desc - context specific
 
-Details
-=======
+Handling Errors
+===============
 
 For command implementation in the vision server:
 
-- whenever any inputs are bad, throw an exception with MVE_InvalidArgument
+- whenever any inputs is bad, throw an exception with MVE_InvalidArgument
 - if vision server is busy doing something else and cannot process command, throw MVE_Busy
 
 Regular Command List
 ====================
 
-Initialize
-++++++++++
+Regular commands controls the detection process:
 
-DetectObjects
-+++++++++++++
-
-SendPointCloudObstacleToController
-++++++++++++++++++++++++++++++++++
-
-VisualizePointCloudOnController
-+++++++++++++++++++++++++++++++
-
-ClearVisualizationOnController
-++++++++++++++++++++++++++++++
-
-DetectRegionTransform
-+++++++++++++++++++++
-
-SaveSnapshot
-++++++++++++
-
-UpdateDetectedObjects
-+++++++++++++++++++++
-
-SyncRegion
-++++++++++
-
-SyncCameras
-++++++++++++
-
-StartDetectionLoop
-++++++++++++++++++
-
-StopDetectionLoop
-+++++++++++++++++
-
-GetCameraId
-+++++++++++
+- Initialize
+- StartDetectionLoop
+- StopDetectionLoop
+- DetectObjects
+- SendPointCloudObstacleToController
+- VisualizePointCloudOnController
+- ClearVisualizationOnController
+- DetectRegionTransform
+- SaveSnapshot
+- UpdateDetectedObjects
+- SyncRegion
+- SyncCameras
+- GetCameraId
 
 Configuration Command List
 ==========================
 
-Cancel
-++++++
+Configuration commands controls the vision manager itself:
 
-Quit
-++++
+- Cancel
+- Quit
 
 
 ZeroMQ Status Messages
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 

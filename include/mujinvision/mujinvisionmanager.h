@@ -127,9 +127,9 @@ public:
 
     class MUJINVISION_API StatusPublisher : public ZmqPublisher {
 public:
-        StatusPublisher(const unsigned int port) : ZmqPublisher(port)
+        StatusPublisher(boost::shared_ptr<zmq::context_t> context, const unsigned int port) : ZmqPublisher(port)
         {
-            _InitializeSocket();
+            _InitializeSocket(context);
         }
 
         virtual ~StatusPublisher()
@@ -143,9 +143,9 @@ public:
 
     class MUJINVISION_API CommandServer : public ZmqServer {
 public:
-        CommandServer(const unsigned int port) : ZmqServer(port)
+        CommandServer(boost::shared_ptr<zmq::context_t> context, const unsigned int port) : ZmqServer(port)
         {
-            _InitializeSocket();
+            _InitializeSocket(context);
         }
 
         virtual ~CommandServer()
@@ -452,6 +452,8 @@ private:
         \param sensorname name of the attached sensor
      */
     void _ParseCameraName(const std::string& cameraname, std::string& camerabodyname, std::string& sensorname);
+
+    boost::shared_ptr<zmq::context_t> _zmqcontext;
 
     ControllerClientPtr _pControllerClient;
     SceneResourcePtr _pSceneResource;

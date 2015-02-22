@@ -137,6 +137,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _pImagesubscriberManager = imagesubscribermanager;
     _pDetectorManager = detectormanager;
     _bShutdown = false;
+    _zmqcontext.reset(new zmq::context_t(6));
     ptree pt;
     // load visionserver configuration
     if (!boost::filesystem::exists(visionmanagerConfigFilename)) {
@@ -217,7 +218,7 @@ void MujinVisionManager::_SetStatusMessage(const std::string& msg)
 
 void MujinVisionManager::_StartStatusPublisher(const unsigned int port)
 {
-    _pStatusPublisher.reset(new StatusPublisher(port));
+    _pStatusPublisher.reset(new StatusPublisher(_zmqcontext, port));
     if (!_pStatusPublisher) {
         throw MujinVisionException("Failed to start status publisher!", MVE_Failed);
     }
@@ -271,7 +272,7 @@ void MujinVisionManager::_StartCommandServer(const unsigned int port)
 {
     {
         boost::mutex::scoped_lock lock(_mutexCommandServerMap);
-        _mPortCommandServer[port].reset(new CommandServer(port));
+        _mPortCommandServer[port].reset(new CommandServer(_zmqcontext, port));
     }
     if (!_mPortCommandServer[port]) {
         std::stringstream ss;
@@ -1252,7 +1253,7 @@ void MujinVisionManager::Initialize(const std::string& detectorConfigFilename, c
     SceneResourcePtr scene(new SceneResource(controller,binpickingTaskScenePk));
     _pSceneResource = scene;
     _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8(tasktype+std::string("task1"), tasktype, TRO_EnableZMQ);
-    _pBinpickingTask->Initialize(robotControllerUri, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, binpickingTaskHeartbeatTimeout);
+    _pBinpickingTask->Initialize(robotControllerUri, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, binpickingTaskHeartbeatTimeout);
 
     // sync regions
     _SetStatusMessage("Syncing regions.");

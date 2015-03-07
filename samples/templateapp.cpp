@@ -131,11 +131,10 @@ typedef boost::weak_ptr<UserDetectorManager> UserDetectorManagerWeakPtr;
 
 int main(int argc, char* argv[])
 {
-    const std::string visionmanagerConfigFilename = argv[1];
     UserImageSubscriberManagerPtr imagesubscribermanager(new UserImageSubscriberManager());
     UserDetectorManagerPtr detectormanager(new UserDetectorManager());
     MujinVisionManagerPtr visionmanager;
-    visionmanager.reset(new MujinVisionManager(imagesubscribermanager, detectormanager, visionmanagerConfigFilename));
+    visionmanager.reset(new MujinVisionManager(imagesubscribermanager, detectormanager,50001, 50002, 50003, 50004, "/tmp"));
     while (!visionmanager->IsShutdown()) {
         boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
     }

@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// Copyright (C) 2012-2014 MUJIN Inc. <rosen.diankov@mujin.co.jp>
+// Copyright (C) 2012-2015 MUJIN Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,9 +36,8 @@ class MUJINVISION_API MujinVisionManager
 {
 public:
     /** \brief sets up vision manager
-        - loads config file
      */    
-    MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const std::string& visionmanagerConfigurationFilename);
+    MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned int configport, const unsigned int heartbeatport, const std::string& configdir);
     virtual ~MujinVisionManager();
 
     virtual void Destroy();
@@ -49,10 +48,6 @@ public:
         VisionServerParameters(const ptree& pt)
         {
             _pt = pt;
-            heartbeatPort = pt.get<unsigned int>("heartbeat_port");
-            configurationPort = pt.get<unsigned int>("configuration_port");
-            statusPort = pt.get<unsigned int>("status_port");
-            rpcPort = pt.get<unsigned int>("rpc_port");
             FOREACH(v, pt.get_child("imagestream_connections")) {
                 ConnectionParametersPtr pimagestreamconnection(new ConnectionParameters(v->second));
                 streamerConnections.push_back(pimagestreamconnection);
@@ -68,10 +63,6 @@ public:
         virtual ~VisionServerParameters() {
         }
 
-        unsigned int heartbeatPort;
-        unsigned int configurationPort;
-        unsigned int statusPort;
-        unsigned int rpcPort;
         std::vector<ConnectionParametersPtr > streamerConnections;
 
         double maxPositionError; ///< in meter, max position error to consider detections the same
@@ -84,10 +75,6 @@ public:
         {
             std::stringstream ss;
             ss << "{";
-            ss << "\"heartbeat_port\": " << heartbeatPort << ",";
-            ss << "\"configuration_port\": " << configurationPort << ",";
-            ss << "\"status_port\": " << statusPort << ",";
-            ss << "\"rpc_port\": " << rpcPort << ",";
             ss << "\"imagestream_connections\": [";
             for (unsigned int i=0; i<streamerConnections.size(); i++) {
                 ss << streamerConnections[i]->GetJsonString();
@@ -108,10 +95,6 @@ public:
         ptree GetPropertyTree()
         {
             if (_pt.empty()) {
-                _pt.put<unsigned int>("heartbeat_port", heartbeatPort);
-                _pt.put<unsigned int>("configuration_port", configurationPort);
-                _pt.put<unsigned int>("status_port", statusPort);
-                _pt.put<unsigned int>("rpc_port", rpcPort);
                 ptree streamerConnections_pt;
                 for (unsigned int i=0; i<streamerConnections.size(); i++) {
                     streamerConnections_pt.push_back(std::make_pair("", streamerConnections[i]->GetPropertyTree()));
@@ -158,17 +141,15 @@ public:
     typedef boost::weak_ptr<CommandServer> CommandServerWeakPtr;
 
 
-    /** \brief start threads
-     */
-    virtual void StartThreads();
     /** \brief preparation for the detection process
-        - load object.conf
+        - process configurations
         - subscribe to image streams
         - connect to the mujin controller
         - initialize detection
      */
-    virtual void Initialize(const std::string& detectorConfigurationFilename, ///< object model, detection parameters
-                            const std::string& imagesubscriberConfigurationFilename, ///< subscriber parameters
+    virtual void Initialize(const std::string& visionmanagerconfig,
+                            const std::string& detectorconfig, ///< object model, detection parameters
+                            const std::string& imagesubscriberconfig, ///< subscriber parameters
                             const std::string& controllerIp,
                             const unsigned int controllerPort,
                             const std::string& controllerUsernamePass,
@@ -275,6 +256,13 @@ public:
     /** \brief Whether visionmanager is shut down
      */
     bool IsShutdown();
+
+    virtual void GetVisionmanagerConfig(std::string& config);
+    virtual void GetDetectorConfig(std::string& config);
+    virtual void GetImagesubscriberConfig(std::string& config);
+    virtual void SaveVisionmanagerConfig(const std::string& visionmanagerconfigname, const std::string& config="");
+    virtual void SaveDetectorConfig(const std::string& detectorconfigname, const std::string& config="");
+    virtual void SaveImagesubscriberConfig(const std::string& imagesubscriberconfigname, const std::string& config="");
 
     /** \brief Registers a command.
      */
@@ -452,6 +440,10 @@ private:
         \param sensorname name of the attached sensor
      */
     void _ParseCameraName(const std::string& cameraname, std::string& camerabodyname, std::string& sensorname);
+
+    unsigned int _statusport, _commandport, _configport, _heartbeatport;
+    std::string _configdir;
+    std::string _detectorconfig, _imagesubscriberconfig;
 
     boost::shared_ptr<zmq::context_t> _zmqcontext;
 

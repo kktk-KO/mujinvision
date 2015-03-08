@@ -147,9 +147,9 @@ public:
         - connect to the mujin controller
         - initialize detection
      */
-    virtual void Initialize(const std::string& visionmanagerconfig,
-                            const std::string& detectorconfig, ///< object model, detection parameters
-                            const std::string& imagesubscriberconfig, ///< subscriber parameters
+    virtual void Initialize(const std::string& visionmanagerconfigname,
+                            const std::string& detectorconfigname,
+                            const std::string& imagesubscriberconfigname,
                             const std::string& controllerIp,
                             const unsigned int controllerPort,
                             const std::string& controllerUsernamePass,
@@ -257,12 +257,8 @@ public:
      */
     bool IsShutdown();
 
-    virtual void GetVisionmanagerConfig(std::string& config);
-    virtual void GetDetectorConfig(std::string& config);
-    virtual void GetImagesubscriberConfig(std::string& config);
-    virtual void SaveVisionmanagerConfig(const std::string& visionmanagerconfigname, const std::string& config="");
-    virtual void SaveDetectorConfig(const std::string& detectorconfigname, const std::string& config="");
-    virtual void SaveImagesubscriberConfig(const std::string& imagesubscriberconfigname, const std::string& config="");
+    virtual void GetConfig(const std::string& type, std::string& config);
+    virtual void SaveConfig(const std::string& type, const std::string& configname, const std::string& config="");
 
     /** \brief Registers a command.
      */
@@ -440,6 +436,9 @@ private:
         \param sensorname name of the attached sensor
      */
     void _ParseCameraName(const std::string& cameraname, std::string& camerabodyname, std::string& sensorname);
+
+    std::string _GetConfigFileName(const std::string& type, const std::string& configname);
+    void _LoadConfig(const std::string& filename, std::string& content);
 
     unsigned int _statusport, _commandport, _configport, _heartbeatport;
     std::string _configdir;

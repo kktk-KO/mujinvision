@@ -159,66 +159,47 @@ bool MujinVisionManager::IsShutdown()
     return _bShutdown;
 }
 
-void MujinVisionManager::GetVisionmanagerConfig(std::string& config)
+void MujinVisionManager::GetConfig(const std::string& type, std::string& config)
 {
-    config = _pVisionServerParameters->GetJsonString();
-}
-
-void MujinVisionManager::GetDetectorConfig(std::string& config)
-{
-    config = _detectorconfig;
-}
-
-void MujinVisionManager::GetImagesubscriberConfig(std::string& config)
-{
-    config = _imagesubscriberconfig;
-}
-
-void MujinVisionManager::SaveVisionmanagerConfig(const std::string& visionmanagerconfigname, const std::string& config)
-{
-    std::string filename = _configdir + "/visionmanager-" + visionmanagerconfigname + ".json";
-    if (!boost::filesystem::exists(filename)) {
-        throw MujinVisionException(filename+" does not exist.", MVE_InvalidArgument);
+    if (type == "visionmanager") {
+        config = _pVisionServerParameters->GetJsonString();
+    } else if (type == "detector") {
+        config = _detectorconfig;
+    } else if (type == "imagesubscriber") {
+        config = _imagesubscriberconfig;
     }
-    std::string content;
-    if (config == "") {
-        GetVisionmanagerConfig(content);
+}
+
+std::string MujinVisionManager::_GetConfigFileName(const std::string& type, const std::string& configname)
+{
+    return _configdir + "/" + type + "-" + configname + ".json";
+}
+
+void MujinVisionManager::_LoadConfig(const std::string& filename, std::string& content)
+{
+    if (!boost::filesystem::exists(filename)) {
+        std::stringstream errss;
+        errss << "file " << filename << " does not exist!";
+        throw MujinVisionException("file " + filename + " does not exist!", MVE_InvalidArgument);
     } else {
-        // TODO: validate
-        content = config;
+        std::cout << "[DEBUG]" << " Loading file from " << filename << std::endl;
+        std::ifstream t(filename.c_str());
+        t.seekg(0, std::ios::end);
+        content.reserve(t.tellg());
+        t.seekg(0, std::ios::beg);
+        content.assign((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
     }
-    std::ofstream out(filename.c_str());
-    out << content;
-    out.close();
 }
 
-void MujinVisionManager::SaveDetectorConfig(const std::string& detectorconfigname, const std::string& config)
+void MujinVisionManager::SaveConfig(const std::string& type, const std::string& visionmanagerconfigname, const std::string& config)
 {
-    std::string filename = _configdir + "/detector-" + detectorconfigname + ".json";
+    std::string filename = _GetConfigFileName(type, visionmanagerconfigname);
     if (!boost::filesystem::exists(filename)) {
         throw MujinVisionException(filename+" does not exist.", MVE_InvalidArgument);
     }
     std::string content;
     if (config == "") {
-        GetDetectorConfig(content);
-    } else {
-        // TODO: validate
-        content = config;
-    }
-    std::ofstream out(filename.c_str());
-    out << content;
-    out.close();
-}
-
-void MujinVisionManager::SaveImagesubscriberConfig(const std::string& imagesubscriberconfigname, const std::string& config)
-{
-    std::string filename = _configdir + "/imagesubscriber-" + imagesubscriberconfigname + ".json";
-    if (!boost::filesystem::exists(filename)) {
-        throw MujinVisionException(filename+" does not exist.", MVE_InvalidArgument);
-    }
-    std::string content;
-    if (config == "") {
-        GetImagesubscriberConfig(content);
+        GetConfig(type, content);
     } else {
         // TODO: validate
         content = config;
@@ -598,21 +579,21 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << "}";
         } else if (command == "GetVisionmanagerConfig") {
             std::string config;
-            GetVisionmanagerConfig(config);
+            GetConfig("visionmanager", config);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("visionmanagerconfig") << ": " << config << ",";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "GetDetectorConfig") {
             std::string config;
-            GetDetectorConfig(config);
+            GetConfig("detector", config);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("detectorconfigname") << ": " << config << ",";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "GetImagesubscriberConfig") {
             std::string config;
-            GetImagesubscriberConfig(config);
+            GetConfig("imagesubscriber", config);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("imagesubscriberconfigname") << ": " << config << ",";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -624,7 +605,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             if (command_pt.count("config") == 0) {
                 throw MujinVisionException("config is not specified.", MVE_InvalidArgument);
             }
-            SaveVisionmanagerConfig(command_pt.get<std::string>("visionmanagerconfigname"), command_pt.get<std::string>("config", ""));
+            SaveConfig("visionmanager", command_pt.get<std::string>("visionmanagerconfigname"), command_pt.get<std::string>("config", ""));
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -635,7 +616,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             if (command_pt.count("config") == 0) {
                 throw MujinVisionException("config is not specified.", MVE_InvalidArgument);
             }
-            SaveDetectorConfig(command_pt.get<std::string>("detectorconfigname"), command_pt.get<std::string>("config", ""));
+            SaveConfig("detector", command_pt.get<std::string>("detectorconfigname"), command_pt.get<std::string>("config", ""));
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -646,7 +627,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             if (command_pt.count("config") == 0) {
                 throw MujinVisionException("config is not specified.", MVE_InvalidArgument);
             }
-            SaveImagesubscriberConfig(command_pt.get<std::string>("imagesubscriberconfigname"), command_pt.get<std::string>("config", ""));
+            SaveConfig("imagesubscriber", command_pt.get<std::string>("imagesubscriberconfigname"), command_pt.get<std::string>("config", ""));
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -1334,11 +1315,13 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
     return depthimages.size();
 }
 
-void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, const std::string& detectorconfig, const std::string& imagesubscriberconfig, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::string& tasktype)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::string& tasktype)
 {
     ptree pt;
 
     // load visionserver configuration
+    std::string visionmanagerconfig;
+    _LoadConfig(_GetConfigFileName("visionmanager", visionmanagerconfigname), visionmanagerconfig);
     std::stringstream visionmanagerconfigss;
     visionmanagerconfigss << visionmanagerconfig;
     read_json(visionmanagerconfigss, pt);
@@ -1448,8 +1431,10 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
 
     // set up subscribers
     _SetStatusMessage("Loading subscriber configuration.");
-    _imagesubscriberconfig = imagesubscriberconfig;
     // load subscriber configuration
+    std::string imagesubscriberconfig;
+    _LoadConfig(_GetConfigFileName("imagesubscriber", imagesubscriberconfigname), imagesubscriberconfig);
+    _imagesubscriberconfig = imagesubscriberconfig;
     std::stringstream imagesubscriberconfigss;
     imagesubscriberconfigss << imagesubscriberconfig;
     read_json(imagesubscriberconfigss, pt);
@@ -1466,6 +1451,8 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
 
     // set up detectors
     _SetStatusMessage("Setting up detector.");
+    std::string detectorconfig;
+    _LoadConfig(_GetConfigFileName("detector", detectorconfigname), detectorconfig);
     _detectorconfig = detectorconfig;
     std::stringstream detectorconfigss;
     detectorconfigss << detectorconfig;

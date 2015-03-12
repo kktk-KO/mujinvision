@@ -339,7 +339,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         _bExecutingUserCommand = true;
     }
     std::string command = command_pt.get<std::string>("command");
-    if (command == "StartDetectionLoop" || command == "StopDetectionLoop" || command == "GetCameraId") {
+    if (command == "StartDetectionLoop" || command == "StopDetectionLoop" || (command.size() >= 3 && command.substr(0,3) == "Get")) {
         if (command == "StartDetectionLoop") {
             if (command_pt.count("regionname") == 0) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
@@ -371,6 +371,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "GetCameraId") {
+            if (!_pDetector || !_pBinpickingTask) {
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_Failed);
+            }
             std::string cameraname = command_pt.get<std::string>("cameraname");
             std::string cameraid;
             GetCameraId(cameraname, cameraid);

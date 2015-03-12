@@ -381,6 +381,41 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << ParametersBase::GetJsonString("cameraid", cameraid) << ", ";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
+        } else if (command == "GetVisionmanagerConfig") {
+            std::string config;
+            GetConfig("visionmanager", config);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("visionmanagerconfig") << ": " << config << ",";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
+        } else if (command == "GetDetectorConfig") {
+            std::string config;
+            GetConfig("detector", config);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("detectorconfigname") << ": " << config << ",";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
+        } else if (command == "GetImagesubscriberConfig") {
+            std::string config;
+            GetConfig("imagesubscriber", config);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("imagesubscriberconfigname") << ": " << config << ",";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
+        } else if (command == "GetConfigPort") {
+            unsigned int port;
+            GetConfigPort(port);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("configport") << ": " << port << ",";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
+        } else if (command == "GetStatusPort") {
+            unsigned int port;
+            GetStatusPort(port);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("statusport") << ": " << port << ",";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         }
     } else if (!!_pDetectionThread && !_bStopDetectionThread) {
         throw MujinVisionException("Detection thread is running, please stop it first.", MVE_Busy);
@@ -579,27 +614,6 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
-        } else if (command == "GetVisionmanagerConfig") {
-            std::string config;
-            GetConfig("visionmanager", config);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("visionmanagerconfig") << ": " << config << ",";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
-        } else if (command == "GetDetectorConfig") {
-            std::string config;
-            GetConfig("detector", config);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("detectorconfigname") << ": " << config << ",";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
-        } else if (command == "GetImagesubscriberConfig") {
-            std::string config;
-            GetConfig("imagesubscriber", config);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("imagesubscriberconfigname") << ": " << config << ",";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
         } else if (command == "SaveVisionmanagerConfig") {
             if (command_pt.count("visionmanagerconfigname") == 0) {
                 throw MujinVisionException("visionmanagerconfigname is not specified.", MVE_InvalidArgument);
@@ -631,20 +645,6 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             SaveConfig("imagesubscriber", command_pt.get<std::string>("imagesubscriberconfigname"), command_pt.get<std::string>("config", ""));
             result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
-        } else if (command == "GetConfigPort") {
-            unsigned int port;
-            GetConfigPort(port);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("configport") << ": " << port << ",";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
-        } else if (command == "GetStatusPort") {
-            unsigned int port;
-            GetStatusPort(port);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("statusport") << ": " << port << ",";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else {

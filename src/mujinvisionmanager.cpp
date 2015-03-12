@@ -119,7 +119,7 @@ inline static uint64_t GetNanoPerformanceTime()
 
 namespace mujinvision {
 
-MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const unsigned int heartbeatport, const std::string& configdir)
+MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir)
 {
     _bInitialized = false;
     _pImagesubscriberManager = imagesubscribermanager;
@@ -129,7 +129,6 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _statusport = statusport;
     _commandport = commandport;
     _configport = configport;
-    _heartbeatport = heartbeatport;
     _configdir = configdir;
     _StartStatusThread(statusport);
     _StartCommandThread(commandport);
@@ -629,6 +628,20 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             SaveConfig("imagesubscriber", command_pt.get<std::string>("imagesubscriberconfigname"), command_pt.get<std::string>("config", ""));
             result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
+        } else if (command == "GetConfigPort") {
+            unsigned int port;
+            GetConfigPort(port);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("configport") << ": " << port << ",";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
+        } else if (command == "GetStatusPort") {
+            unsigned int port;
+            GetStatusPort(port);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("statusport") << ": " << port << ",";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else {

@@ -701,12 +701,6 @@ typedef boost::shared_ptr<Region> RegionPtr;
 typedef boost::shared_ptr<Region const> RegionConstPtr;
 typedef boost::weak_ptr<Region> RegionWeakPtr;
 
-// enum DetectionResultStatusCode {
-//     DS_Succeeded=0,
-//     DS_Aborted=1,
-//     DS_Interrupted=2,
-// };
-
 class MUJINVISION_API MujinInterruptable
 {
 public:

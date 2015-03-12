@@ -37,7 +37,7 @@ class MUJINVISION_API MujinVisionManager
 public:
     /** \brief sets up vision manager
      */    
-    MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned int configport, const unsigned int heartbeatport, const std::string& configdir);
+    MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned int configport, const std::string& configdir);
     virtual ~MujinVisionManager();
 
     virtual void Destroy();
@@ -260,6 +260,14 @@ public:
     virtual void GetConfig(const std::string& type, std::string& config);
     virtual void SaveConfig(const std::string& type, const std::string& configname, const std::string& config="");
 
+    void GetStatusPort(unsigned int &port) {
+        port = _statusport;
+    }
+
+    void GetConfigPort(unsigned int &port) {
+        port = _configport;
+    }
+
     /** \brief Registers a command.
      */
     typedef boost::function<bool (MujinVisionManager*, const ptree&, std::ostream&)> CustomCommandFn;
@@ -440,7 +448,7 @@ private:
     std::string _GetConfigFileName(const std::string& type, const std::string& configname);
     void _LoadConfig(const std::string& filename, std::string& content);
 
-    unsigned int _statusport, _commandport, _configport, _heartbeatport;
+    unsigned int _statusport, _commandport, _configport;
     std::string _configdir;
     std::string _detectorconfig, _imagesubscriberconfig;
 

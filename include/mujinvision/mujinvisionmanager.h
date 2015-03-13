@@ -249,13 +249,15 @@ public:
      */
     virtual void GetCameraId(const std::string& cameraname, std::string& cameraid);
 
-    /** \brief Shutsdown visionmanager
+    /** \brief Shuts down visionmanager
      */
     void Shutdown();
 
     /** \brief Whether visionmanager is shut down
      */
     bool IsShutdown();
+
+    virtual void GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectobjectsworld);
 
     virtual void GetConfig(const std::string& type, std::string& config);
     virtual void SaveConfig(const std::string& type, const std::string& configname, const std::string& config="");
@@ -491,7 +493,9 @@ private:
     DetectorManagerPtr _pDetectorManager;
 
     std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
+    boost::mutex _mutexDetectedInfo;
     std::vector<DetectedInfo> _vDetectedInfo;
+    std::vector<DetectedObjectPtr> _vDetectedObject;
     
     bool _bInitialized; ///< whether visionmanager is initialized
     bool _bShutdown; ///< whether the visionmanager is shut down

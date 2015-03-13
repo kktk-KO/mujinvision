@@ -370,6 +370,24 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
+        } else if (command == "GetLatestDetectedObjects") {
+            if (!_pDetector || !_pBinpickingTask) {
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_Failed);
+            }
+            std::vector<DetectedObjectPtr> detectedobjectsworld;
+            GetLatestDetectedObjects(detectedobjectsworld);
+
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("detectedobjects") << ": [";
+            for (unsigned int i=0; i<detectedobjectsworld.size(); ++i) {
+                result_ss << detectedobjectsworld.at(i)->GetJsonString();
+                if (i+1 < detectedobjectsworld.size()) {
+                    result_ss << ", ";
+                }
+            }
+            result_ss << "], ";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
         } else if (command == "GetCameraId") {
             if (!_pDetector || !_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_Failed);
@@ -891,127 +909,132 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
         std::vector<DetectedObjectPtr> newdetectedobjects;
 
-        if (_pVisionServerParameters->numDetectionsToKeep>0) {
-            for (unsigned int i=0; i<detectedobjects.size(); i++) {
-                unsigned long long timestamp = detectedobjects[i]->timestamp;
-                std::string confidence = detectedobjects[i]->confidence;
-                Transform transform = detectedobjects[i]->transform;
-                TransformMatrix mat(transform);
-                Vector position = transform.trans;
-                Vector rotation = transform.rot;
-                double minDist = 999;
-                int minIndex = -1;
-                if (_pVisionServerParameters->numDetectionsToKeep>0) {
-                    // make sure the z-axis of the detected rotation's origin is pointing up in the world frame, so that upside-down flipping is considered the same
-                    double dotproductX = mat.m[0]+mat.m[4]+mat.m[8];
-                    double dotproductY = mat.m[1]+mat.m[5]+mat.m[9];
-                    double dotproductZ = mat.m[2]+mat.m[6]+mat.m[10];
-                    if (dotproductZ<0  // if z pointing down
-                        || (dotproductZ == 0 && dotproductX <0) // or if z pointing flat, but x pointing down
-                        || (dotproductZ == 0 && dotproductX == 0 && dotproductY<0) // or both z and x pointing flat, but y pointing down
-                        ) {
-                        std::cout << "[DEBUG] Upside-down detection (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << "), flip rotation." << std::endl;
-                        // rotate around x axis by 180
-                        rotation[0] = -transform.rot[1];
-                        rotation[1] = transform.rot[0];
-                        rotation[2] = transform.rot[3];
-                        rotation[3] = -transform.rot[2];
-                    }
-                }
-                for (unsigned int j=0; j<_vDetectedInfo.size(); j++) {
-                    double dist = std::sqrt(((position-_vDetectedInfo[j].meanPosition)*weights).lengthsqr3());
-                    if (dist < minDist) {
-                        minDist = dist;
-                        minIndex = j;
-                    }
-                }
-                if (minDist < _pVisionServerParameters->maxPositionError && _pVisionServerParameters->numDetectionsToKeep>0) {
-                    _vDetectedInfo.at(minIndex).count++;
-                    unsigned int numDetections;
-                    // only keep track of the last n detection results
-                    if (_vDetectedInfo.at(minIndex).count <= _pVisionServerParameters->numDetectionsToKeep) {
-                        _vDetectedInfo.at(minIndex).positions.push_back(position);
-                        _vDetectedInfo.at(minIndex).rotations.push_back(rotation);
-                        _vDetectedInfo.at(minIndex).confidences.push_back(confidence);
-                        numDetections = _vDetectedInfo.at(minIndex).count;
-                    } else {
-                        numDetections = _pVisionServerParameters->numDetectionsToKeep;
-                        unsigned int newindex = _vDetectedInfo.at(minIndex).count% numDetections;
-                        _vDetectedInfo.at(minIndex).positions.at(newindex) = position;
-                        _vDetectedInfo.at(minIndex).rotations.at(newindex) = rotation;
-                        _vDetectedInfo.at(minIndex).confidences.at(newindex) = confidence;
-                    }
-                    std::cout << "[DEBUG] Part " << minIndex << " is known (minDist " << minDist << "), updating its mean position averaging " << numDetections << " detections." << std::endl;
-
-                    // update timestamp
-                    _vDetectedInfo.at(minIndex).timestamp = timestamp;
-                    // update means
-                    Vector sumPosition(0,0,0);
-                    for (unsigned int j=0; j<numDetections; j++) {
-                        sumPosition += _vDetectedInfo.at(minIndex).positions.at(j);
-                    }
-                    _vDetectedInfo.at(minIndex).meanPosition = sumPosition * (1.0f/numDetections);
-                    double minQuatDotProduct = 999;
-                    int minQuatIndex = -1;
-                    for (unsigned int j=0; j<numDetections; j++) {
-                        double sum = 0;
-                        for (unsigned int k=0; k<numDetections; k++) {
-                            sum += 1- _vDetectedInfo.at(minIndex).rotations.at(j).dot(_vDetectedInfo.at(minIndex).rotations.at(k));
-                        }
-                        double quatDotProduct = sum / numDetections;
-                        if (quatDotProduct < minQuatDotProduct) {
-                            minQuatDotProduct = quatDotProduct;
-                            minQuatIndex = j;
+        {
+            boost::mutex::scoped_lock lock(_mutexDetectedInfo);
+            if (_pVisionServerParameters->numDetectionsToKeep>0) {
+                for (unsigned int i=0; i<detectedobjects.size(); i++) {
+                    unsigned long long timestamp = detectedobjects[i]->timestamp;
+                    std::string confidence = detectedobjects[i]->confidence;
+                    Transform transform = detectedobjects[i]->transform;
+                    TransformMatrix mat(transform);
+                    Vector position = transform.trans;
+                    Vector rotation = transform.rot;
+                    double minDist = 999;
+                    int minIndex = -1;
+                    if (_pVisionServerParameters->numDetectionsToKeep>0) {
+                        // make sure the z-axis of the detected rotation's origin is pointing up in the world frame, so that upside-down flipping is considered the same
+                        double dotproductX = mat.m[0]+mat.m[4]+mat.m[8];
+                        double dotproductY = mat.m[1]+mat.m[5]+mat.m[9];
+                        double dotproductZ = mat.m[2]+mat.m[6]+mat.m[10];
+                        if (dotproductZ<0  // if z pointing down
+                            || (dotproductZ == 0 && dotproductX <0) // or if z pointing flat, but x pointing down
+                            || (dotproductZ == 0 && dotproductX == 0 && dotproductY<0) // or both z and x pointing flat, but y pointing down
+                            ) {
+                            std::cout << "[DEBUG] Upside-down detection (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << "), flip rotation." << std::endl;
+                            // rotate around x axis by 180
+                            rotation[0] = -transform.rot[1];
+                            rotation[1] = transform.rot[0];
+                            rotation[2] = transform.rot[3];
+                            rotation[3] = -transform.rot[2];
                         }
                     }
-                    _vDetectedInfo.at(minIndex).meanRotation = _vDetectedInfo.at(minIndex).rotations.at(minQuatIndex);
-                } else { // new object is detected
-                    //std::cout << "New object is detected at (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << " ," <<  position[0] << ", " << position[1] << ", " << position[2] << ")" << std::endl;
-                    std::vector<Vector> positions;
-                    positions.push_back(position);
-                    std::vector<Vector> rotations;
-                    rotations.push_back(rotation);
-                    std::vector<std::string> confidences;
-                    confidences.push_back(confidence);
-                    DetectedInfo info;
-                    info.timestamp = timestamp;
-                    info.count = 1;
-                    info.meanPosition = position;
-                    info.meanRotation = rotation;
-                    info.positions = positions;
-                    info.rotations = rotations;
-                    info.confidences = confidences;
-                    _vDetectedInfo.push_back(info);
-                }
-            }
-            if (_vDetectedInfo.size()>0 && _pVisionServerParameters->numDetectionsToKeep>0) {
-                // remove old detection results
-                for (int i=_vDetectedInfo.size()-1; i>=0; i--) {
-                    if (GetMilliTime() - _vDetectedInfo.at(i).timestamp > _pVisionServerParameters->timeToRemember) {
-                        std::cout << "[DEBUG] Part " << i << " has not been seen for " << _pVisionServerParameters->timeToRemember << " ms, removing its records." << std::endl;
-                        _vDetectedInfo.erase(_vDetectedInfo.begin()+i);
+                    for (unsigned int j=0; j<_vDetectedInfo.size(); j++) {
+                        double dist = std::sqrt(((position-_vDetectedInfo[j].meanPosition)*weights).lengthsqr3());
+                        if (dist < minDist) {
+                            minDist = dist;
+                            minIndex = j;
+                        }
+                    }
+                    if (minDist < _pVisionServerParameters->maxPositionError && _pVisionServerParameters->numDetectionsToKeep>0) {
+                        _vDetectedInfo.at(minIndex).count++;
+                        unsigned int numDetections;
+                        // only keep track of the last n detection results
+                        if (_vDetectedInfo.at(minIndex).count <= _pVisionServerParameters->numDetectionsToKeep) {
+                            _vDetectedInfo.at(minIndex).positions.push_back(position);
+                            _vDetectedInfo.at(minIndex).rotations.push_back(rotation);
+                            _vDetectedInfo.at(minIndex).confidences.push_back(confidence);
+                            numDetections = _vDetectedInfo.at(minIndex).count;
+                        } else {
+                            numDetections = _pVisionServerParameters->numDetectionsToKeep;
+                            unsigned int newindex = _vDetectedInfo.at(minIndex).count% numDetections;
+                            _vDetectedInfo.at(minIndex).positions.at(newindex) = position;
+                            _vDetectedInfo.at(minIndex).rotations.at(newindex) = rotation;
+                            _vDetectedInfo.at(minIndex).confidences.at(newindex) = confidence;
+                        }
+                        std::cout << "[DEBUG] Part " << minIndex << " is known (minDist " << minDist << "), updating its mean position averaging " << numDetections << " detections." << std::endl;
+
+                        // update timestamp
+                        _vDetectedInfo.at(minIndex).timestamp = timestamp;
+                        // update means
+                        Vector sumPosition(0,0,0);
+                        for (unsigned int j=0; j<numDetections; j++) {
+                            sumPosition += _vDetectedInfo.at(minIndex).positions.at(j);
+                        }
+                        _vDetectedInfo.at(minIndex).meanPosition = sumPosition * (1.0f/numDetections);
+                        double minQuatDotProduct = 999;
+                        int minQuatIndex = -1;
+                        for (unsigned int j=0; j<numDetections; j++) {
+                            double sum = 0;
+                            for (unsigned int k=0; k<numDetections; k++) {
+                                sum += 1- _vDetectedInfo.at(minIndex).rotations.at(j).dot(_vDetectedInfo.at(minIndex).rotations.at(k));
+                            }
+                            double quatDotProduct = sum / numDetections;
+                            if (quatDotProduct < minQuatDotProduct) {
+                                minQuatDotProduct = quatDotProduct;
+                                minQuatIndex = j;
+                            }
+                        }
+                        _vDetectedInfo.at(minIndex).meanRotation = _vDetectedInfo.at(minIndex).rotations.at(minQuatIndex);
+                    } else { // new object is detected
+                        //std::cout << "New object is detected at (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << " ," <<  position[0] << ", " << position[1] << ", " << position[2] << ")" << std::endl;
+                        std::vector<Vector> positions;
+                        positions.push_back(position);
+                        std::vector<Vector> rotations;
+                        rotations.push_back(rotation);
+                        std::vector<std::string> confidences;
+                        confidences.push_back(confidence);
+                        DetectedInfo info;
+                        info.timestamp = timestamp;
+                        info.count = 1;
+                        info.meanPosition = position;
+                        info.meanRotation = rotation;
+                        info.positions = positions;
+                        info.rotations = rotations;
+                        info.confidences = confidences;
+                        _vDetectedInfo.push_back(info);
                     }
                 }
-            }
-
-            // create new results
-            if (detectedobjects.size()>0) {
-                for (unsigned int i=0; i<_vDetectedInfo.size(); i++) {
-                    Transform transform;
-                    transform.trans = _vDetectedInfo.at(i).meanPosition;
-                    transform.rot = _vDetectedInfo.at(i).meanRotation;
-                    DetectedObjectPtr obj(new DetectedObject(detectedobjects[0]->name, transform, _vDetectedInfo.at(i).confidences.at(0), _vDetectedInfo.at(i).timestamp));
-                    newdetectedobjects.push_back(obj);
-                    //obj->Print();
+                if (_vDetectedInfo.size()>0 && _pVisionServerParameters->numDetectionsToKeep>0) {
+                    // remove old detection results
+                    for (int i=_vDetectedInfo.size()-1; i>=0; i--) {
+                        if (GetMilliTime() - _vDetectedInfo.at(i).timestamp > _pVisionServerParameters->timeToRemember) {
+                            std::cout << "[DEBUG] Part " << i << " has not been seen for " << _pVisionServerParameters->timeToRemember << " ms, removing its records." << std::endl;
+                            _vDetectedInfo.erase(_vDetectedInfo.begin()+i);
+                        }
+                    }
                 }
+
+                // create new results
+                if (detectedobjects.size()>0) {
+                    for (unsigned int i=0; i<_vDetectedInfo.size(); ++i) {
+                        Transform transform;
+                        transform.trans = _vDetectedInfo.at(i).meanPosition;
+                        transform.rot = _vDetectedInfo.at(i).meanRotation;
+                        DetectedObjectPtr obj(new DetectedObject(detectedobjects[0]->name, transform, _vDetectedInfo.at(i).confidences.at(0), _vDetectedInfo.at(i).timestamp));
+                        newdetectedobjects.push_back(obj);
+                        //obj->Print();
+                    }
+                }
+            } else {
+                newdetectedobjects = detectedobjects;
+                _vDetectedObject = detectedobjects;
             }
-        } else {
-            newdetectedobjects = detectedobjects;
         }
         // send results to mujin controller
         if (_bStopDetectionThread) {
             break;
         }
+        
         _UpdateEnvironmentState(regionname, cameranames, newdetectedobjects, voxelsize, pointsize, obstaclename);
         // visualize results
         if (_bStopDetectionThread) {
@@ -1735,6 +1758,13 @@ void MujinVisionManager::GetCameraId(const std::string& cameraname, std::string&
         throw MujinVisionException(cameraname + " is not defined in visionmanager config file.", MVE_ConfigurationFileError);
     }
     cameraid = _mNameCameraParameters[cameraname]->id;
+    _SetStatus(MS_Succeeded);
+}
+
+void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectedobjectsworld)
+{
+    boost::mutex::scoped_lock lock(_mutexDetectedInfo);
+    detectedobjectsworld = _vDetectedObject;
     _SetStatus(MS_Succeeded);
 }
 

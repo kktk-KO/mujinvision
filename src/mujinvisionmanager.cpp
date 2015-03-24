@@ -436,7 +436,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << "}";
         }
     } else if (!!_pDetectionThread && !_bStopDetectionThread) {
-        throw MujinVisionException("Detection thread is running, please stop it first.", MVE_Busy);
+        throw MujinVisionException("Cannot execute " + command + " while detection thread is running, please stop it first.", MVE_Busy);
     } else {
         if (command == "Initialize") {
             if (_bInitialized) {

@@ -339,7 +339,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         _bExecutingUserCommand = true;
     }
     std::string command = command_pt.get<std::string>("command");
-    if (command == "StartDetectionLoop" || command == "StopDetectionLoop" || (command.size() >= 3 && command.substr(0,3) == "Get")) {
+    if (command == "StartDetectionLoop" || command == "StopDetectionLoop" || command == "IsDetectionRunning" || (command.size() >= 3 && command.substr(0,3) == "Get")) {
         if (command == "StartDetectionLoop") {
             if (command_pt.count("regionname") == 0) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
@@ -369,6 +369,10 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             StopDetectionLoop();
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
+        } else if (command == "IsDetectionRunning") {
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("isdetectionrunning") << ": " << IsDetectionRunning();
             result_ss << "}";
         } else if (command == "GetLatestDetectedObjects") {
             if (!_pDetector || !_pBinpickingTask) {
@@ -684,6 +688,11 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
     _SetStatus(MS_Pending);
 }
 
+bool MujinVisionManager::IsDetectionRunning()
+{
+    return !!_pDetectionThread;
+}
+
 void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned int ms)
 {
     _StartStatusPublisher(port);
@@ -723,7 +732,8 @@ std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long ti
     ss << "{";
     ss << ParametersBase::GetJsonString("timestamp") << ": " << timestamp << ", ";
     ss << ParametersBase::GetJsonString("status", status) << ", ";
-    ss << ParametersBase::GetJsonString("message",message);
+    ss << ParametersBase::GetJsonString("message", message) << ", ";
+    ss << ParametersBase::GetJsonString("isdetectionrunning", IsDetectionRunning());
     ss << "}";
     return ss.str();
 }

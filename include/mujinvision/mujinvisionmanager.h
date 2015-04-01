@@ -270,6 +270,8 @@ public:
         port = _configport;
     }
 
+    bool IsDetectionRunning();
+
     /** \brief Registers a command.
      */
     typedef boost::function<bool (MujinVisionManager*, const ptree&, std::ostream&)> CustomCommandFn;

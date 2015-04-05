@@ -494,6 +494,7 @@ private:
     boost::mutex _mutexDetector;
     DetectorManagerPtr _pDetectorManager;
 
+    unsigned long long _tsStartDetection; ///< timestamp when start detection loop was first called
     std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
     boost::mutex _mutexDetectedInfo;
     std::vector<DetectedInfo> _vDetectedInfo;

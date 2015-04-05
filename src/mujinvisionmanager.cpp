@@ -820,6 +820,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
 
 void MujinVisionManager::_StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename)
 {
+    _tsStartDetection = GetMilliTime();
     if (!!_pDetectionThread && !_bStopDetectionThread) {
         _SetStatusMessage("Detection thread is already running, do nothing.");
     } else {
@@ -1256,8 +1257,12 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                     std::cerr << "[ERROR]: Image timestamp is in the future, please ensure that clocks are synchronized." << std::endl;
                     continue;
                 }
-                else if (maxage>0 && GetMilliTime()-timestamp>maxage) {
-                    std::cerr << "[WARN] Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
+                else if (maxage>0 && GetMilliTime()-timestamp>maxage && timestamp < _tsStartDetection) {
+                    if (timestamp >= _tsStartDetection) {
+                        std::cerr << "[WARN] Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
+                    } else {
+                        std::cerr << "[WARN] Image was taken " << _tsStartDetection-timestamp << " ms before StartDetectionLoop was called, will try to get again." << std::endl;
+                    }
                     if (colorimages.size()>0) {
                         std::cerr << "[WARN] One of the color images is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), start over." << std::endl;
                         colorimages.resize(0); // need to start over, all color images need to be equally new
@@ -1321,8 +1326,12 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                     std::cerr << "[ERROR]: Image timestamp is in the future, please ensure that clocks are synchronized." << std::endl;
                     continue;
                 }
-                else if (maxage>0 && GetMilliTime()-starttime>maxage) {
-                    std::cerr << "[WARN] Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
+                else if (maxage>0 && GetMilliTime()-starttime>maxage && starttime < _tsStartDetection) {
+                    if (starttime >= _tsStartDetection) {
+                        std::cerr << "[WARN] Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
+                    } else {
+                        std::cerr << "[WARN] Image was taken " << _tsStartDetection-starttime << " ms before StartDetectionLoop was called, will try to get again." << std::endl;
+                    }
                     if (depthimages.size()>0) {
                         std::cerr << "[WARN] One of the depth images is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), start over." << std::endl;
                         depthimages.resize(0); // need to start over, all color images need to be equally new

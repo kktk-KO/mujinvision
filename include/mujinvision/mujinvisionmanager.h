@@ -376,11 +376,6 @@ private:
      */
     void _SyncCamera(const std::string& regionname, const std::string& cameraname);
 
-    /** \brief Gets a color image (uncropped) from image subscriber manager.
-        \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
-        \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
-     */
-    ColorImagePtr _GetColorImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int waitinterval=50);
     /** \brief Gets color images (uncropped) from image subscriber manager.
         \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
         \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
@@ -388,11 +383,6 @@ private:
      */
     unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int waitinterval=50);
 
-    /** \brief Gets a depth image (uncropped) from image subscriber manager.
-        \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
-        \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
-     */
-    DepthImagePtr _GetDepthImage(const std::string& regionname, const std::string& cameraname, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int waitinterval=50);
     /** \brief Gets depth images (uncropped) from image subscriber manager.
         \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
         \param waitinterval in milliseconds, if failed to get image, time to wait before the next try

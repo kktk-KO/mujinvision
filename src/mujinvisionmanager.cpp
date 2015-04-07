@@ -449,6 +449,12 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             } else {
                 _bInitialized = true;
             }
+            std::vector<std::string> streameruris;
+            ptree streameruris_pt = command_pt.get_child("streamerUris");
+            FOREACH(v, streameruris_pt) {
+                streameruris.push_back(v->second.get<std::string>(""));
+            }
+
             Initialize(command_pt.get<std::string>("visionmanagerconfigname"),
                        command_pt.get<std::string>("detectorconfigname"),
                        command_pt.get<std::string>("imagesubscriberconfigname"),
@@ -462,6 +468,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<std::string>("binpickingTaskScenePk"),
                        command_pt.get<std::string>("robotname", ""),
                        command_pt.get<std::string>("targetname"),
+                       streameruris,
                        command_pt.get<std::string>("tasktype","binpicking")
                        );
             result_ss << "{";
@@ -1275,7 +1282,7 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
     return depthimages.size();
 }
 
-void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::string& tasktype)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::vector<std::string>& streameruris, const std::string& tasktype)
 {
     ptree pt;
 
@@ -1401,8 +1408,11 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
 
     // set up image manager
     _SetStatusMessage("Setting up image manager.");
-    for (unsigned int i=0; i<_pVisionServerParameters->streamerConnections.size(); i++) {
-        _vSubscribers.push_back(_pImagesubscriberManager->CreateImageSubscriber(_pVisionServerParameters->streamerConnections[i]->ip, _pVisionServerParameters->streamerConnections[i]->port, pt.get_child("zmq_subscriber")));
+    for (unsigned int i=0; i<streameruris.size(); ++i) {
+        std::string uri = streameruris.at(i);
+        std::string ip = uri.substr(uri.find("://")+3, uri.rfind(":")-uri.find(":")-3);
+        int port = boost::lexical_cast<int>(uri.substr(uri.rfind(":")+1));
+        _vSubscribers.push_back(_pImagesubscriberManager->CreateImageSubscriber(ip, port, pt.get_child("zmq_subscriber")));
     }
     _pImagesubscriberManager->Initialize(_mNameCamera, _vSubscribers);
 

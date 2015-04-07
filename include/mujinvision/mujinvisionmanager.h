@@ -48,11 +48,6 @@ public:
         VisionServerParameters(const ptree& pt)
         {
             _pt = pt;
-            FOREACH(v, pt.get_child("imagestream_connections")) {
-                ConnectionParametersPtr pimagestreamconnection(new ConnectionParameters(v->second));
-                streamerConnections.push_back(pimagestreamconnection);
-            }
-
             maxPositionError = pt.get<double>("max_position_error");
             clearRadius = pt.get<double>("clear_radius");
             timeToRemember = pt.get<unsigned int>("time_to_remember");
@@ -63,7 +58,6 @@ public:
         virtual ~VisionServerParameters() {
         }
 
-        std::vector<ConnectionParametersPtr > streamerConnections;
 
         double maxPositionError; ///< in meter, max position error to consider detections the same
         double clearRadius; ///< in meter, clear detection results within the radius of the last picked locations
@@ -75,14 +69,6 @@ public:
         {
             std::stringstream ss;
             ss << "{";
-            ss << "\"imagestream_connections\": [";
-            for (unsigned int i=0; i<streamerConnections.size(); i++) {
-                ss << streamerConnections[i]->GetJsonString();
-                if (i<streamerConnections.size()-1) {
-                    ss << ",";
-                }
-            }
-            ss << "],";
             ss << ParametersBase::GetJsonString("max_position_error") << ": " << maxPositionError << ",";
             ss << ParametersBase::GetJsonString("clear_radius") << ": " << clearRadius << ",";
             ss << ParametersBase::GetJsonString("time_to_remember") << ": " << timeToRemember << ",";
@@ -95,11 +81,11 @@ public:
         ptree GetPropertyTree()
         {
             if (_pt.empty()) {
-                ptree streamerConnections_pt;
-                for (unsigned int i=0; i<streamerConnections.size(); i++) {
-                    streamerConnections_pt.push_back(std::make_pair("", streamerConnections[i]->GetPropertyTree()));
-                }
-                _pt.put_child("imagestream_connections", streamerConnections_pt);
+                _pt.put<double>("max_position_error", maxPositionError);
+                _pt.put<double>("clear_radius", clearRadius);
+                _pt.put<unsigned int>("time_to_remember", timeToRemember);
+                _pt.put<unsigned int>("time_to_ignore", timeToIgnore);
+                _pt.put<unsigned int>("num_detections_to_keep", numDetectionsToKeep);
             }
             return _pt;
         }
@@ -160,6 +146,7 @@ public:
                             const std::string& binpickingTaskScenePk,
                             const std::string& robotname,
                             const std::string& targetname,
+                            const std::vector<std::string>& streamerUris,
                             const std::string& tasktype="binpicking"
                             );
 

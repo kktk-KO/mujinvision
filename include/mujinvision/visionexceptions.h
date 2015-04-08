@@ -32,6 +32,7 @@ enum MujinVisionErrorCode
     MVE_ConfigurationFileError=6,
     MVE_NotImplemented=7,
     MVE_Busy=8,
+    MVE_NotInitialized=9,
     MVE_ControllerError=10,
 };
 
@@ -47,6 +48,7 @@ inline const char* GetErrorCodeString(MujinVisionErrorCode error)
     case MVE_ConfigurationFileError: return "ConfigurationFileError";
     case MVE_NotImplemented: return "NotImplemented";
     case MVE_Busy: return "Busy";
+    case MVE_NotInitialized: return "NotInitialized";
     case MVE_ControllerError: return "ControllerError";
     }
     // throw an exception?

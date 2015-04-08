@@ -492,9 +492,11 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
             unsigned int maxage = command_pt.get("maxage",0);
             std::vector<DetectedObjectPtr> detectedobjects;
-            DetectObjects(regionname, cameranames, detectedobjects, ignoreocclusion, maxage);
+            bool iscontainerempty = false;
+            DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage);
             result_ss << "{";
             result_ss << _GetJsonString(detectedobjects) << ", ";
+            result_ss << ParametersBase::GetJsonString("iscontainerempty") << ": " << int(iscontainerempty) << ", ";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "SendPointCloudObstacleToController") {
@@ -607,7 +609,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                     detectedobjects.push_back(DetectedObjectPtr(new DetectedObject(v->second.get_child(""))));
                 }
             }
-            UpdateDetectedObjects(detectedobjects, command_pt.get<bool>("sendtocontroller"));
+            bool iscontainerempty = command_pt.get<bool>("iscontainerempty", false);
+            bool sendtocontroller = command_pt.get<bool>("sendtocontroller", true);
+            UpdateDetectedObjects(detectedobjects, iscontainerempty, sendtocontroller);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -912,8 +916,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         }
 
         std::vector<DetectedObjectPtr> detectedobjects;
+        bool iscontainerempty = false;
         try {
-            DetectObjects(regionname, cameranames, detectedobjects, ignoreocclusion, maxage);
+            DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage);
         }
         catch(const std::exception& ex) {
             std::cerr << "[ERROR] caugh unhandled exception while debugging: " << ex.what() << std::endl;
@@ -1053,7 +1058,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             break;
         }
         
-        _UpdateEnvironmentState(regionname, cameranames, newdetectedobjects, voxelsize, pointsize, obstaclename);
+        _UpdateEnvironmentState(regionname, cameranames, newdetectedobjects, iscontainerempty, voxelsize, pointsize, obstaclename);
         // visualize results
         if (_bStopDetectionThread) {
             break;
@@ -1147,6 +1152,7 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
     unsigned long long timestamp, endtimestamp;
     bool isoccluding = true;
     std::string cameraname;
+    bool warned = false;
     while (!_bCancelCommand && !_bShutdown) {
         cameraname = cameranames.at(colorimages.size());
         ColorImagePtr colorimage = _pImagesubscriberManager->GetColorImage(cameraname, timestamp, endtimestamp);
@@ -1154,7 +1160,10 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
             break;
         } else {
             if (!colorimage) {
-                std::cerr << "[WARN] Could not get color image for camera: " << cameraname << ", will try again in  " << waitinterval << " ms." << std::endl;
+                if (!warned) {
+                    std::cerr << "[WARN] Could not get color image for camera: " << cameraname << ", will try again" << std::endl;
+                    warned = true;
+                }
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
@@ -1162,16 +1171,26 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                     std::cerr << "[ERROR]: Image timestamp is in the future, please ensure that clocks are synchronized." << std::endl;
                     continue;
                 } else if (maxage>0 && GetMilliTime()-timestamp>maxage) {
-                    std::cerr << "[WARN] Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
+                    if (!warned) {
+                        std::cerr << "[WARN] Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
+                        if (colorimages.size()>0) {
+                            std::cerr << "[WARN] One of the color images is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), start over." << std::endl;
+                        }
+                        warned = true;
+                    }
                     if (colorimages.size()>0) {
-                        std::cerr << "[WARN] One of the color images is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), start over." << std::endl;
                         colorimages.resize(0); // need to start over, all color images need to be equally new
                     }
                     continue;
                 } else if (timestamp < _tsStartDetection) {
-                    std::cerr << "[WARN] Image was taken " << _tsStartDetection-timestamp << " ms before StartDetectionLoop was called, will try to get again." << std::endl;
-                    if (colorimages.size()>0) {
-                        std::cerr << "[WARN] One of the color images was taken " << _tsStartDetection-timestamp << " ms before StartDetectionLoop was called, will start over." << std::endl;
+                    if (!warned) {
+                        std::cerr << "[WARN] Image was taken " << _tsStartDetection-timestamp << " ms before StartDetectionLoop was called, will try to get again." << std::endl;
+                        if (colorimages.size() > 0) {
+                            std::cerr << "[WARN] One of the color images was taken " << _tsStartDetection-timestamp << " ms before StartDetectionLoop was called, will start over." << std::endl;
+                        }
+                        warned = true;
+                    }
+                    if (colorimages.size() > 0) {
                         colorimages.resize(0); // need to start over, all color images need to be equally new
                     }
                     continue;
@@ -1181,7 +1200,10 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                         try {
                             _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, endtimestamp, isoccluding);
                         } catch (...) {
-                            std::cerr << "[WARN] Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                            if (!warned) {
+                                std::cerr << "[WARN] Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                                warned = true;
+                            }
                             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                             continue;
                         }
@@ -1198,7 +1220,10 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                             continue;
                         }
                     } else {
-                        std::cerr << "[WARN] Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+                        if (!warned) {
+                            std::cerr << "[WARN] Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+                            warned = true;
+                        }
                         continue;
                     }
                 }
@@ -1218,6 +1243,7 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
     unsigned long long starttime, endtime;
     bool isoccluding = true;
     std::string cameraname;
+    bool warned = false;
     while (!_bCancelCommand && !_bShutdown) {
         cameraname = cameranames.at(depthimages.size());
         DepthImagePtr depthimage = _pImagesubscriberManager->GetDepthImage(cameraname, _numDepthImagesToAverage, starttime, endtime);
@@ -1225,7 +1251,10 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
             break;
         } else {
             if (!depthimage) {
-                std::cerr << "[WARN] Could not get depth image for camera: " << cameraname << ", will try again in  " << waitinterval << " ms." << std::endl;
+                if (!warned) {
+                    std::cerr << "[WARN] Could not get depth image for camera: " << cameraname << ", will try again in  " << waitinterval << " ms." << std::endl;
+                    warned = true;
+                }
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
@@ -1233,16 +1262,26 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                     std::cerr << "[ERROR]: Image timestamp is in the future, please ensure that clocks are synchronized." << std::endl;
                     continue;
                 } else if (maxage>0 && GetMilliTime()-starttime>maxage) {
-                    std::cerr << "[WARN] Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
+                    if (!warned) {
+                        std::cerr << "[WARN] Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
+                        if (depthimages.size()>0) {
+                            std::cerr << "[WARN] One of the depth images is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), start over." << std::endl;
+                        }
+                        warned = true;
+                    }
                     if (depthimages.size()>0) {
-                        std::cerr << "[WARN] One of the depth images is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), start over." << std::endl;
                         depthimages.resize(0); // need to start over, all color images need to be equally new
                     }
                     continue;
                 } else if (starttime < _tsStartDetection) {
-                    std::cerr << "[WARN] Image was taken " << _tsStartDetection-starttime << " ms before StartDetectionLoop was called, will try to get again." << std::endl;
+                    if (!warned) {
+                        std::cerr << "[WARN] Image was taken " << _tsStartDetection-starttime << " ms before StartDetectionLoop was called, will try to get again." << std::endl;
+                        if (depthimages.size()>0) {
+                            std::cerr << "[WARN] One of the depth images was taken " << _tsStartDetection-starttime << " ms before StartDetectionLoop was called, will start over." << std::endl;
+                        }
+                        warned = true;
+                    }
                     if (depthimages.size()>0) {
-                        std::cerr << "[WARN] One of the depth images was taken " << _tsStartDetection-starttime << " ms before StartDetectionLoop was called, will start over." << std::endl;
                         depthimages.resize(0); // need to start over, all color images need to be equally new
                     }
                     continue;
@@ -1252,7 +1291,10 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                         try {
                             _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
                         } catch (...) {
-                            std::cerr << "[WARN] Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                            if (!warned) {
+                                std::cerr << "[WARN] Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                                warned = true;
+                            }
                             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                             continue;
                         }
@@ -1269,7 +1311,10 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                             continue;
                         }
                     } else {
-                        std::cerr << "[WARN] Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+                        if (!warned) {
+                            std::cerr << "[WARN] Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+                            warned = true;
+                        }
                         continue;
                     }
                 } 
@@ -1449,7 +1494,7 @@ void MujinVisionManager::_DeInitialize()
     _SetStatusMessage("DeInitialized vision manager.");
 }
 
-void MujinVisionManager::DetectObjects(const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>&detectedobjects, const bool ignoreocclusion, const unsigned int maxage)
+void MujinVisionManager::DetectObjects(const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>&detectedobjects, bool& iscontainerempty, const bool ignoreocclusion, const unsigned int maxage)
 {
     uint64_t starttime = GetMilliTime();
 
@@ -1475,9 +1520,9 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
             _pDetector->SetDepthImage(cameraname, depthimages.at(i));
         }
         // detect objects
-        _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects);
+        _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, iscontainerempty);
         std::stringstream msgss;
-        msgss << "Detected " << detectedobjects.size() << " objects. Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
+        msgss << "Detected " << detectedobjects.size() << " objects, iscontainerempty: " << int(iscontainerempty) <<". Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
         _SetStatusMessage(msgss.str());
     }
     _SetStatus(MS_Succeeded);
@@ -1520,7 +1565,7 @@ void MujinVisionManager::SendPointCloudObstacleToController(const std::string& r
     _SetStatus(MS_Succeeded);
 }
 
-void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize, const std::string& obstaclename)
+void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const bool iscontainerempty, const double voxelsize, const double pointsize, const std::string& obstaclename)
 {
     std::vector<mujinclient::Transform> transformsworld;
     std::vector<std::string> confidences;
@@ -1549,7 +1594,7 @@ void MujinVisionManager::_UpdateEnvironmentState(const std::string& regionname, 
     }
     std::stringstream ss;
     if (totalpoints.size()>0) {
-        _pBinpickingTask->UpdateEnvironmentState(_targetname, transformsworld, confidences, timestamps, totalpoints, pointsize, obstaclename,"m");
+        _pBinpickingTask->UpdateEnvironmentState(_targetname, transformsworld, confidences, timestamps, totalpoints, iscontainerempty, pointsize, obstaclename,"m");
         ss << "Updating environment with " << detectedobjectsworld.size() << " detected objects and " << (totalpoints.size()/3) << " points.";
     } else {
         ss << "Got 0 points, something is wrong with the streamer. Is robot occluding the camera?" << std::endl;
@@ -1667,13 +1712,13 @@ void MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool 
     _SetStatus(MS_Succeeded);
 }
 
-void MujinVisionManager::UpdateDetectedObjects(const std::vector<DetectedObjectPtr>&detectobjectsworld, const bool sendtocontroller)
+void MujinVisionManager::UpdateDetectedObjects(const std::vector<DetectedObjectPtr>&detectobjectsworld, const bool iscontainerempty, const bool sendtocontroller)
 {
     if (detectobjectsworld.size()==0) {
         _SetStatus(MS_Succeeded);
     }
     if (sendtocontroller) {
-        _SendDetectedObjectsToController(detectobjectsworld);
+        _SendDetectedObjectsToController(detectobjectsworld, iscontainerempty);
     }
     _SetStatus(MS_Succeeded);
 }
@@ -1771,7 +1816,7 @@ std::vector<std::string> MujinVisionManager::_GetDepthCameraNames(const std::str
     return colorcameranames;
 }
 
-void MujinVisionManager::_SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld)
+void MujinVisionManager::_SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld, const bool iscontainerempty)
 {
     std::vector<mujinclient::Transform> transformsworld;
     std::vector<std::string> confidences;
@@ -1787,7 +1832,7 @@ void MujinVisionManager::_SendDetectedObjectsToController(const std::vector<Dete
         transformsworld.push_back(transform);
         confidences.push_back(detectedobjectsworld[i]->confidence);
     }
-    _pBinpickingTask->UpdateObjects(detectedobjectsworld[0]->name, transformsworld, confidences,"m");
+    _pBinpickingTask->UpdateObjects(detectedobjectsworld[0]->name, transformsworld, confidences, iscontainerempty, "m");
 }
 
 Transform MujinVisionManager::_GetTransform(const mujinclient::Transform& t)

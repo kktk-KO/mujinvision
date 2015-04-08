@@ -160,6 +160,7 @@ public:
     virtual void DetectObjects(const std::string& regionname,
                                const std::vector<std::string>& cameranames,
                                std::vector<DetectedObjectPtr>& detectedobjectsworld,
+                               bool& iscontainerempty,
                                const bool ignoreocclusion=false,
                                const unsigned int maxage=0);
 
@@ -218,7 +219,7 @@ public:
         \param detectedobjectsworld detection result in world frame
         \param sendtocontroller whether to send the list to mujin controller
      */
-    virtual void UpdateDetectedObjects(const std::vector<DetectedObjectPtr>& detectobjectsworld, const bool sendtocontroller=false);
+    virtual void UpdateDetectedObjects(const std::vector<DetectedObjectPtr>& detectobjectsworld, const bool iscontainerempty, const bool sendtocontroller=false);
 
     /** \brief Updates the region info from the mujin controller
         - updates position of the region
@@ -396,7 +397,7 @@ private:
     /** \brief Sends detected object list to mujin controller.
         \param detectobjectsworld detected objects in world frame
      */
-    void _SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld);
+    void _SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld, const bool iscontainerempty);
 
     /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
         \param regionname name of the region of which the pointcloud obstacle represents
@@ -405,7 +406,7 @@ private:
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
         \param pointsize size of the point in meters to be sent to the mujin controller
      */
-    void _UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize, const std::string& obstaclename="__dynamicobstacle__");
+    void _UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const bool iscontainerempty, const double voxelsize, const double pointsize, const std::string& obstaclename="__dynamicobstacle__");
 
     /** \brief Converts mujinclient::Transform to Transform.
      */

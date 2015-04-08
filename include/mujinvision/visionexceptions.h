@@ -120,5 +120,5 @@ private:
     std::string _s;
 };
 
-};
+} // namespace mujinvision
 #endif

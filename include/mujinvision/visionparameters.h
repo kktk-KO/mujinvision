@@ -155,6 +155,16 @@ struct MUJINVISION_API ParametersBase
         return ss.str();
     }
 
+    static std::string GetExceptionJsonString(const std::string& type, const std::string& desc)
+    {
+        std::stringstream ss;
+        ss << GetJsonString("error") << ": {";
+        ss << GetJsonString("type") << ": " << GetJsonString(type) << ",";
+        ss << GetJsonString("desc") << ": " << GetJsonString(desc);
+        ss << "}";
+        return ss.str();
+    }
+
 protected:
     ptree _pt;
 

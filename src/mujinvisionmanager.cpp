@@ -117,6 +117,7 @@ inline static uint64_t GetNanoPerformanceTime()
 }
 #endif
 
+
 namespace mujinvision {
 
 MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir)
@@ -804,7 +805,9 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                     _SetStatus(MS_Aborted, e.message(), false);
                 }
                 catch (std::exception& e) {
-                    result_ss << "{\"error\": \"" << e.what() << "\"}";
+                    std::string whatstr = e.what();
+                    boost::replace_all(whatstr, "\"", "\\\"");
+                    result_ss << "{" << ParametersBase::GetExceptionJsonString("std::exception", whatstr) << "}";
                     std::cerr << "[ERROR] unhandled exception, " << e.what() << std::endl; 
                     _SetStatus(MS_Aborted, e.what(), false);
                 }

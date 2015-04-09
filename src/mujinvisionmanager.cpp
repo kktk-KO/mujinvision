@@ -945,7 +945,13 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage);
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
             for(unsigned int i=0; i<cameranamestobeused.size(); i++) {
-                _pDetector->GetPointCloudObstacle(regionname, cameranamestobeused[i], _vDetectedObject, _mResultPoints[cameranamestobeused[i]], voxelsize);
+                std::string cameraname = cameranamestobeused[i];
+                std::vector<Real> points;
+                _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize);
+                {
+                    boost::mutex::scoped_lock lock(_mutexDetectedInfo);
+                    _mResultPoints[cameraname] = points;
+                }
             }
         }
         catch(const std::exception& ex) {

@@ -351,6 +351,16 @@ private:
     void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename);
     void _StopDetectionThread();
 
+    /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
+        \param regionname name of the region of which the pointcloud obstacle represents
+        \param cameranames names of the cameras to be used to capture the pointcloud obstacle
+        \param detectobjectsworld detected objects in world frame
+        \param voxelsize size of the voxel grid in meters used for simplifying the cloud
+        \param pointsize size of the point in meters to be sent to the mujin controller
+     */
+    void _UpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename="__dynamicobstacle__", const unsigned int waitinterval=50);
+    void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50);
+    void _StopUpdateEnvironmentThread();
 
     /** \brief Gets transform of the instobject in meters.
      */
@@ -399,15 +409,6 @@ private:
      */
     void _SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld, const bool iscontainerempty);
 
-    /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
-        \param regionname name of the region of which the pointcloud obstacle represents
-        \param cameranames names of the cameras to be used to capture the pointcloud obstacle
-        \param detectobjectsworld detected objects in world frame
-        \param voxelsize size of the voxel grid in meters used for simplifying the cloud
-        \param pointsize size of the point in meters to be sent to the mujin controller
-     */
-    void _UpdateEnvironmentState(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const bool iscontainerempty, const double voxelsize, const double pointsize, const std::string& obstaclename="__dynamicobstacle__");
-
     /** \brief Converts mujinclient::Transform to Transform.
      */
     Transform _GetTransform(const mujinclient::Transform& t);
@@ -433,6 +434,13 @@ private:
     unsigned int _statusport, _commandport, _configport;
     std::string _configdir;
     std::string _detectorconfig, _imagesubscriberconfig;
+    
+    unsigned int _binpickingTaskZmqPort;
+    unsigned int _binpickingTaskHeartbeatPort;
+    double _binpickingTaskHeartbeatTimeout;
+    std::string _binpickingTaskScenePk;
+    std::string  _robotControllerUri;
+    std::string _tasktype;
 
     boost::shared_ptr<zmq::context_t> _zmqcontext;
 
@@ -450,6 +458,7 @@ private:
     std::map<unsigned int, boost::shared_ptr<boost::thread> > _mPortCommandThread; ///< port -> thread
     boost::shared_ptr<boost::thread> _pStatusThread;
     boost::shared_ptr<boost::thread> _pDetectionThread;
+    boost::shared_ptr<boost::thread> _pUpdateEnvironmentThread;
 
     boost::mutex _mutexCancelCommand;
     std::map<unsigned int, CommandServerPtr> _mPortCommandServer; ///< port -> server
@@ -474,17 +483,21 @@ private:
 
     unsigned long long _tsStartDetection; ///< timestamp when start detection loop was first called
     std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
-    boost::mutex _mutexDetectedInfo;
-    std::vector<DetectedInfo> _vDetectedInfo;
-    std::vector<DetectedObjectPtr> _vDetectedObject;
+    boost::mutex _mutexDetectedInfo; ///< lock for detection result
+    std::vector<DetectedInfo> _vDetectedInfo; ///< latest detection result
+    std::vector<DetectedObjectPtr> _vDetectedObject; ///< latest detection result
+    bool _resultIsContainerEmpty; ///< container status of the latest result
+    unsigned long long _resultTImestamp; ///< timestamp of latest detection result
+    std::map<std::string, std::vector<Real> > _mResultPoints; ///< result pointcloud obstacle, cameraname -> points
     
     bool _bInitialized; ///< whether visionmanager is initialized
     bool _bShutdown; ///< whether the visionmanager is shut down
-    bool _bStopStatusThread; ///< whether status thread is being stopped
-    bool _bStopDetectionThread; ///< whether detection thread is being stopped
-    bool _bCancelCommand; ///< whether the current user command is being canceled
-    bool _bExecutingUserCommand; ///< true if currently executing a user command
-    std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether the command thread of specified port is being stopped
+    bool _bStopStatusThread; ///< whether to stop status thread
+    bool _bStopDetectionThread; ///< whether to stop detection thread
+    bool _bStopUpdateEnvironmentThread; ///< whether to stop update environment thread
+    bool _bCancelCommand; ///< whether to cancel the current user command
+    bool _bExecutingUserCommand; ///< whether currently executing a user command
+    std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether to stop the command thread of specified port
 
 };
 typedef boost::shared_ptr<MujinVisionManager> MujinVisionManagerPtr;

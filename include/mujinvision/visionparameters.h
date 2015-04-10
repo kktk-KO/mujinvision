@@ -56,10 +56,7 @@ struct MUJINVISION_API ParametersBase
     virtual std::string GetJsonString() = 0;
     virtual ptree GetPropertyTree() = 0;
 
-    void Print()
-    {
-        std::cout << GetJsonString() << std::endl;
-    }
+    void Print();
 
     static std::string GetJsonString(const std::string& str)
     {

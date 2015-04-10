@@ -120,6 +120,11 @@ inline static uint64_t GetNanoPerformanceTime()
 
 namespace mujinvision {
 
+void ParametersBase::Print()
+{
+    VISIONMANAGER_LOG_INFO(GetJsonString());
+}
+
 MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir)
 {
     _bInitialized = false;
@@ -143,7 +148,7 @@ MujinVisionManager::~MujinVisionManager()
 
 void MujinVisionManager::Destroy()
 {
-    std::cout << "[DEBUG] Destroying MujinVisionManager" << std::endl;
+    VISIONMANAGER_LOG_DEBUG("Destroying MujinVisionManager");
     _StopStatusThread();
     _StopCommandThread(_commandport);
     _StopCommandThread(_configport);
@@ -182,7 +187,9 @@ void MujinVisionManager::_LoadConfig(const std::string& filename, std::string& c
         errss << "file " << filename << " does not exist!";
         throw MujinVisionException("file " + filename + " does not exist!", MVE_InvalidArgument);
     } else {
-        std::cout << "[DEBUG]" << " Loading file from " << filename << std::endl;
+        std::stringstream ss;
+        ss << "Loading file from " << filename;
+        VISIONMANAGER_LOG_DEBUG(ss.str());
         std::ifstream t(filename.c_str());
         t.seekg(0, std::ios::end);
         content.reserve(t.tellg());
@@ -220,7 +227,9 @@ void MujinVisionManager::_SetStatus(ManagerStatus status, const std::string& msg
     if(_bCancelCommand && allowInterrupt) {
         throw UserInterruptException("Cancelling command.");
     }
-    std::cout << "[INFO] " << GetMilliTime() << " " << _GetManagerStatusString(status) << ": " << msg << std::endl;
+    std::stringstream ss;
+    ss << GetMilliTime() << " " << _GetManagerStatusString(status) << ": " << msg;
+    VISIONMANAGER_LOG_INFO(ss.str());
     boost::mutex::scoped_lock lock(_mutexStatusQueue);
     _statusQueue.push(status);
     _messageQueue.push(msg);
@@ -250,7 +259,7 @@ void MujinVisionManager::_PublishStopStatus()
     StatusPublisherPtr pStatusPublisher = _pStatusPublisher;
     if( !!pStatusPublisher ) {
         pStatusPublisher->Publish(_GetStatusJsonString(GetMilliTime(), _GetManagerStatusString(MS_Lost), ""));
-        std::cout << "[DEBUG] " << "Stopped status publisher" << std::endl;
+        VISIONMANAGER_LOG_DEBUG("Stopped status publisher");
     }
 }
 
@@ -269,7 +278,7 @@ void MujinVisionManager::_StopStatusThread()
         }
         _pStatusThread->join();
         _pStatusThread.reset();
-        std::cout << "[DEBUG] " << "Stopped status thread" << std::endl;
+        VISIONMANAGER_LOG_DEBUG("Stopped status thread");
     }
 }
 
@@ -285,7 +294,9 @@ void MujinVisionManager::_StopCommandThread(const unsigned int port)
         _mPortStopCommandThread[port] = true;
         _mPortCommandThread[port]->join();
     }
-    std::cout << "[DEBUG] " << "Stopped command thread (port: " << port << ")." << std::endl;
+    std::stringstream ss;
+    ss << "Stopped command thread (port: " << port << ").";
+    VISIONMANAGER_LOG_DEBUG(ss.str());
 }
 
 void MujinVisionManager::_StartCommandServer(const unsigned int port)
@@ -303,7 +314,9 @@ void MujinVisionManager::_StartCommandServer(const unsigned int port)
 
 void MujinVisionManager::_StopCommandServer(const unsigned int port)
 {
-    std::cout << "[DEBUG] " << "Stopped command server (port: " << port << ")." << std::endl;
+    std::stringstream ss;
+    ss << "Stopped command server (port: " << port << ").";
+    VISIONMANAGER_LOG_DEBUG(ss.str());
 }
 
 void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, std::stringstream& result_ss)
@@ -708,7 +721,9 @@ bool MujinVisionManager::IsDetectionRunning()
 void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned int ms)
 {
     _StartStatusPublisher(port);
-    std::cout << "[DEBUG] " << "Started status thread (port: " << port << ")."<< std::endl;
+    std::stringstream ss;
+    ss << "Started status thread (port: " << port << ").";
+    VISIONMANAGER_LOG_DEBUG(ss.str());
     std::vector<ManagerStatus> vstatus;
     std::vector<std::string> vmessage;
     std::vector<unsigned long long> vtimestamp;
@@ -753,7 +768,9 @@ std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long ti
 void MujinVisionManager::_CommandThread(const unsigned int port)
 {
     _StartCommandServer(port);
-    std::cout << "[DEBUG] " << "Started command thread (port: " << port << ")." << std::endl;
+    std::stringstream ss;
+    ss << "Started command thread (port: " << port << ").";
+    VISIONMANAGER_LOG_DEBUG(ss.str());
     std::string incomingmessage;
     ptree command_pt;
     std::stringstream command_ss, result_ss;
@@ -762,7 +779,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
         try {
             // receive message
             if( _mPortCommandServer[port]->Recv(incomingmessage) > 0 ) {
-                std::cout << "[INFO] " << "Received command message: " << incomingmessage << "." << std::endl;
+                VISIONMANAGER_LOG_DEBUG("Received command message: " + incomingmessage + ".");
                 // execute command
                 command_ss.str("");
                 command_ss.clear();
@@ -779,15 +796,15 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 }
                 catch (const UserInterruptException& ex) { // need to catch it here, otherwise zmq will be in bad state
                     if (port == _configport) {
-                        std::cerr << "[INFO] User requested program exit." << std::endl;
+                        VISIONMANAGER_LOG_WARN("User requested program exit.");
                     } else {
                         _SetStatus(MS_Preempted, "", false);
-                        std::cerr << "[INFO] User interruped command execution." << std::endl;
+                        VISIONMANAGER_LOG_WARN("User interruped command execution.");
                         result_ss << "{" << ParametersBase::GetJsonString("status", _GetManagerStatusString(MS_Preempted)) << "}";
                     }
                 }
                 catch (const MujinVisionException& e) {
-                    std::cerr << "[ERROR] MujinVisionException " << e.message() << std::endl;
+                    VISIONMANAGER_LOG_ERROR("MujinVisionException " + e.message());
                     switch (e.GetCode()) {
                     case MVE_Failed: break;
                     case MVE_InvalidArgument: break;
@@ -808,7 +825,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                     std::string whatstr = e.what();
                     boost::replace_all(whatstr, "\"", "\\\"");
                     result_ss << "{" << ParametersBase::GetExceptionJsonString("std::exception", whatstr) << "}";
-                    std::cerr << "[ERROR] unhandled exception, " << e.what() << std::endl; 
+                    VISIONMANAGER_LOG_ERROR("unhandled exception, " + whatstr);
                     _SetStatus(MS_Aborted, e.what(), false);
                 }
 
@@ -825,7 +842,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
         }
         catch (const UserInterruptException& ex) {
             _SetStatus(MS_Aborted, "", false);
-            std::cerr << "[INFO] User requested program exit." << std::endl;
+            VISIONMANAGER_LOG_WARN("User requested program exit.");
             throw;
         }
     }
@@ -894,11 +911,13 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 _pBinpickingTask->GetPickedPositions(pickedpositions,"m");
             }
             catch(const std::exception& ex) {
-                std::cerr << "[WARN] failed to get picked positions from mujin controller: " << ex.what() << std::endl;
+                std::stringstream ss;
+                ss << "Failed to get picked positions from mujin controller: " << ex.what() << ".";
+                VISIONMANAGER_LOG_WARN(ss.str());
                 continue;
             }
             const unsigned int numPickedPositions = pickedpositions.transforms.size();
-            std::cout << "[DEBUG] Got " << numPickedPositions << " picked positions" << std::endl;
+            VISIONMANAGER_LOG_DEBUG("Got " + boost::lexical_cast<std::string>(numPickedPositions) + " picked positions");
 
             // remove saved detection results near picked positions
             //bool pickedRecently = false;
@@ -907,26 +926,26 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 // if timestamp is known
                 if (_sTimestamp.find(timestamp)!=_sTimestamp.end()) {
                     if (GetMilliTime() - timestamp < _pVisionServerParameters->timeToIgnore) {
-                        std::cout << "[DEBUG] Just picked up an object, keep ignoring detection in this region (" << (_pVisionServerParameters->timeToIgnore - (GetMilliTime()-timestamp)) << " ms left)." << std::endl;
+                        VISIONMANAGER_LOG_DEBUG("Just picked up an object, keep ignoring detection in this region (" + boost::lexical_cast<std::string>(_pVisionServerParameters->timeToIgnore - (GetMilliTime()-timestamp)) + " ms left).");
                     } else {
                         //std::cout << "Already cleared picked position at timestamp " << (GetMilliTime() - timestamp) << " ms ago." << std::endl;
                         continue;
                     }
                 } else { // for new timestamp
                     _sTimestamp.insert(timestamp);
-                    std::cout << "[DEBUG] Added timestamp " << timestamp << " to cleared set." << std::endl;
+                    VISIONMANAGER_LOG_DEBUG("Added timestamp " + boost::lexical_cast<std::string>(timestamp) + " to cleared set.");
                     //pickedRecently = true;
                 }
-                std::cout << "[DEBUG] An object was picked " << (GetMilliTime()-timestamp) << " ms ago, clear known detection results that are nearby." << std::endl;
+                VISIONMANAGER_LOG_DEBUG("An object was picked " + boost::lexical_cast<std::string>(GetMilliTime()-timestamp) + " ms ago, clear known detection results that are nearby.");
                 Transform transform = _GetTransform(pickedpositions.transforms[i]);
                 Vector position = transform.trans;
 
                 if (_vDetectedInfo.size()>0) {
                     for (int j = _vDetectedInfo.size() - 1; j >= 0; j--) { // have to iterate from the end to remove items from the vectors
                         double dist = std::sqrt(((position-_vDetectedInfo.at(j).meanPosition)*weights).lengthsqr3());
-                        std::cout << "[DEBUG] Part " << j << " distance to object " << dist << std::endl;
+                        VISIONMANAGER_LOG_DEBUG("Part " + boost::lexical_cast<std::string>(j) + " distance to object " + boost::lexical_cast<std::string>(dist));
                         if (dist < _pVisionServerParameters->clearRadius) {
-                            std::cout << "[DEBUG] Part " << j << " is within the clear radius of picked position, clear its records." << std::endl;
+                            VISIONMANAGER_LOG_DEBUG("Part " + boost::lexical_cast<std::string>(j) + " is within the clear radius of picked position, clear its records.")
                             _vDetectedInfo.erase(_vDetectedInfo.begin()+j);
                         }
                     }
@@ -955,7 +974,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
         }
         catch(const std::exception& ex) {
-            std::cerr << "[ERROR] caugh unhandled exception while debugging: " << ex.what() << std::endl;
+            std::stringstream ss;
+            ss << "Caugh unhandled exception while debugging: " << ex.what();
+            VISIONMANAGER_LOG_ERROR(ss.str());
             continue;
         }
 
@@ -987,7 +1008,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             || (dotproductZ == 0 && dotproductX <0) // or if z pointing flat, but x pointing down
                             || (dotproductZ == 0 && dotproductX == 0 && dotproductY<0) // or both z and x pointing flat, but y pointing down
                             ) {
-                            std::cout << "[DEBUG] Upside-down detection (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << "), flip rotation." << std::endl;
+                            std::stringstream ss;
+                            ss << "Upside-down detection (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << "), flip rotation.";
+                            VISIONMANAGER_LOG_DEBUG(ss.str());
                             // rotate around x axis by 180
                             rotation[0] = -transform.rot[1];
                             rotation[1] = transform.rot[0];
@@ -1018,7 +1041,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             _vDetectedInfo.at(minIndex).rotations.at(newindex) = rotation;
                             _vDetectedInfo.at(minIndex).confidences.at(newindex) = confidence;
                         }
-                        std::cout << "[DEBUG] Part " << minIndex << " is known (minDist " << minDist << "), updating its mean position averaging " << numDetections << " detections." << std::endl;
+                        std::stringstream ss;
+                        ss << "Part " << minIndex << " is known (minDist " << minDist << "), updating its mean position averaging " << numDetections << " detections.";
+                        VISIONMANAGER_LOG_DEBUG(ss.str());
 
                         // update timestamp
                         _vDetectedInfo.at(minIndex).timestamp = timestamp;
@@ -1065,7 +1090,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     // remove old detection results
                     for (int i=_vDetectedInfo.size()-1; i>=0; i--) {
                         if (GetMilliTime() - _vDetectedInfo.at(i).timestamp > _pVisionServerParameters->timeToRemember) {
-                            std::cout << "[DEBUG] Part " << i << " has not been seen for " << _pVisionServerParameters->timeToRemember << " ms, removing its records." << std::endl;
+                            std::stringstream ss;
+                            ss << "Part " << i << " has not been seen for " << _pVisionServerParameters->timeToRemember << " ms, removing its records.";
+                            VISIONMANAGER_LOG_DEBUG(ss.str());
                             _vDetectedInfo.erase(_vDetectedInfo.begin()+i);
                         }
                     }
@@ -1093,8 +1120,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             break;
         }
 
-        std::cout << "[DEBUG] Cycle time: " << (GetMilliTime() - time0)/1000.0f << " secs" << std::endl;
-        std::cout << "[DEBUG] ------------------------" << std::endl;
+        VISIONMANAGER_LOG_DEBUG("Cycle time: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
+        VISIONMANAGER_LOG_DEBUG(" ------------------------");
     }
 }
 
@@ -1186,8 +1213,7 @@ void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::s
     utils::GetSensorTransform(_pControllerClient, _pSceneResource, camerabodyname, sensorname, O_T_C0, "m");
     Transform O_T_C = _GetTransform(O_T_C0); // sensor transform in world frame
     _mNameCamera[cameraname]->SetWorldTransform(O_T_C);
-    std::cout << "[DEBUG] setting camera transform to: " << std::endl;
-    std::cout << _GetString(_mNameCamera[cameraname]->GetWorldTransform());
+    VISIONMANAGER_LOG_DEBUG("setting camera transform to:\n" + _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
 }
 
 void MujinVisionManager::_SyncRegion(const std::string& regionname)
@@ -1196,11 +1222,10 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname)
         throw MujinVisionException("Region "+regionname+ " is unknown!", MVE_InvalidArgument);
     }
     _mNameRegion[regionname]->SetWorldTransform(_GetTransform(regionname));
-    std::cout << "[DEBUG] setting region transform to: " << std::endl;
-    std::cout << _GetString(_mNameRegion[regionname]->GetWorldTransform());
+    VISIONMANAGER_LOG_DEBUG("setting region transform to:\n" + _GetString(_mNameRegion[regionname]->GetWorldTransform()));
     // update globalroi3d from mujin controller
     if (!_mNameRegion[regionname]->pRegionParameters->bInitializedRoi) {
-        std::cout << "[DEBUG] Computing globalroi3d from mujin controller." << std::endl;
+        VISIONMANAGER_LOG_DEBUG("Computing globalroi3d from mujin controller.");
         // get axis aligned bounding box for region
         BinPickingTaskResource::ResultAABB raabb;
         _pBinpickingTask->GetAABB(regionname, raabb, "m");
@@ -1219,7 +1244,7 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname)
         _mNameRegion[regionname]->pRegionParameters->minz = std::min(mins[2], maxs[2]);
         _mNameRegion[regionname]->pRegionParameters->maxz = std::max(mins[2], maxs[2]);
         _mNameRegion[regionname]->pRegionParameters->bInitializedRoi = true;
-        std::cout << _mNameRegion[regionname]->pRegionParameters->GetJsonString() << std::endl;
+        VISIONMANAGER_LOG_DEBUG(_mNameRegion[regionname]->pRegionParameters->GetJsonString());
     }
 }
 
@@ -1257,20 +1282,20 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
         } else {
             if (!colorimage) {
                 if (!warned) {
-                    std::cerr << "[WARN] Could not get color image for camera: " << cameraname << ", will try again" << std::endl;
+                    VISIONMANAGER_LOG_WARN("Could not get color image for camera: " + cameraname + ", will try again");
                     warned = true;
                 }
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
                 if (GetMilliTime() < timestamp) {
-                    std::cerr << "[ERROR]: Image timestamp is in the future, please ensure that clocks are synchronized." << std::endl;
+                    VISIONMANAGER_LOG_ERROR("Image timestamp is in the future, please ensure that clocks are synchronized.");
                     continue;
                 } else if (maxage>0 && GetMilliTime()-timestamp>maxage) {
                     if (!warned) {
-                        std::cerr << "[WARN] Image is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), will try to get again." << std::endl;
+                        VISIONMANAGER_LOG_WARN("Image is more than " + boost::lexical_cast<std::string>(maxage) + " ms old (" + boost::lexical_cast<std::string>(GetMilliTime()-timestamp) + "), will try to get again.");
                         if (colorimages.size()>0) {
-                            std::cerr << "[WARN] One of the color images is more than " << maxage << " ms old (" << GetMilliTime()-timestamp << "), start over." << std::endl;
+                            VISIONMANAGER_LOG_WARN("One of the color images is more than " + boost::lexical_cast<std::string>(maxage) + " ms old (" + boost::lexical_cast<std::string>(GetMilliTime()-timestamp) + "), start over.");
                         }
                         warned = true;
                     }
@@ -1280,9 +1305,9 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                     continue;
                 } else if (timestamp < _tsStartDetection) {
                     if (!warned) {
-                        std::cerr << "[WARN] Image was taken " << _tsStartDetection-timestamp << " ms before StartDetectionLoop was called, will try to get again." << std::endl;
+                        VISIONMANAGER_LOG_WARN("Image was taken " + boost::lexical_cast<std::string>(_tsStartDetection-timestamp) + " ms before StartDetectionLoop was called, will try to get again.");
                         if (colorimages.size() > 0) {
-                            std::cerr << "[WARN] One of the color images was taken " << _tsStartDetection-timestamp << " ms before StartDetectionLoop was called, will start over." << std::endl;
+                            VISIONMANAGER_LOG_WARN("One of the color images was taken " + boost::lexical_cast<std::string>(_tsStartDetection-timestamp) + " ms before StartDetectionLoop was called, will start over.");
                         }
                         warned = true;
                     }
@@ -1291,13 +1316,13 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                     }
                     continue;
                 } else {
-                    std::cout << "[DEBUG] Got color image that is " << GetMilliTime()-timestamp << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
+                    VISIONMANAGER_LOG_DEBUG("Got color image that is " + boost::lexical_cast<std::string>(GetMilliTime()-timestamp) + " ms old, took " + boost::lexical_cast<std::string>((GetMilliTime()-start0)/1000.0f));
                     if (!ignoreocclusion) {
                         try {
                             _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, endtimestamp, isoccluding);
                         } catch (...) {
                             if (!warned) {
-                                std::cerr << "[WARN] Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                                VISIONMANAGER_LOG_WARN("Failed to check for occlusion, will try again");
                                 warned = true;
                             }
                             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
@@ -1317,7 +1342,7 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                         }
                     } else {
                         if (!warned) {
-                            std::cerr << "[WARN] Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+                            VISIONMANAGER_LOG_WARN("Region is occluded in the view of " + cameraname + ", will try again.");
                             warned = true;
                         }
                         continue;
@@ -1327,7 +1352,9 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
         }
     }
     if (colorimages.size()<cameranames.size()) {
-        std::cerr << "[DEBUG] got " << colorimages.size() << "/" << cameranames.size() << " color images. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
+        std::stringstream ss;
+        ss << "got " << colorimages.size() << "/" << cameranames.size() << " color images. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread);
+        VISIONMANAGER_LOG_WARN(ss.str());
     }
     return colorimages.size();
 }
@@ -1348,20 +1375,20 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
         } else {
             if (!depthimage) {
                 if (!warned) {
-                    std::cerr << "[WARN] Could not get depth image for camera: " << cameraname << ", will try again in  " << waitinterval << " ms." << std::endl;
+                    VISIONMANAGER_LOG_WARN("Could not get depth image for camera: " + cameraname + ", will try again.");
                     warned = true;
                 }
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
                 if (GetMilliTime() < starttime) {
-                    std::cerr << "[ERROR]: Image timestamp is in the future, please ensure that clocks are synchronized." << std::endl;
+                    VISIONMANAGER_LOG_ERROR("Image timestamp is in the future, please ensure that clocks are synchronized.");
                     continue;
                 } else if (maxage>0 && GetMilliTime()-starttime>maxage) {
                     if (!warned) {
-                        std::cerr << "[WARN] Image is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), will try to get again." << std::endl;
+                        VISIONMANAGER_LOG_WARN("Image is more than " + boost::lexical_cast<std::string>(maxage) + " ms old (" + boost::lexical_cast<std::string>(GetMilliTime()-starttime) + "), will try to get again.");
                         if (depthimages.size()>0) {
-                            std::cerr << "[WARN] One of the depth images is more than " << maxage << " ms old (" << GetMilliTime()-starttime << "), start over." << std::endl;
+                            VISIONMANAGER_LOG_WARN("One of the depth images is more than " + boost::lexical_cast<std::string>(maxage) + " ms old (" + boost::lexical_cast<std::string>(GetMilliTime()-starttime) + "), start over.");
                         }
                         warned = true;
                     }
@@ -1371,9 +1398,9 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                     continue;
                 } else if (starttime < _tsStartDetection) {
                     if (!warned) {
-                        std::cerr << "[WARN] Image was taken " << _tsStartDetection-starttime << " ms before StartDetectionLoop was called, will try to get again." << std::endl;
+                        VISIONMANAGER_LOG_WARN("Image was taken " + boost::lexical_cast<std::string>(_tsStartDetection-starttime) + " ms before StartDetectionLoop was called, will try to get again.");
                         if (depthimages.size()>0) {
-                            std::cerr << "[WARN] One of the depth images was taken " << _tsStartDetection-starttime << " ms before StartDetectionLoop was called, will start over." << std::endl;
+                            VISIONMANAGER_LOG_WARN("One of the depth images was taken " + boost::lexical_cast<std::string>(_tsStartDetection-starttime) + " ms before StartDetectionLoop was called, will start over.");
                         }
                         warned = true;
                     }
@@ -1382,13 +1409,13 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                     }
                     continue;
                 } else {
-                    std::cout << "[DEBUG] Got depth image that is " << GetMilliTime()-starttime << " ms old, took " << (GetMilliTime()-start0)/1000.0f << std::endl;
+                    VISIONMANAGER_LOG_DEBUG("Got depth image that is " + boost::lexical_cast<std::string>(GetMilliTime()-starttime) + " ms old, took " + boost::lexical_cast<std::string>((GetMilliTime()-start0)/1000.0f));
                     if (!ignoreocclusion) {
                         try {
                             _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
                         } catch (...) {
                             if (!warned) {
-                                std::cerr << "[WARN] Failed to check for occlusion, will try again in " << waitinterval << " ms." << std::endl;
+                                VISIONMANAGER_LOG_WARN("Failed to check for occlusion, will try again.");
                                 warned = true;
                             }
                             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
@@ -1408,7 +1435,7 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                         }
                     } else {
                         if (!warned) {
-                            std::cerr << "[WARN] Region is occluded in the view of " << cameraname << ", will try again." << std::endl;
+                            VISIONMANAGER_LOG_WARN("Region is occluded in the view of " + cameraname + ", will try again.");
                             warned = true;
                         }
                         continue;
@@ -1418,7 +1445,9 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
         }
     }
     if (depthimages.size()<cameranames.size()) {
-        std::cerr << "[DEBUG] got " << depthimages.size() << "/" << cameranames.size() << " depth images. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread) << std::endl;
+        std::stringstream ss;
+        ss << "got " << depthimages.size() << "/" << cameranames.size() << " depth images. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread);
+        VISIONMANAGER_LOG_WARN(ss.str());
     }
     return depthimages.size();
 }
@@ -1587,12 +1616,12 @@ void MujinVisionManager::_DeInitialize()
     std::string regionname;
     if (!!_pDetector) {
         _pDetector.reset();
-        std::cout << "[DEBUG] reset detector" << std::endl;
+        VISIONMANAGER_LOG_DEBUG("reset detector");
     }
     if (!!_pImagesubscriberManager) {
         _pImagesubscriberManager->DeInitialize();
         _vSubscribers.clear();
-        std::cout << "[DEBUG] cleared _vSubscribers" << std::endl;
+        VISIONMANAGER_LOG_DEBUG("cleared _vSubscribers");
     }
     _SetStatusMessage("DeInitialized vision manager.");
 }
@@ -1609,7 +1638,7 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
     _GetColorImages(regionname, colorcameranames, colorimages, ignoreocclusion, maxage);
     std::vector<DepthImagePtr> depthimages;
     _GetDepthImages(regionname, depthcameranames, depthimages, ignoreocclusion, maxage);
-    std::cout << "[DEBUG] Getting images took " << ((GetMilliTime() - starttime) / 1000.0f) << std::endl;
+    VISIONMANAGER_LOG_DEBUG("Getting images took " + boost::lexical_cast<std::string>((GetMilliTime() - starttime) / 1000.0f));
     starttime = GetMilliTime();
     if (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size()) {
         for (size_t i=0; i<colorimages.size(); ++i) {
@@ -1752,7 +1781,7 @@ void MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool 
             if (!!colorimage) {
                 _pImagesubscriberManager->WriteColorImage(colorimage, filename_ss.str());
             } else {
-                std::cerr << "[ERROR] Failed to get colorimage, please try again." << std::endl;
+                VISIONMANAGER_LOG_ERROR("Failed to get colorimage, please try again.");
             }
         }
     }
@@ -1772,7 +1801,7 @@ void MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool 
             if (!!depthimage) {
                 _pImagesubscriberManager->WriteDepthImage(depthimage, filename_ss.str());
             } else {
-                std::cerr << "[ERROR] Failed to get depthimage, please try again." << std::endl;
+                VISIONMANAGER_LOG_ERROR("Failed to get depthimage, please try again.");
             }
         }
     }
@@ -1800,7 +1829,7 @@ void MujinVisionManager::SyncCameras(const std::string& regionname, const std::v
 {
     std::vector<std::string> cameranamestobeused = _GetCameraNames(regionname, cameranames);
     for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
-        std::cout << "[DEBUG] updating " << cameranamestobeused[i] << std::endl;
+        VISIONMANAGER_LOG_DEBUG("updating " + boost::lexical_cast<std::string>(cameranamestobeused[i]));
         _SyncCamera(regionname, cameranamestobeused[i]);
     }
     // TODO: update cameras in detector

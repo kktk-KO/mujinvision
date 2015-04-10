@@ -27,6 +27,27 @@
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
 
+#ifndef USE_LOG4CPP // logging
+
+#define VISIONMANAGER_LOG_DEBUG(msg) std::cout << msg << std::endl;
+#define VISIONMANAGER_LOG_INFO(msg) std::cout << msg << std::endl;
+#define VISIONMANAGER_LOG_WARN(msg) std::cout << msg << std::endl;
+#define VISIONMANAGER_LOG_ERROR(msg) std::cerr << msg << std::endl;
+
+#else
+
+#include <log4cpp/Category.hh>
+#include <log4cpp/PropertyConfigurator.hh>
+
+LOG4CPP_LOGGER_N(mujinvisionmanagerlogger, "mujinvisionmanager");
+
+#define VISIONMANAGER_LOG_DEBUG(msg) LOG4CPP_DEBUG_S(mujinvisionmanagerlogger) << msg;
+#define VISIONMANAGER_LOG_INFO(msg) LOG4CPP_INFO_S(mujinvisionmanagerlogger) << msg;
+#define VISIONMANAGER_LOG_WARN(msg) LOG4CPP_WARN_S(mujinvisionmanagerlogger) << msg;
+#define VISIONMANAGER_LOG_ERROR(msg) LOG4CPP_ERROR_S(mujinvisionmanagerlogger) << msg;
+
+#endif // logging
+
 namespace mujinvision {
 
 using namespace mujinclient;

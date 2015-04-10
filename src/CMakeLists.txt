@@ -14,6 +14,10 @@
 include_directories(${MUJINVISION_INCLUDE_LOCAL_DIRS} ${libzmq_INCLUDE_DIRS} ${MujinControllerClient_INCLUDE_DIRS})
 link_directories(${MUJINVISION_LINK_DIRS} ${libzmq_LIBRARY_DIRS} ${MujinControllerClient_LIBRARY_DIRS})
 add_definitions("-DBOOST_SPIRIT_THREADSAFE")
+if (log4cpp_FOUND)
+  include_directories(${log4cpp_INCLUDE_DIRS})
+  link_directories(${log4cpp_LIBRARY_DIRS})
+endif()
 
 set(SOURCE_FILES mujinvisionmanager.cpp)
 
@@ -25,7 +29,13 @@ set_target_properties(libmujinvision PROPERTIES COMPILE_FLAGS "${EXTRA_COMPILE_F
   VERSION ${MUJINVISION_VERSION}
   CLEAN_DIRECT_OUTPUT 1
   )
-target_link_libraries(libmujinvision ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY}  ${EXTRA_LIBRARIES} ${libzmq_LIBRARIES} ${MujinControllerClient_LIBRARIES})
+
+if (log4cpp_FOUND)
+  target_link_libraries(libmujinvision ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY}  ${EXTRA_LIBRARIES} ${libzmq_LIBRARIES} ${MujinControllerClient_LIBRARIES} ${log4cpp_LIBRARIES})
+else()
+  target_link_libraries(libmujinvision ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY}  ${EXTRA_LIBRARIES} ${libzmq_LIBRARIES} ${MujinControllerClient_LIBRARIES})
+endif()
+
 if( MSVC )
   message(STATUS "TODO: install for MSVC")
 else()

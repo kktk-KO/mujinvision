@@ -1,5 +1,24 @@
 #include <mujinvision/mujinvisionmanager.h>
 
+#ifndef USE_LOG4CPP // logging
+
+#define VMSAMPLE_LOG_INFO(msg) std::cout << msg << std::endl;
+#define VMSAMPLE_LOG_ERROR(msg) std::cerr << msg << std::endl;
+
+#else
+
+#include <log4cpp/PatternLayout.hh>
+#include <log4cpp/Appender.hh>
+#include "log4cpp/OstreamAppender.hh"
+#include <log4cpp/SyslogAppender.hh>
+
+LOG4CPP_LOGGER_N(vmsamplelogger, "mujinvisionmanager.samples.app");
+
+#define VMSAMPLE_LOG_INFO(msg) LOG4CPP_INFO_S(vmsamplelogger) << msg;
+#define VMSAMPLE_LOG_ERROR(msg) LOG4CPP_ERROR_S(vmsamplelogger) << msg;
+
+#endif // logging
+
 using namespace mujinvision;
 
 class ColorImage
@@ -131,6 +150,25 @@ typedef boost::weak_ptr<UserDetectorManager> UserDetectorManagerWeakPtr;
 
 int main(int argc, char* argv[])
 {
+#ifdef USE_LOG4CPP
+    std::string logPropertiesFilename = "sample.properties";
+    try{
+        log4cpp::PropertyConfigurator::configure(logPropertiesFilename);
+    } catch (log4cpp::ConfigureFailure& e) {
+        log4cpp::Appender *consoleAppender = new log4cpp::OstreamAppender("console", &std::cout);
+        std::string pattern = "%d %c [%p] %m%n";
+        log4cpp::PatternLayout* patternLayout0 = new log4cpp::PatternLayout();
+        patternLayout0->setConversionPattern(pattern);
+        consoleAppender->setLayout(patternLayout0);
+
+        log4cpp::Category& rootlogger = log4cpp::Category::getRoot();
+        rootlogger.setPriority(log4cpp::Priority::INFO);
+        rootlogger.addAppender(consoleAppender);
+        rootlogger.error("failed to load logger properties at %s, using default logger. error: %s", logPropertiesFilename.c_str(), e.what());
+    }
+
+#endif
+
     UserImageSubscriberManagerPtr imagesubscribermanager(new UserImageSubscriberManager());
     UserDetectorManagerPtr detectormanager(new UserDetectorManager());
     MujinVisionManagerPtr visionmanager;

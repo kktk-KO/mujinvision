@@ -71,6 +71,13 @@ if( MSVC )
   message(STATUS "TODO: preparation for MSVC")
 else()
   set(MUJINVISION_LIBRARY_SUFFIX "${MUJINVISION_SOVERSION}" CACHE STRING "Suffix to append to library names")
+
+  # only try to load log4cpp module if not windows
+  find_package(PkgConfig)
+  pkg_check_modules(log4cpp log4cpp)
+  if (log4cpp_FOUND)
+    add_definitions(-DUSE_LOG4CPP)
+  endif()
 endif()
 
 # MujinControllerClient

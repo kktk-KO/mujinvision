@@ -131,6 +131,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _pImagesubscriberManager = imagesubscribermanager;
     _pDetectorManager = detectormanager;
     _bShutdown = false;
+    _bCancelCommand = false;
     _zmqcontext.reset(new zmq::context_t(6));
     _statusport = statusport;
     _commandport = commandport;

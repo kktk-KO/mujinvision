@@ -1458,6 +1458,7 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
 
 void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::vector<std::string>& streameruris, const std::string& tasktype)
 {
+    uint64_t time0 = GetMilliTime();
     _binpickingTaskZmqPort = binpickingTaskZmqPort;
     _binpickingTaskHeartbeatPort = binpickingTaskHeartbeatPort;
     _binpickingTaskHeartbeatTimeout = binpickingTaskHeartbeatTimeout;
@@ -1610,6 +1611,9 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     read_json(detectorconfigss, pt);
     _pDetector = _pDetectorManager->CreateObjectDetector(pt.get_child("object"),pt.get_child("detection"), _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetStatusMessage,this,_1));
     _targetname = targetname;
+    VISIONMANAGER_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
+    VISIONMANAGER_LOG_DEBUG(" ------------------------");
+
     _SetStatus(MS_Succeeded);
 }
 

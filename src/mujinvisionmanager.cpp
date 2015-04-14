@@ -371,12 +371,13 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                     cameranames.push_back(v->second.get<std::string>(""));
                 }
             }
-            double voxelsize = command_pt.get("voxelsize",0.01);
-            double pointsize = command_pt.get("pointsize",0.005);
-            bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
-            unsigned int maxage = command_pt.get("maxage",0);
+            double voxelsize = command_pt.get("voxelsize", 0.01);
+            double pointsize = command_pt.get("pointsize", 0.005);
+            bool ignoreocclusion = command_pt.get("ignoreocclusion", false);
+            unsigned int maxage = command_pt.get("maxage", 0);
             std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
-            StartDetectionLoop(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, obstaclename);
+            bool fastdetection = command_pt.get("fastdetection", false);
+            StartDetectionLoop(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, obstaclename, fastdetection);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -504,11 +505,12 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                     cameranames.push_back(v->second.get<std::string>(""));
                 }
             }
-            bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
-            unsigned int maxage = command_pt.get("maxage",0);
+            bool ignoreocclusion = command_pt.get("ignoreocclusion", false);
+            unsigned int maxage = command_pt.get("maxage", 0);
+            bool fastdetection = command_pt.get("fastdetection", false);
             std::vector<DetectedObjectPtr> detectedobjects;
             bool iscontainerempty = false;
-            DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage);
+            DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, fastdetection);
             result_ss << "{";
             result_ss << _GetJsonString(detectedobjects) << ", ";
             result_ss << ParametersBase::GetJsonString("iscontainerempty") << ": " << int(iscontainerempty) << ", ";
@@ -850,14 +852,14 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
     _StopCommandServer(port);
 }
 
-void MujinVisionManager::_StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename)
+void MujinVisionManager::_StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename, bool fastdetection)
 {
     _tsStartDetection = GetMilliTime();
     if (!!_pDetectionThread && !_bStopDetectionThread) {
         _SetStatusMessage("Detection thread is already running, do nothing.");
     } else {
         _bStopDetectionThread = false;
-        _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, obstaclename)));
+        _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, obstaclename, fastdetection)));
     }
 }
 
@@ -899,7 +901,7 @@ void MujinVisionManager::_StopUpdateEnvironmentThread()
     }
 }
 
-void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename)
+void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename, const bool fastdetection)
 {
     uint64_t time0;
     while (!_bStopDetectionThread) {
@@ -962,7 +964,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         std::vector<DetectedObjectPtr> detectedobjects;
         bool iscontainerempty = false;
         try {
-            DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage);
+            DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, fastdetection);
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
             for(unsigned int i=0; i<cameranamestobeused.size(); i++) {
                 std::string cameraname = cameranamestobeused[i];
@@ -1114,7 +1116,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 newdetectedobjects = detectedobjects;
                 _vDetectedObject = detectedobjects;
             }
-            _resultTImestamp = GetMilliTime();
+            _resultTimestamp = GetMilliTime();
         }
         // send results to mujin controller
         if (_bStopDetectionThread) {
@@ -1140,13 +1142,14 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
 
         {
             boost::mutex::scoped_lock lock(_mutexDetectedInfo);
-            update = _resultTImestamp > lastUpdateTimestamp;
+            update = _resultTimestamp > lastUpdateTimestamp;
         }
 
         if (!update) {
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             continue;
         } else {
+            lastUpdateTimestamp = _resultTimestamp;
             std::vector<mujinclient::Transform> transformsworld;
             std::vector<std::string> confidences;
             std::vector<uint64_t> timestamps;
@@ -1627,7 +1630,7 @@ void MujinVisionManager::_DeInitialize()
     _SetStatusMessage("DeInitialized vision manager.");
 }
 
-void MujinVisionManager::DetectObjects(const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>&detectedobjects, bool& iscontainerempty, const bool ignoreocclusion, const unsigned int maxage)
+void MujinVisionManager::DetectObjects(const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty, const bool ignoreocclusion, const unsigned int maxage, const bool fastdetection)
 {
     uint64_t starttime = GetMilliTime();
 
@@ -1661,9 +1664,9 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
     _SetStatus(MS_Succeeded);
 }
 
-void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>&cameranames,const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename)
+void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>&cameranames,const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename, const bool fastdetection)
 {
-    _StartDetectionThread(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, obstaclename);
+    _StartDetectionThread(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, obstaclename, fastdetection);
     _StartUpdateEnvironmentThread(regionname, cameranames, voxelsize, pointsize, obstaclename);
     _SetStatus(MS_Succeeded);    
 }

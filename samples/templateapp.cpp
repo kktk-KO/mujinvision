@@ -109,7 +109,7 @@ public:
     void DeInitialize() {
     }
 
-    void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty) {
+    void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty, bool fastdetection) {
     }
 
     void DetectInColorImage(const std::string& regionname, const std::string& colorcameraname, std::vector<DetectedObjectPtr>& resultscolorcamera) {

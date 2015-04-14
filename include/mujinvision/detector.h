@@ -48,8 +48,9 @@ public:
         \param depthcameraname
         \param detectedobjects in world frame
         \param iscontainerempty whether the container is empty (useful when no object is detected but there are points inside bin)
+        \param fastdetection whether to prioritize speed over quality
      */
-    virtual void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty) = 0;
+    virtual void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty, bool fastdetection=false) = 0;
 
     /** \brief Gets point cloud obstacle from depth data and detection result.
         \param regionname
@@ -109,9 +110,9 @@ public:
         }
     }
 
-    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty) {
+    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty, bool fastdetection=false) {
         if (colorcameranames.size()>0 && depthcameranames.size()>0) {
-            DetectObjects(regionname, colorcameranames.at(0), depthcameranames.at(0), detectedobjects, iscontainerempty);
+            DetectObjects(regionname, colorcameranames.at(0), depthcameranames.at(0), detectedobjects, iscontainerempty, fastdetection);
         }
     };
 

@@ -178,6 +178,8 @@ public:
         \param iscontainerempty whether container is empty (useful when no object is detected but there are points inside bin)
         \param ignoreocclusion whether to skip occlusion check
         \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
+        \param fastdetection whether to prioritize speed
+        \param bindetection whether to detect bin
      */
     virtual void DetectObjects(const std::string& regionname,
                                const std::vector<std::string>& cameranames,
@@ -185,7 +187,8 @@ public:
                                bool& iscontainerempty,
                                const bool ignoreocclusion=false,
                                const unsigned int maxage=0,
-                               const bool fastdetection=false);
+                               const bool fastdetection=false,
+                               const bool bindetection=false);
 
     /** \brief starts detection thread to continuously detect objects and sends detection results to mujin controller
      */
@@ -195,8 +198,7 @@ public:
                                     const double pointsize=0.005,
                                     const bool ignoreocclusion=false,
                                     const unsigned int maxage=0,
-                                    const std::string& obstaclename="__dynamicobstacle__",
-                                    const bool fastdetection=false);
+                                    const std::string& obstaclename="__dynamicobstacle__");
 
     virtual void StopDetectionLoop();
 
@@ -371,8 +373,8 @@ private:
     void _StartStatusPublisher(const unsigned int port);
     void _PublishStopStatus();
 
-    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename, const bool fastdetection);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename, const bool fastdetection);
+    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename);
     void _StopDetectionThread();
 
     /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.

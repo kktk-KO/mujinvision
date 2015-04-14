@@ -1668,7 +1668,7 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
             _pDetector->SetDepthImage(cameraname, depthimages.at(i));
         }
         // detect objects
-        _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, iscontainerempty);
+        _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, iscontainerempty, fastdetection);
         std::stringstream msgss;
         msgss << "Detected " << detectedobjects.size() << " objects, iscontainerempty: " << int(iscontainerempty) <<". Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
         _SetStatusMessage(msgss.str());

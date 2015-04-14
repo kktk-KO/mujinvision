@@ -1278,6 +1278,7 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
     bool isoccluding = true;
     std::string cameraname;
     bool warned = false;
+    uint64_t lastfailedtimestamp = GetMilliTime();
     while (!_bCancelCommand && !_bShutdown) {
         cameraname = cameranames.at(colorimages.size());
         ColorImagePtr colorimage = _pImagesubscriberManager->GetColorImage(cameraname, timestamp, endtimestamp);
@@ -1323,7 +1324,9 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                     VISIONMANAGER_LOG_DEBUG("Got color image that is " + boost::lexical_cast<std::string>(GetMilliTime()-timestamp) + " ms old, took " + boost::lexical_cast<std::string>((GetMilliTime()-start0)/1000.0f));
                     if (!ignoreocclusion) {
                         try {
-                            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, endtimestamp, isoccluding);
+                            if (timestamp > lastfailedtimestamp) {
+                                _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, timestamp, endtimestamp, isoccluding);
+                            }
                         } catch (...) {
                             if (!warned) {
                                 VISIONMANAGER_LOG_WARN("Failed to check for occlusion, will try again");
@@ -1345,6 +1348,7 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                             continue;
                         }
                     } else {
+                        lastfailedtimestamp = timestamp;
                         if (!warned) {
                             VISIONMANAGER_LOG_WARN("Region is occluded in the view of " + cameraname + ", will try again.");
                             warned = true;
@@ -1371,6 +1375,7 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
     bool isoccluding = true;
     std::string cameraname;
     bool warned = false;
+    uint64_t lastfailedtimestamp = GetMilliTime();
     while (!_bCancelCommand && !_bShutdown) {
         cameraname = cameranames.at(depthimages.size());
         DepthImagePtr depthimage = _pImagesubscriberManager->GetDepthImage(cameraname, _numDepthImagesToAverage, starttime, endtime);
@@ -1403,12 +1408,12 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                 } else if (starttime < _tsStartDetection) {
                     if (!warned) {
                         VISIONMANAGER_LOG_WARN("Image was taken " + boost::lexical_cast<std::string>(_tsStartDetection-starttime) + " ms before StartDetectionLoop was called, will try to get again.");
-                        if (depthimages.size()>0) {
+                        if (depthimages.size() > 0) {
                             VISIONMANAGER_LOG_WARN("One of the depth images was taken " + boost::lexical_cast<std::string>(_tsStartDetection-starttime) + " ms before StartDetectionLoop was called, will start over.");
                         }
                         warned = true;
                     }
-                    if (depthimages.size()>0) {
+                    if (depthimages.size() > 0) {
                         depthimages.resize(0); // need to start over, all color images need to be equally new
                     }
                     continue;
@@ -1416,7 +1421,9 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                     VISIONMANAGER_LOG_DEBUG("Got depth image that is " + boost::lexical_cast<std::string>(GetMilliTime()-starttime) + " ms old, took " + boost::lexical_cast<std::string>((GetMilliTime()-start0)/1000.0f));
                     if (!ignoreocclusion) {
                         try {
-                            _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+                            if (starttime > lastfailedtimestamp) {
+                                _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+                            }
                         } catch (...) {
                             if (!warned) {
                                 VISIONMANAGER_LOG_WARN("Failed to check for occlusion, will try again.");
@@ -1438,6 +1445,7 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                             continue;
                         }
                     } else {
+                        lastfailedtimestamp = starttime;
                         if (!warned) {
                             VISIONMANAGER_LOG_WARN("Region is occluded in the view of " + cameraname + ", will try again.");
                             warned = true;

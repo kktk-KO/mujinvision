@@ -161,6 +161,7 @@ public:
                             const unsigned int controllerPort,
                             const std::string& controllerUsernamePass,
                             const std::string& robotControllerUri,
+                            const std::string& robotDeviceIOUri,
                             const unsigned int binpickingTaskZmqPort,
                             const unsigned int binpickingTaskHeartbeatPort,
                             const double binpickingTaskHeartbeatTimeout,
@@ -465,7 +466,8 @@ private:
     unsigned int _binpickingTaskHeartbeatPort;
     double _binpickingTaskHeartbeatTimeout;
     std::string _binpickingTaskScenePk;
-    std::string  _robotControllerUri;
+    std::string _robotControllerUri;
+    std::string _robotDeviceIOUri;
     std::string _tasktype;
 
     boost::shared_ptr<zmq::context_t> _zmqcontext;

@@ -543,7 +543,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             double voxelsize = command_pt.get("voxelsize", 0.01);
             double pointsize = command_pt.get("pointsize", 0.005);
             std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
-            SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, voxelsize, pointsize, obstaclename);
+            bool fast = command_pt.get("fast", false);
+            SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, voxelsize, pointsize, obstaclename, fast);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -967,9 +968,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         bool iscontainerempty = false;
         try {
             if (!doneinitial) {
-                VISIONMANAGER_LOG_DEBUG("detecting with fastdetection=true and bindection=true for the first run");
+                VISIONMANAGER_LOG_DEBUG("DetectObjects() with fastdetection=true and bindection=true for the first run");
                 DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, true, true);
-                doneinitial = true;
             } else {
                 DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, false, false);
             }
@@ -977,11 +977,19 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             for(unsigned int i=0; i<cameranamestobeused.size(); i++) {
                 std::string cameraname = cameranamestobeused[i];
                 std::vector<Real> points;
-                _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize);
+                if (!doneinitial) {
+                    VISIONMANAGER_LOG_DEBUG("GetPointCloudObstacle() with fast=true for the first run");
+                    _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, true);
+                } else {
+                    _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false);
+                }
                 {
                     boost::mutex::scoped_lock lock(_mutexDetectedInfo);
                     _mResultPoints[cameraname] = points;
                 }
+            }
+            if (!doneinitial) {
+                doneinitial = true;
             }
         }
         catch(const std::exception& ex) {
@@ -1698,7 +1706,7 @@ void MujinVisionManager::StopDetectionLoop()
     _SetStatus(MS_Succeeded);
 }
 
-void MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize, const std::string obstaclename)
+void MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const double voxelsize, const double pointsize, const std::string obstaclename, const bool fast)
 {
     std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
     // set up images
@@ -1713,7 +1721,7 @@ void MujinVisionManager::SendPointCloudObstacleToController(const std::string& r
             _pDetector->SetDepthImage(cameraname, depthimages.at(i));
             // get point cloud obstacle
             std::vector<Real> points;
-            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize);
+            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast);
             std::stringstream ss;
             ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
             _SetStatusMessage(ss.str());

@@ -209,13 +209,15 @@ public:
         \param detectedobjects detection result in meters in  world frame
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
         \param pointsize size of the point in meters to be sent to the mujin controller
+        \param fast whether to prioritize speed
      */
     virtual void SendPointCloudObstacleToController(const std::string& regionname,
                                                     const std::vector<std::string>& cameranames,
                                                     const std::vector<DetectedObjectPtr>& detectedobjectsworld,
                                                     const double voxelsize=0.01,
                                                     const double pointsize=0.005,
-                                                    const std::string obstaclename="__dynamicobstacle__");
+                                                    const std::string obstaclename="__dynamicobstacle__",
+                                                    const bool fast=false);
 
     /** \brief Visualizes the raw camera point clouds on mujin controller
      */

@@ -128,10 +128,16 @@ void ParametersBase::Print()
 MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir)
 {
     _bInitialized = false;
+    _bShutdown = false;
+    _bStopStatusThread = false;
+    _bStopDetectionThread = false;
+    _bStopUpdateEnvironmentThread = false;
+    _bCancelCommand = false;
+    _bExecutingUserCommand = false;
+    _resultIsContainerEmpty = false;
+
     _pImagesubscriberManager = imagesubscribermanager;
     _pDetectorManager = detectormanager;
-    _bShutdown = false;
-    _bCancelCommand = false;
     _zmqcontext.reset(new zmq::context_t(6));
     _statusport = statusport;
     _commandport = commandport;
@@ -1170,7 +1176,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
             std::vector<uint64_t> timestamps;
             std::vector<Real> totalpoints;
             //uint64_t starttime = GetMilliTime();
-            bool iscontainerempty;
+            bool iscontainerempty = false;
             {
                 boost::mutex::scoped_lock lock(_mutexDetectedInfo);
                 for (unsigned int i=0; i<_vDetectedObject.size(); i++) {

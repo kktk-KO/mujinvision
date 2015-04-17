@@ -912,7 +912,7 @@ void MujinVisionManager::_StopUpdateEnvironmentThread()
 void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename)
 {
     uint64_t time0;
-    bool doneinitial = false;
+    int doneinitial = 2;
     while (!_bStopDetectionThread) {
         time0 = GetMilliTime();
         // update picked positions
@@ -973,18 +973,18 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         std::vector<DetectedObjectPtr> detectedobjects;
         bool iscontainerempty = false;
         try {
-            if (!doneinitial) {
-                VISIONMANAGER_LOG_DEBUG("DetectObjects() with fastdetection=true and bindection=true for the first run");
+            if (doneinitial > 0) {
+                VISIONMANAGER_LOG_DEBUG("DetectObjects() with fastdetection=true and bindection=true for the first two runs");
                 DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, true, true);
             } else {
                 DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, false, false);
             }
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
-            for(unsigned int i=0; i<cameranamestobeused.size(); i++) {
+            for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
                 std::string cameraname = cameranamestobeused[i];
                 std::vector<Real> points;
-                if (!doneinitial) {
-                    VISIONMANAGER_LOG_DEBUG("GetPointCloudObstacle() with fast=true for the first run");
+                if (doneinitial > 0) {
+                    VISIONMANAGER_LOG_DEBUG("GetPointCloudObstacle() with fast=true for the first two runs");
                     _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, true);
                 } else {
                     _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false);
@@ -994,8 +994,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     _mResultPoints[cameraname] = points;
                 }
             }
-            if (!doneinitial) {
-                doneinitial = true;
+            if (doneinitial > 0) {
+                doneinitial -= 1;
             }
         }
         catch(const std::exception& ex) {
@@ -1294,7 +1294,7 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
 unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& colorimages, const bool ignoreocclusion, const unsigned int maxage, const unsigned int waitinterval)
 {
     uint64_t start0 = GetMilliTime();
-    colorimages.resize(0);
+    colorimages.clear();
     unsigned long long timestamp, endtimestamp;
     bool isoccluding = true;
     std::string cameraname;
@@ -1326,7 +1326,7 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                         warned = true;
                     }
                     if (colorimages.size()>0) {
-                        colorimages.resize(0); // need to start over, all color images need to be equally new
+                        colorimages.clear(); // need to start over, all color images need to be equally new
                     }
                     continue;
                 } else if (timestamp < _tsStartDetection) {
@@ -1338,7 +1338,7 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                         warned = true;
                     }
                     if (colorimages.size() > 0) {
-                        colorimages.resize(0); // need to start over, all color images need to be equally new
+                        colorimages.clear(); // need to start over, all color images need to be equally new
                     }
                     continue;
                 } else {
@@ -1391,7 +1391,7 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
 unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<DepthImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage, const unsigned int waitinterval)
 {
     uint64_t start0 = GetMilliTime();
-    depthimages.resize(0);
+    depthimages.clear();
     unsigned long long starttime, endtime;
     bool isoccluding = true;
     std::string cameraname;
@@ -1423,7 +1423,7 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                         warned = true;
                     }
                     if (depthimages.size()>0) {
-                        depthimages.resize(0); // need to start over, all color images need to be equally new
+                        depthimages.clear(); // need to start over, all color images need to be equally new
                     }
                     continue;
                 } else if (starttime < _tsStartDetection) {
@@ -1435,7 +1435,7 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                         warned = true;
                     }
                     if (depthimages.size() > 0) {
-                        depthimages.resize(0); // need to start over, all color images need to be equally new
+                        depthimages.clear(); // need to start over, all color images need to be equally new
                     }
                     continue;
                 } else {
@@ -1939,12 +1939,13 @@ std::vector<std::string> MujinVisionManager::_GetDepthCameraNames(const std::str
 {
     std::vector<std::string> cameranamescandidates= _GetCameraNames(regionname, cameranames);
     std::vector<std::string> colorcameranames;
-    for(std::vector<std::string>::const_iterator itr = cameranamescandidates.begin(); itr != cameranamescandidates.end(); itr++) {
-        if (_mNameCameraParameters.find(*itr) == _mNameCameraParameters.end()) {
-            throw MujinVisionException(*itr + " is not defined in visionmanager config file.", MVE_ConfigurationFileError);
+    for(unsigned int i = 0; i < cameranamescandidates.size(); ++i) {
+        std::string cameraname = cameranamescandidates.at(i);
+        if (_mNameCameraParameters.find(cameraname) == _mNameCameraParameters.end()) {
+            throw MujinVisionException(cameraname + " is not defined in visionmanager config file.", MVE_ConfigurationFileError);
         }
-        if (_mNameCameraParameters[*itr]->isDepthCamera) {
-            colorcameranames.push_back(*itr);
+        if (_mNameCameraParameters[cameraname]->isDepthCamera) {
+            colorcameranames.push_back(cameraname);
         }
     }
     return colorcameranames;

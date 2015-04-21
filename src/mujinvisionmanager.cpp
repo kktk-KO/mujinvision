@@ -983,12 +983,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
                 std::string cameraname = cameranamestobeused[i];
                 std::vector<Real> points;
-                if (doneinitial > 0) {
-                    VISIONMANAGER_LOG_DEBUG("GetPointCloudObstacle() with fast=true for the first two runs");
-                    _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, true);
-                } else {
-                    _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false);
-                }
+                _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false);
                 {
                     boost::mutex::scoped_lock lock(_mutexDetectedInfo);
                     _mResultPoints[cameraname] = points;

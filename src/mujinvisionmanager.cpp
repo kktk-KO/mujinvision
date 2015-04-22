@@ -1386,6 +1386,11 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
         std::stringstream ss;
         ss << "got " << colorimages.size() << "/" << cameranames.size() << " color images. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread);
         VISIONMANAGER_LOG_WARN(ss.str());
+        if (fetchimagetimeout > 0 && GetMilliTime() - start0 > fetchimagetimeout) {
+            std::stringstream ss;
+            ss << "Failed to get " << cameranames.size() << " images, got " << colorimages.size();
+            throw MujinVisionException(ss.str(), MVE_ImageAcquisitionError);
+        }
     }
     return colorimages.size();
 }
@@ -1483,6 +1488,11 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
         std::stringstream ss;
         ss << "got " << depthimages.size() << "/" << cameranames.size() << " depth images. _bCancelCommand " << int(_bCancelCommand) << " _bShutdown " << int(_bShutdown) << " _bStopDetectionThread " << int(_bStopDetectionThread);
         VISIONMANAGER_LOG_WARN(ss.str());
+        if (fetchimagetimeout > 0 && GetMilliTime() - start0 > fetchimagetimeout) {
+            std::stringstream ss;
+            ss << "Failed to get " << cameranames.size() << " images, got " << depthimages.size();
+            throw MujinVisionException(ss.str(), MVE_ImageAcquisitionError);
+        }
     }
     return depthimages.size();
 }

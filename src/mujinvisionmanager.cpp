@@ -1315,7 +1315,7 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
     std::string cameraname;
     bool warned = false;
     uint64_t lastfailedtimestamp = GetMilliTime();
-    while (!_bCancelCommand && !_bShutdown && !(fetchimagetimeout > 0 && GetMilliTime()-start0 < fetchimagetimeout)) {
+    while (!_bCancelCommand && !_bShutdown && ( (fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime()-start0 < fetchimagetimeout))) {
         cameraname = cameranames.at(colorimages.size());
         ColorImagePtr colorimage = _pImagesubscriberManager->GetColorImage(cameraname, timestamp, endtimestamp);
         if (_bStopDetectionThread) {
@@ -1417,7 +1417,7 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
     std::string cameraname;
     bool warned = false;
     uint64_t lastfailedtimestamp = GetMilliTime();
-    while (!_bCancelCommand && !_bShutdown && !(fetchimagetimeout > 0 && GetMilliTime()-start0 < fetchimagetimeout)) {
+    while (!_bCancelCommand && !_bShutdown && ( (fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime()-start0 < fetchimagetimeout))) {
         cameraname = cameranames.at(depthimages.size());
         DepthImagePtr depthimage = _pImagesubscriberManager->GetDepthImage(cameraname, _numDepthImagesToAverage, starttime, endtime);
         if (_bStopDetectionThread) {

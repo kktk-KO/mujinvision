@@ -1256,12 +1256,55 @@ void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::s
     VISIONMANAGER_LOG_DEBUG("setting camera transform to:\n" + _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
 }
 
+void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::string& cameraname, const mujinclient::Transform& t)
+{
+    if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
+        throw MujinVisionException("Camera "+cameraname+ " is unknown!", MVE_InvalidArgument);
+    }
+    Transform O_T_C = _GetTransform(t); // sensor transform in world frame
+    _mNameCamera[cameraname]->SetWorldTransform(O_T_C);
+    VISIONMANAGER_LOG_DEBUG("setting camera transform to:\n" + _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
+}
+
 void MujinVisionManager::_SyncRegion(const std::string& regionname)
 {
     if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
         throw MujinVisionException("Region "+regionname+ " is unknown!", MVE_InvalidArgument);
     }
     mujinvision::Transform regiontransform = _GetTransform(regionname);
+    _mNameRegion[regionname]->SetWorldTransform(regiontransform);
+    VISIONMANAGER_LOG_DEBUG("setting region transform to:\n" + _GetString(_mNameRegion[regionname]->GetWorldTransform()));
+    // update globalroi3d from mujin controller
+    if (!_mNameRegion[regionname]->pRegionParameters->bInitializedRoi) {
+        VISIONMANAGER_LOG_DEBUG("Computing globalroi3d from mujin controller.");
+        // get axis aligned bounding box for region
+        BinPickingTaskResource::ResultAABB raabb;
+        _pBinpickingTask->GetAABB(regionname, raabb, "m");
+        if (raabb.extents.size()!=3 || raabb.pos.size()!=3) {
+            throw MujinVisionException("ResultAABB from Mujin controller is invalid!", MVE_ControllerError);
+        }
+
+        Transform B_T_O = regiontransform.inverse();
+        Vector mins = B_T_O *(Vector(raabb.pos[0]-raabb.extents[0],raabb.pos[1]-raabb.extents[1],raabb.pos[2]-raabb.extents[2]));
+        Vector maxs = B_T_O *(Vector(raabb.pos[0]+raabb.extents[0],raabb.pos[1]+raabb.extents[1],raabb.pos[2]+raabb.extents[2]));
+
+        _mNameRegion[regionname]->pRegionParameters->minx = std::min(mins[0], maxs[0]);
+        _mNameRegion[regionname]->pRegionParameters->maxx = std::max(mins[0], maxs[0]);
+        _mNameRegion[regionname]->pRegionParameters->miny = std::min(mins[1], maxs[1]);
+        _mNameRegion[regionname]->pRegionParameters->maxy = std::max(mins[1], maxs[1]);
+        _mNameRegion[regionname]->pRegionParameters->minz = std::min(mins[2], maxs[2]);
+        _mNameRegion[regionname]->pRegionParameters->maxz = std::max(mins[2], maxs[2]);
+        _mNameRegion[regionname]->pRegionParameters->bInitializedRoi = true;
+        VISIONMANAGER_LOG_DEBUG(_mNameRegion[regionname]->pRegionParameters->GetJsonString());
+    }
+}
+
+void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinclient::Transform& t)
+{
+    if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
+        throw MujinVisionException("Region "+regionname+ " is unknown!", MVE_InvalidArgument);
+    }
+    mujinvision::Transform regiontransform = _GetTransform(t);
     _mNameRegion[regionname]->SetWorldTransform(regiontransform);
     VISIONMANAGER_LOG_DEBUG("setting region transform to:\n" + _GetString(_mNameRegion[regionname]->GetWorldTransform()));
     // update globalroi3d from mujin controller
@@ -1511,7 +1554,7 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
     return depthimages.size();
 }
 
-void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const std::string& robotDeviceIOUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::vector<std::string>& streameruris, const std::string& tasktype)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const std::string& robotDeviceIOUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::vector<std::string>& streameruris, const std::string& tasktype, const unsigned int controllertimeout)
 {
     uint64_t time0 = GetMilliTime();
     uint64_t starttime = GetMilliTime();
@@ -1556,13 +1599,25 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8(tasktype+std::string("task1"), tasktype, TRO_EnableZMQ);
     _pBinpickingTask->Initialize(robotControllerUri, robotDeviceIOUri, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, binpickingTaskHeartbeatTimeout);
 
+    // sync regions and cameras
+    _SetStatusMessage("Syncing regions and cameras");
+    std::vector<std::string> regionnames, cameranames;
+    FOREACH(it, _mNameRegion) {
+        regionnames.push_back(it->first);
+    }
+    FOREACH(it, _mNameCameraParameters) {
+        cameranames.push_back(it->first);
+    }
+    BinPickingTaskResource::ResultGetInstObjectAndSensorInfo resultgetinstobjectandsensorinfo;
+    starttime = GetMilliTime();
+    _pBinpickingTask->GetInstObjectAndSensorInfo(regionnames, cameranames, resultgetinstobjectandsensorinfo, "m", controllertimeout);
+    VISIONMANAGER_LOG_DEBUG("GetInstObjectAndSensorInfo() took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
+
     // sync regions
     starttime = GetMilliTime();
     _SetStatusMessage("Syncing regions.");
-    std::string regionname;
-    FOREACH(it, _mNameRegion) {
-        regionname = it->first;
-        _SyncRegion(regionname);
+    FOREACH(it, resultgetinstobjectandsensorinfo.minstobjecttransform) {
+        _SyncRegion(it->first, it->second);
     }
     VISIONMANAGER_LOG_DEBUG("sync regions took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
 
@@ -1572,14 +1627,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     FOREACH(it, _mNameCameraParameters) {
         std::string cameraname = it->first;
         CameraParametersPtr pcameraparameters = it->second;
-        // std::vector<RobotResource::AttachedSensorResourcePtr> attachedsensors;
-        // utils::GetAttachedSensors(_pControllerClient, _pSceneResource, name, attachedsensors);
-        // RobotResource::AttachedSensorResource::SensorData sensordata = attachedsensors.at(0)->sensordata; // TODO: using first attached sensor for now
-        RobotResource::AttachedSensorResource::SensorData sensordata;
-        std::string camerabodyname,sensorname;
-        _ParseCameraName(cameraname, camerabodyname, sensorname);
-
-        utils::GetSensorData(_pControllerClient, _pSceneResource, camerabodyname, sensorname, sensordata);
+        RobotResource::AttachedSensorResource::SensorData sensordata = resultgetinstobjectandsensorinfo.msensordata[cameraname];
 
         CalibrationDataPtr calibrationdata(new CalibrationData());
         calibrationdata->fx           = sensordata.intrinsic[0];
@@ -1611,7 +1659,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     }
     std::vector<std::string> syncedcamera;
     FOREACH(itr, _mNameRegion) {
-        regionname = itr->first;
+        std::string regionname = itr->first;
         std::map<std::string, CameraPtr> mNameColorCamera, mNameDepthCamera;
         RegionPtr region = _mNameRegion[regionname];
         std::string cameraname;
@@ -1620,7 +1668,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
             cameraname = region->pRegionParameters->cameranames.at(i);
             pcameraparameters = _mNameCamera[cameraname]->pCameraParameters;
             if (std::find(syncedcamera.begin(), syncedcamera.end(), cameraname) == syncedcamera.end()) {
-                _SyncCamera(regionname, cameraname);
+                _SyncCamera(regionname, cameraname, resultgetinstobjectandsensorinfo.msensortransform[cameraname]);
                 syncedcamera.push_back(cameraname);
             } else {
                 throw MujinVisionException("does not support same camera mapped to more than one region.", MVE_CommandNotSupported);

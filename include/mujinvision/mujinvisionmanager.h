@@ -169,7 +169,8 @@ public:
                             const std::string& robotname,
                             const std::string& targetname,
                             const std::vector<std::string>& streamerUris,
-                            const std::string& tasktype="binpicking"
+                            const std::string& tasktype="binpicking",
+                            const unsigned int controllertimeout=10.0 /*seconds*/
                             );
 
     /** \brief Detects objects in specified region with specified cameras
@@ -406,10 +407,12 @@ private:
     /** \brief Updates the world transform of region from the mujin controller.
      */
     void _SyncRegion(const std::string& regionname);
+    void _SyncRegion(const std::string& regionname, const mujinclient::Transform& t);
 
     /** \brief Updates the world transform of camera from the mujin controller.
      */
     void _SyncCamera(const std::string& regionname, const std::string& cameraname);
+    void _SyncCamera(const std::string& regionname, const std::string& cameraname, const mujinclient::Transform& t);
 
     /** \brief Gets color images (uncropped) from image subscriber manager.
         \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned

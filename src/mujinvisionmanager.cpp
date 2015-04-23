@@ -918,7 +918,7 @@ void MujinVisionManager::_StopUpdateEnvironmentThread()
 void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename)
 {
     uint64_t time0;
-    int doneinitial = 2;
+    int numfastdetection = 2; // max num of times to run fast detection
     while (!_bStopDetectionThread) {
         time0 = GetMilliTime();
         // update picked positions
@@ -979,9 +979,20 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         std::vector<DetectedObjectPtr> detectedobjects;
         bool iscontainerempty = false;
         try {
-            if (doneinitial > 0) {
-                VISIONMANAGER_LOG_DEBUG("DetectObjects() with fastdetection=true and bindection=true for the first two runs");
-                DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, true, true);
+            if (numfastdetection > 0) {
+                while (detectedobjects.size() == 0 && numfastdetection > 0) {
+                    VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode");
+                    DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, true, true);
+                    if (detectedobjects.size() == 0) {
+                        numfastdetection -= 1;
+                    } else {
+                        numfastdetection = 0;
+                    }
+                }
+                if (detectedobjects.size() == 0 && numfastdetection == 0) {
+                    VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode found no object, detect in normal mode");
+                    DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, false, false);
+                }
             } else {
                 DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, false, false);
             }
@@ -995,8 +1006,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     _mResultPoints[cameraname] = points;
                 }
             }
-            if (doneinitial > 0) {
-                doneinitial -= 1;
+            if (numfastdetection > 0) {
+                numfastdetection -= 1;
             }
         }
         catch(const std::exception& ex) {

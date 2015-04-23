@@ -400,7 +400,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
             }
             std::vector<DetectedObjectPtr> detectedobjectsworld;
-            GetLatestDetectedObjects(detectedobjectsworld);
+            bool iscontainerempty = false;
+            GetLatestDetectedObjects(detectedobjectsworld, iscontainerempty);
 
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("detectedobjects") << ": [";
@@ -411,6 +412,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 }
             }
             result_ss << "], ";
+            result_ss << ParametersBase::GetJsonString("iscontainerempty") << ": " << int(iscontainerempty) << ", ";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "GetCameraId") {
@@ -1912,10 +1914,11 @@ void MujinVisionManager::GetCameraId(const std::string& cameraname, std::string&
     _SetStatus(MS_Succeeded);
 }
 
-void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectedobjectsworld)
+void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectedobjectsworld, bool& iscontainerempty)
 {
     boost::mutex::scoped_lock lock(_mutexDetectedInfo);
     detectedobjectsworld = _vDetectedObject;
+    iscontainerempty = _resultIsContainerEmpty;
     _SetStatus(MS_Succeeded);
 }
 

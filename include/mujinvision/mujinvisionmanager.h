@@ -282,7 +282,7 @@ public:
      */
     bool IsShutdown();
 
-    virtual void GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectobjectsworld);
+    virtual void GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectobjectsworld, bool& iscontainerempty);
 
     virtual void GetConfig(const std::string& type, std::string& config);
     virtual void SaveConfig(const std::string& type, const std::string& configname, const std::string& config="");

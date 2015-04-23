@@ -1152,6 +1152,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 newdetectedobjects = detectedobjects;
                 _vDetectedObject = detectedobjects;
             }
+            _resultIsContainerEmpty = iscontainerempty;
             _resultTimestamp = GetMilliTime();
         }
         // send results to mujin controller

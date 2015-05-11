@@ -37,16 +37,6 @@ class DepthImage
     }
 };
 
-class UserImageSubscriber : public ImageSubscriber
-{
-public:
-    UserImageSubscriber() {
-    }
-    virtual ~UserImageSubscriber() {
-    }
-};
-
-typedef boost::shared_ptr<UserImageSubscriber> UserImageSubscriberPtr;
 
 class UserImageSubscriberManager : public ImageSubscriberManager
 {
@@ -57,21 +47,26 @@ public:
     virtual ~UserImageSubscriberManager() {
     }
 
-    void Initialize(const std::map<std::string, CameraPtr >&mNameCamera, const std::vector<ImageSubscriberPtr>&subscribers) {
+    void Initialize(const std::map<std::string, CameraPtr >&mNameCamera, const std::string& streamerIp, const unsigned int streamerPort, const ptree& params, boost::shared_ptr<zmq::context_t>) {
     }
 
     void DeInitialize() {
     }
 
-    ColorImagePtr GetColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp)
+    ColorImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp)
+    {
+        return ColorImagePtr();
+    }
+    ColorImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double& timeout=1.0)
     {
         return ColorImagePtr();
     }
 
-    void GetConsecutiveColorImages(const std::string& cameraname, const unsigned int n, std::vector<ColorImagePtr>& colorimages, unsigned long long& starttime, unsigned long long& endtime) {
+    DepthImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime)
+    {
+        return DepthImagePtr();
     }
-
-    DepthImagePtr GetDepthImage(const std::string& cameraname, const unsigned int n, unsigned long long& starttime, unsigned long long& endtime)
+    DepthImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0)
     {
         return DepthImagePtr();
     }
@@ -80,12 +75,6 @@ public:
     }
 
     void WriteDepthImage(DepthImageConstPtr depthimage, const std::string& filename) {
-    }
-
-    ImageSubscriberPtr CreateImageSubscriber(const std::string& ip, const unsigned int port, const ptree& params_pt)
-    {
-        UserImageSubscriberPtr subscriber(new UserImageSubscriber());
-        return boost::dynamic_pointer_cast<ImageSubscriber>(subscriber);
     }
 
 };

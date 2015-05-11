@@ -168,7 +168,8 @@ public:
                             const std::string& binpickingTaskScenePk,
                             const std::string& robotname,
                             const std::string& targetname,
-                            const std::vector<std::string>& streamerUris,
+                            const std::string& streamerIp,
+                            const unsigned int streamerPort,
                             const std::string& tasktype="binpicking",
                             const unsigned int controllertimeout=10.0 /*seconds*/
                             );
@@ -183,6 +184,7 @@ public:
         \param fetchimagetimeout max time in ms to wait for getting images for detection
         \param fastdetection whether to prioritize speed
         \param bindetection whether to detect bin
+        \param request whether to request new images instead of getting them off the buffer
      */
     virtual void DetectObjects(const std::string& regionname,
                                const std::vector<std::string>& cameranames,
@@ -192,7 +194,8 @@ public:
                                const unsigned int maxage=0,
                                const unsigned int fetchimagetimeout=0,
                                const bool fastdetection=false,
-                               const bool bindetection=false);
+                               const bool bindetection=false,
+                               const bool request=false);
 
     /** \brief starts detection thread to continuously detect objects and sends detection results to mujin controller
      */
@@ -215,6 +218,7 @@ public:
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
         \param pointsize size of the point in meters to be sent to the mujin controller
         \param fast whether to prioritize speed
+        \param request whether to request new images instead of getting them off the buffer
      */
     virtual void SendPointCloudObstacleToController(const std::string& regionname,
                                                     const std::vector<std::string>& cameranames,
@@ -224,7 +228,8 @@ public:
                                                     const double voxelsize=0.01,
                                                     const double pointsize=0.005,
                                                     const std::string obstaclename="__dynamicobstacle__",
-                                                    const bool fast=false);
+                                                    const bool fast=false,
+                                                    const bool request=true);
 
     /** \brief Visualizes the raw camera point clouds on mujin controller
      */
@@ -233,7 +238,8 @@ public:
                                                  const double pointsize=0.005,
                                                  const bool ignoreocclusion=false,
                                                  const unsigned int maxage=0,
-                                                 const unsigned int fetchimagetimeout=0);
+                                                 const unsigned int fetchimagetimeout=0,
+                                                 const bool request=true);
 
     /** \brief Clears visualization made by VisualizePointCloudOnController on mujin controller.
      */
@@ -246,12 +252,13 @@ public:
         \param ignoreocclusion whether to skip occlusion check
         \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
         \param fetchimagetimeout max time in ms to wait for getting images for detection
+        \param request whether to request new images instead of getting them off the buffer
      */
-    virtual void DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0);
+    virtual void DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=false);
 
     /** \brief Saves a snapshot for each sensor mapped to the region. If detection was called before, snapshots of the images used for the last detection will be saved. Images are saved to the visionmanager application directory.
      */
-    virtual void SaveSnapshot(const std::string& regionname, const bool ignoreocclusion=true, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0);
+    virtual void SaveSnapshot(const std::string& regionname, const bool ignoreocclusion=true, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true);
 
     /** \brief Updates the locally maintained list of the detected objects
         \param detectedobjectsworld detection result in world frame
@@ -417,18 +424,20 @@ private:
     /** \brief Gets color images (uncropped) from image subscriber manager.
         \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
         \param fetchimagetimeout in milliseconds, if 0, block until the image is fetched
+        \param bool request, whether to request new images instead of getting them off the buffer
         \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
         \return number of images fetched
      */
-    unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const unsigned int waitinterval=50);
+    unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50);
 
     /** \brief Gets depth images (uncropped) from image subscriber manager.
         \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
         \param fetchimagetimeout in milliseconds, if 0, block until the image is fetched
+        \param bool request, whether to request new images instead of getting them off the buffer
         \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
         \return number of images fetched
      */
-    unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<DepthImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const unsigned int waitinterval=50);
+    unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<DepthImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -516,8 +525,6 @@ private:
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
     std::map<std::string, boost::shared_ptr<CustomCommand> > _mNameCommand; ///< all registered commands, command name -> custom command
 
-    std::vector<ImageSubscriberPtr> _vSubscribers;
-    unsigned int _numDepthImagesToAverage;
     ImageSubscriberManagerPtr _pImagesubscriberManager;
 
     ObjectDetectorPtr _pDetector;

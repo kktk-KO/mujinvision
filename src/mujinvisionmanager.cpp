@@ -1735,7 +1735,7 @@ void MujinVisionManager::_DeInitialize()
         VISIONMANAGER_LOG_DEBUG("reset detector");
     }
     if (!!_pImagesubscriberManager) {
-        _pImagesubscriberManager.reset();
+        _pImagesubscriberManager->DeInitialize(); // do not reset because it is created and passed in from outside
         VISIONMANAGER_LOG_DEBUG("reset imagesubscribermanager");
     }
     _SetStatusMessage("DeInitialized vision manager.");

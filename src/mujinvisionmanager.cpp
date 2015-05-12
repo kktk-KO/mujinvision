@@ -1374,8 +1374,10 @@ unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, 
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
-                if (GetMilliTime() < timestamp) {
-                    VISIONMANAGER_LOG_ERROR("Image timestamp is in the future, please ensure that clocks are synchronized.");
+                if (GetMilliTime() < timestamp - 100) {
+                    std::stringstream errss;
+                    errss << "Image timestamp is more than 100ms (" << timestamp << ", " << GetMilliTime() << ") in the future, please ensure that clocks are synchronized.";
+                    VISIONMANAGER_LOG_ERROR(errss.str());
                     continue;
                 } else if (maxage>0 && GetMilliTime()-timestamp>maxage) {
                     if (!warned) {
@@ -1481,8 +1483,10 @@ unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, 
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
-                if (GetMilliTime() < starttime) {
-                    VISIONMANAGER_LOG_ERROR("Image timestamp is in the future, please ensure that clocks are synchronized.");
+                if (GetMilliTime()  < starttime - 100) {
+                    std::stringstream errss;
+                    errss << "Image timestamp is more than 100ms (" << starttime << ", " << GetMilliTime() << ") in the future, please ensure that clocks are synchronized.";
+                    VISIONMANAGER_LOG_ERROR(errss.str());
                     continue;
                 } else if (maxage>0 && GetMilliTime()-starttime>maxage) {
                     if (!warned) {

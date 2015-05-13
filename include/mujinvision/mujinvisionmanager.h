@@ -407,6 +407,10 @@ private:
     void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50);
     void _StopUpdateEnvironmentThread();
 
+    void _ControllerMonitorThread(const unsigned int waitinterval=100);
+    void _StartControllerMonitorThread(const unsigned int waitinterval=100);
+    void _StopControllerMonitorThread();
+
     /** \brief Gets transform of the instobject in meters.
      */
     mujinvision::Transform _GetTransform(const std::string& instobjname);
@@ -513,6 +517,7 @@ private:
     boost::shared_ptr<boost::thread> _pStatusThread;
     boost::shared_ptr<boost::thread> _pDetectionThread;
     boost::shared_ptr<boost::thread> _pUpdateEnvironmentThread;
+    boost::shared_ptr<boost::thread> _pControllerMonitorThread;
 
     boost::mutex _mutexCancelCommand;
     std::map<unsigned int, CommandServerPtr> _mPortCommandServer; ///< port -> server
@@ -538,15 +543,22 @@ private:
     boost::mutex _mutexDetectedInfo; ///< lock for detection result
     std::vector<DetectedInfo> _vDetectedInfo; ///< latest detection result
     std::vector<DetectedObjectPtr> _vDetectedObject; ///< latest detection result
-    bool _resultIsContainerEmpty; ///< container status of the latest result
     unsigned long long _resultTimestamp; ///< timestamp of latest detection result
     std::map<std::string, std::vector<Real> > _mResultPoints; ///< result pointcloud obstacle, cameraname -> points
+    boost::mutex _mutexControllerBinpickingState; ///< lock for controller binpicking state
+    int _numPickAttempt; ///< num of picking attempts
+    unsigned long long _binpickingstateTimestamp; ///< timestamp of latest binpicking state
+    bool _resultIsContainerEmpty; ///< container status of the latest result
+
+    bool _bIsControllerPickPlaceRunning; ///< whether pick and place thread is running on the controller
+    bool _bIsRobotOccludingSourceContainer; ///< whether robot is occluding the source container
     
     bool _bInitialized; ///< whether visionmanager is initialized
     bool _bShutdown; ///< whether the visionmanager is shut down
     bool _bStopStatusThread; ///< whether to stop status thread
     bool _bStopDetectionThread; ///< whether to stop detection thread
     bool _bStopUpdateEnvironmentThread; ///< whether to stop update environment thread
+    bool _bStopControllerMonitorThread; ///< whether to stop controller monitor
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
     std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether to stop the command thread of specified port

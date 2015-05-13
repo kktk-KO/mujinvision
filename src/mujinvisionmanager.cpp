@@ -132,13 +132,17 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bStopStatusThread = false;
     _bStopDetectionThread = false;
     _bStopUpdateEnvironmentThread = false;
+    _bStopControllerMonitorThread = false;
     _bCancelCommand = false;
     _bExecutingUserCommand = false;
     _resultIsContainerEmpty = false;
+    _bIsControllerPickPlaceRunning = false;
+    _bIsRobotOccludingSourceContainer = false;
+    _numPickAttempt = -1;
 
     _pImagesubscriberManager = imagesubscribermanager;
     _pDetectorManager = detectormanager;
-    _zmqcontext.reset(new zmq::context_t(6));
+    _zmqcontext.reset(new zmq::context_t(8));
     _statusport = statusport;
     _commandport = commandport;
     _configport = configport;
@@ -885,6 +889,16 @@ void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& region
     }
 }
 
+void MujinVisionManager::_StartControllerMonitorThread(const unsigned int waitinterval)
+{
+    if (!!_pControllerMonitorThread && !_bStopControllerMonitorThread) {
+        _SetStatusMessage("ControllerMonitor thread is already running, do nothing.");
+    } else {
+        _bStopControllerMonitorThread = false;
+        _pControllerMonitorThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_ControllerMonitorThread, this, waitinterval)));
+    }
+}
+
 void MujinVisionManager::_StopDetectionThread()
 {
     _SetStatusMessage("Stopping detectoin thread.");
@@ -913,10 +927,26 @@ void MujinVisionManager::_StopUpdateEnvironmentThread()
     }
 }
 
+void MujinVisionManager::_StopControllerMonitorThread()
+{
+    _SetStatusMessage("Stopping controller monitor thread.");
+    if (!_bStopControllerMonitorThread) {
+        _bStopControllerMonitorThread = true;
+        if (!!_pControllerMonitorThread) {
+            _pControllerMonitorThread->join();
+            _pControllerMonitorThread.reset();
+            _SetStatusMessage("Stopped controller monitor thread.");
+        }
+        _bStopControllerMonitorThread = false;
+    }
+}
+
 void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename)
 {
     uint64_t time0;
     int numfastdetection = 2; // max num of times to run fast detection
+    int lastPickedFromSourceId = -1;
+    int lastDetectedId = -1;
     while (!_bStopDetectionThread) {
         time0 = GetMilliTime();
         // update picked positions
@@ -974,6 +1004,31 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
         }
 
+        int numPickAttempt;
+        bool isControllerPickPlaceRunning;
+        bool isRobotOccludingSourceContainer;
+        unsigned long long binpickingstateTimestamp;
+        {
+            boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
+            numPickAttempt = _numPickAttempt;
+            isControllerPickPlaceRunning = _bIsControllerPickPlaceRunning;
+            isRobotOccludingSourceContainer = _bIsRobotOccludingSourceContainer;
+            binpickingstateTimestamp = _binpickingstateTimestamp;
+        }
+
+        if (isControllerPickPlaceRunning) {
+            if (numPickAttempt <= lastPickedFromSourceId) {
+                if (lastDetectedId >= numPickAttempt) {
+                    VISIONMANAGER_LOG_INFO("sent detection result already. waiting for robot to pick...");
+                    continue;
+                }
+            } else {
+                lastPickedFromSourceId = numPickAttempt;
+                VISIONMANAGER_LOG_INFO("robot just attempted a pick, starting image capturing...");
+                _pImagesubscriberManager->StartCaptureThread();
+            }
+        }
+
         std::vector<DetectedObjectPtr> detectedobjects;
         bool iscontainerempty = false;
         try {
@@ -993,6 +1048,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 }
             } else {
                 DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, false, false);
+            }
+            if (isControllerPickPlaceRunning && detectedobjects.size() > 0 && lastDetectedId < numPickAttempt) {
+                lastDetectedId = numPickAttempt;
+                VISIONMANAGER_LOG_INFO("detected object, stop image capturing...");
+                _pImagesubscriberManager->StopCaptureThread();
             }
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
             for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
@@ -1214,15 +1274,33 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
             if (totalpoints.size()>0) {
                 pBinpickingTask->UpdateEnvironmentState(_targetname, transformsworld, confidences, timestamps, totalpoints, iscontainerempty, pointsize, obstaclename, "m");
             }
-            /*
-            std::stringstream ss;
-            if (totalpoints.size()>0) {
-                ss << "Updating environment with " << _vDetectedObject.size() << " detected objects and " << (totalpoints.size()/3) << " points, took " << (GetMilliTime() - starttime)/1000.0f << " secs";
-            } else {
-                ss << "Got 0 points, something is wrong with the streamer. Is robot occluding the camera?" << std::endl;
-            }
-            _SetStatusMessage(ss.str());
-            */
+        }
+    }
+}
+
+void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterval)
+{
+    BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
+    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, _binpickingTaskHeartbeatTimeout);
+
+    BinPickingTaskResource::ResultGetBinpickingState binpickingstate;
+
+    while (!_bStopControllerMonitorThread) {
+        uint64_t lastUpdateTimestamp;
+        {
+            boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
+            pBinpickingTask->GetBinpickingState(binpickingstate, "m", 1.0);
+            _bIsControllerPickPlaceRunning = (binpickingstate.statusPickPlace == "Running");
+            _bIsRobotOccludingSourceContainer = binpickingstate.isRobotOccludingSourceContainer;
+            _numPickAttempt = binpickingstate.pickAttemptFromSourceId;
+            _binpickingstateTimestamp = binpickingstate.timestamp;
+            lastUpdateTimestamp = GetMilliTime();
+        }
+
+        uint64_t dt = GetMilliTime() - lastUpdateTimestamp;
+
+        if (dt < waitinterval) {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval- dt));
         }
     }
 }
@@ -1692,6 +1770,7 @@ void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const
 {
     _StartDetectionThread(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, obstaclename);
     _StartUpdateEnvironmentThread(regionname, cameranames, voxelsize, pointsize, obstaclename);
+    _StartControllerMonitorThread();
     _SetStatus(MS_Succeeded);    
 }
 
@@ -1699,6 +1778,7 @@ void MujinVisionManager::StopDetectionLoop()
 {
     _StopDetectionThread();
     _StopUpdateEnvironmentThread();
+    _StopControllerMonitorThread();
     _SetStatus(MS_Succeeded);
 }
 

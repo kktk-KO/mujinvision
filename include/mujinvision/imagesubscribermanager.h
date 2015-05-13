@@ -69,6 +69,9 @@ public:
      */
     virtual ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0/*sec*/) = 0;
 
+    virtual void StartCaptureThread() = 0;
+    virtual void StopCaptureThread() = 0;
+
     /** \brief Writes color image to disk.
      */
     virtual void WriteColorImage(ImageConstPtr colorimage, const std::string& filename) = 0;

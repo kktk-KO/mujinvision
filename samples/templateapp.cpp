@@ -54,6 +54,14 @@ public:
         return ImagePtr();
     }
 
+    void StartCaptureThread()
+    {
+    }
+
+    void StopCaptureThread()
+    {
+    }
+
     void WriteColorImage(ImageConstPtr colorimage, const std::string& filename) {
     }
 

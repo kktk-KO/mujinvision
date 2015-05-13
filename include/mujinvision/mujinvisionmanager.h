@@ -428,7 +428,7 @@ private:
         \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
         \return number of images fetched
      */
-    unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ColorImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50);
+    unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50);
 
     /** \brief Gets depth images (uncropped) from image subscriber manager.
         \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
@@ -437,7 +437,9 @@ private:
         \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
         \return number of images fetched
      */
-    unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<DepthImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50);
+    unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50/*ms*/);
+
+    unsigned int _GetImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50/*ms*/, const bool iscolor=true);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */

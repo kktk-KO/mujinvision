@@ -214,16 +214,6 @@ typedef boost::shared_ptr<Image> ImagePtr;
 typedef boost::shared_ptr<Image const> ImageConstPtr;
 typedef boost::weak_ptr<Image> ImageWeakPtr;
 
-class ColorImage;
-typedef boost::shared_ptr<ColorImage> ColorImagePtr;
-typedef boost::shared_ptr<ColorImage const> ColorImageConstPtr;
-typedef boost::weak_ptr<ColorImage> ColorImageWeakPtr;
-
-class DepthImage;
-typedef boost::shared_ptr<DepthImage> DepthImagePtr;
-typedef boost::shared_ptr<DepthImage const> DepthImageConstPtr;
-typedef boost::weak_ptr<DepthImage> DepthImageWeakPtr;
-
 /// \brief information about camera
 struct MUJINVISION_API CameraParameters : public ParametersBase
 {

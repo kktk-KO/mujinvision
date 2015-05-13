@@ -69,7 +69,7 @@ public:
         \param depthimage depth image
         \param points result points representing the point cloud in world frame
      */
-    virtual void GetCameraPointCloud(const std::string& regionname, const std::string& depthcameraname, DepthImageConstPtr depthimage, std::vector<double>& points) = 0;
+    virtual void GetCameraPointCloud(const std::string& regionname, const std::string& depthcameraname, ImageConstPtr depthimage, std::vector<double>& points) = 0;
 
     /** \brief Detects the transform of the region.
         \param regionname
@@ -80,21 +80,21 @@ public:
     virtual void DetectRegionTransform(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, mujinvision::Transform& regiontransform) {
     }
 
-    virtual void SetColorImage(const std::string& colorcameraname, ColorImagePtr colorimage) {
+    virtual void SetColorImage(const std::string& colorcameraname, ImagePtr colorimage) {
         _mColorImage[colorcameraname] = colorimage;
     }
 
-    virtual void SetDepthImage(const std::string& depthcameraname, DepthImagePtr depthimage) {
+    virtual void SetDepthImage(const std::string& depthcameraname, ImagePtr depthimage) {
         _mDepthImage[depthcameraname] = depthimage;
     }
 
-    virtual DepthImagePtr GetDepthImage(const std::string& depthcameraname) {
+    virtual ImagePtr GetDepthImage(const std::string& depthcameraname) {
         return _mDepthImage[depthcameraname];
     }
 
-    virtual void AddColorImage(const std::string& cameraname, ColorImagePtr image) {
+    virtual void AddColorImage(const std::string& cameraname, ImagePtr image) {
         if (_mColorImages.find(cameraname) == _mColorImages.end()) {
-            std::vector<ColorImagePtr> images;
+            std::vector<ImagePtr> images;
             images.push_back(image);
             _mColorImages[cameraname] = images;
         } else {
@@ -102,9 +102,9 @@ public:
         }
     }
 
-    virtual void AddDepthImage(const std::string& cameraname, DepthImagePtr image) {
+    virtual void AddDepthImage(const std::string& cameraname, ImagePtr image) {
         if (_mDepthImages.find(cameraname) == _mDepthImages.end()) {
-            std::vector<DepthImagePtr> images;
+            std::vector<ImagePtr> images;
             images.push_back(image);
             _mDepthImages[cameraname] = images;
         } else {
@@ -121,10 +121,10 @@ public:
 protected:
 
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
-    std::map<std::string, ColorImagePtr> _mColorImage; ///< cameraname -> image
-    std::map<std::string, DepthImagePtr> _mDepthImage; ///< cameraname -> image
-    std::map<std::string, std::vector<ColorImagePtr> > _mColorImages; ///< cameraname -> images
-    std::map<std::string, std::vector<DepthImagePtr> > _mDepthImages; ///< cameraname -> images
+    std::map<std::string, ImagePtr> _mColorImage; ///< cameraname -> image
+    std::map<std::string, ImagePtr> _mDepthImage; ///< cameraname -> image
+    std::map<std::string, std::vector<ImagePtr> > _mColorImages; ///< cameraname -> images
+    std::map<std::string, std::vector<ImagePtr> > _mDepthImages; ///< cameraname -> images
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
 

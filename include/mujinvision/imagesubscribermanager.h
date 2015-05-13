@@ -45,14 +45,14 @@ public:
         \param endtimestamp endtimestamp of the color image
         \return pointer to the color image
      */
-    virtual ColorImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp) = 0;
+    virtual ImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp) = 0;
     /** \brief Gets the latest color image from camera and its timestamp.
         \param cameraname name of the camera
         \param timestamp timestamp of the color image
         \param endtimestamp endtimestamp of the color image
         \return pointer to the color image
      */
-    virtual ColorImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double& timeout=1.0/*sec*/) = 0;
+    virtual ImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double& timeout=1.0/*sec*/) = 0;
 
     /** \brief Gets the depth image from the latest n images with depth data, and the min/max timestamps of the images used.
         \param cameraname name of the camera
@@ -60,22 +60,22 @@ public:
         \param endtime timestamp of the latest image
         \return pointer to the depth image
      */
-    virtual DepthImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime) = 0;
+    virtual ImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime) = 0;
     /** \brief Gets the depth image from the latest n images with depth data, and the min/max timestamps of the images used.
         \param cameraname name of the camera
         \param starttime timestamp of the earliest image
         \param endtime timestamp of the latest image
         \return pointer to the depth image
      */
-    virtual DepthImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0/*sec*/) = 0;
+    virtual ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0/*sec*/) = 0;
 
     /** \brief Writes color image to disk.
      */
-    virtual void WriteColorImage(ColorImageConstPtr colorimage, const std::string& filename) = 0;
+    virtual void WriteColorImage(ImageConstPtr colorimage, const std::string& filename) = 0;
 
     /** \brief Writes depth image to disk.
      */
-    virtual void WriteDepthImage(DepthImageConstPtr depthimage, const std::string& filename) = 0;
+    virtual void WriteDepthImage(ImageConstPtr depthimage, const std::string& filename) = 0;
 
 protected:
 

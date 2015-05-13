@@ -21,23 +21,6 @@ LOG4CPP_LOGGER_N(vmsamplelogger, "mujinvisionmanager.samples.app");
 
 using namespace mujinvision;
 
-class ColorImage
-{
-    ColorImage() {
-    }
-    virtual ~ColorImage() {
-    }
-};
-
-class DepthImage
-{
-    DepthImage() {
-    }
-    virtual ~DepthImage() {
-    }
-};
-
-
 class UserImageSubscriberManager : public ImageSubscriberManager
 {
 public:
@@ -53,28 +36,28 @@ public:
     void DeInitialize() {
     }
 
-    ColorImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp)
+    ImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp)
     {
-        return ColorImagePtr();
+        return ImagePtr();
     }
-    ColorImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double& timeout=1.0)
+    ImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double& timeout=1.0)
     {
-        return ColorImagePtr();
+        return ImagePtr();
     }
 
-    DepthImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime)
+    ImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime)
     {
-        return DepthImagePtr();
+        return ImagePtr();
     }
-    DepthImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0)
+    ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0)
     {
-        return DepthImagePtr();
+        return ImagePtr();
     }
 
-    void WriteColorImage(ColorImageConstPtr colorimage, const std::string& filename) {
+    void WriteColorImage(ImageConstPtr colorimage, const std::string& filename) {
     }
 
-    void WriteDepthImage(DepthImageConstPtr depthimage, const std::string& filename) {
+    void WriteDepthImage(ImageConstPtr depthimage, const std::string& filename) {
     }
 
 };
@@ -101,7 +84,7 @@ public:
     void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty, const bool fastdetection, const bool bindetection) {
     }
 
-    void DetectInColorImage(const std::string& regionname, const std::string& colorcameraname, std::vector<DetectedObjectPtr>& resultscolorcamera) {
+    void DetectInImage(const std::string& regionname, const std::string& colorcameraname, std::vector<DetectedObjectPtr>& resultscolorcamera) {
     }
 
     void RefineDetectionWithDepthData(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultscolorcamera, std::vector<DetectedObjectPtr>& resultsdepthcamera, std::vector<unsigned int>& indicescolorcamera) {
@@ -110,10 +93,10 @@ public:
     void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsdepthcamera, std::vector<double>& points, const double voxelsize=0.01, const bool fast=false) {
     }
 
-    void GetCameraPointCloud(const std::string& regionname, const std::string& depthcameraname, DepthImageConstPtr depthimage, std::vector<double>& points) {
+    void GetCameraPointCloud(const std::string& regionname, const std::string& depthcameraname, ImageConstPtr depthimage, std::vector<double>& points) {
     }
 
-    void SetColorImage(const std::string& colorcameraname, ColorImageConstPtr colorimage) {
+    void SetImage(const std::string& colorcameraname, ImageConstPtr colorimage) {
     }
 };
 typedef boost::shared_ptr<UserObjectDetector> UserObjectDetectorPtr;

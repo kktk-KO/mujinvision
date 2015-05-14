@@ -1464,7 +1464,9 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
         } else {
             if (!image) {
                 if (!warned) {
-                    VISIONMANAGER_LOG_WARN("Could not get depth image for camera: " + cameraname + ", will try again.");
+                    std::stringstream msg_ss;
+                    msg_ss <<"Could not get image for camera: " << cameraname << ", will try again. " << iscolor;
+                    VISIONMANAGER_LOG_WARN(msg_ss.str());
                     warned = true;
                 }
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
@@ -1477,9 +1479,12 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                     continue;
                 } else if (maxage>0 && GetMilliTime()-starttime>maxage) {
                     if (!warned) {
-                        VISIONMANAGER_LOG_WARN("Image is more than " + boost::lexical_cast<std::string>(maxage) + " ms old (" + boost::lexical_cast<std::string>(GetMilliTime()-starttime) + "), will try to get again.");
+                        std::stringstream msg_ss;
+                        msg_ss << "Image is more than " << maxage + " ms old (" << (GetMilliTime()-starttime) << "), will try to get again. " << iscolor;
+                        VISIONMANAGER_LOG_WARN(msg_ss.str());
                         if (images.size()>0) {
-                            VISIONMANAGER_LOG_WARN("One of the depth images is more than " + boost::lexical_cast<std::string>(maxage) + " ms old (" + boost::lexical_cast<std::string>(GetMilliTime()-starttime) + "), start over.");
+                            msg_ss << "One of the images is more than " << maxage << " ms old (" << (GetMilliTime()-starttime) << "), start over." << iscolor;
+                            VISIONMANAGER_LOG_WARN(msg_ss.str());
                         }
                         warned = true;
                     }
@@ -1491,7 +1496,9 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                     if (!warned) {
                         VISIONMANAGER_LOG_WARN("Image was taken " + boost::lexical_cast<std::string>(_tsStartDetection-starttime) + " ms before StartDetectionLoop was called, will try to get again.");
                         if (images.size() > 0) {
-                            VISIONMANAGER_LOG_WARN("One of the depth images was taken " + boost::lexical_cast<std::string>(_tsStartDetection-starttime) + " ms before StartDetectionLoop was called, will start over.");
+                            std::stringstream msg_ss;
+                            msg_ss << "One of the images was taken " << (_tsStartDetection-starttime) << " ms before StartDetectionLoop was called, will start over. " << iscolor;
+                            VISIONMANAGER_LOG_WARN(msg_ss.str());
                         }
                         warned = true;
                     }
@@ -1500,7 +1507,9 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                     }
                     continue;
                 } else {
-                    VISIONMANAGER_LOG_DEBUG("Got depth image that is " + boost::lexical_cast<std::string>(GetMilliTime()-starttime) + " ms old, took " + boost::lexical_cast<std::string>((GetMilliTime()-start0)/1000.0f));
+                    //std::stringstream msg_ss;
+                    //msg_ss << "Got image that is " << (GetMilliTime()-starttime) << " ms old, took " << ((GetMilliTime()-start0)/1000.0f) << " secs. " << iscolor;
+                    //VISIONMANAGER_LOG_DEBUG(msg_ss.str());
                     if (!ignoreocclusion) {
                         try {
                             if (starttime > lastfailedtimestamp) {

@@ -1442,7 +1442,7 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
     bool isoccluding = true;
     std::string cameraname;
     bool warned = false;
-    uint64_t lastfailedtimestamp = GetMilliTime();
+    uint64_t lastfailedtimestamp = 0;
     while (!_bCancelCommand && !_bShutdown && ( (fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime()-start0 < fetchimagetimeout))) {
         cameraname = cameranames.at(images.size());
         ImagePtr image;
@@ -1538,7 +1538,9 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                     } else {
                         lastfailedtimestamp = starttime;
                         if (!warned) {
-                            VISIONMANAGER_LOG_WARN("Region is occluded in the view of " + cameraname + ", will try again.");
+                            std::stringstream msg_ss;
+                            msg_ss << "Region is occluded in the view of " << cameraname << ", will try again. " << iscolor;
+                            VISIONMANAGER_LOG_WARN(msg_ss.str());
                             warned = true;
                         }
                         continue;

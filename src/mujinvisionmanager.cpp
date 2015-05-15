@@ -1016,7 +1016,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             binpickingstateTimestamp = _binpickingstateTimestamp;
         }
 
-        if (isControllerPickPlaceRunning) {
+        if (isControllerPickPlaceRunning && numPickAttempt >= 0) {
             if (numPickAttempt <= lastPickedFromSourceId) {
                 if (lastDetectedId >= numPickAttempt) {
                     VISIONMANAGER_LOG_INFO("sent detection result already. waiting for robot to pick...");

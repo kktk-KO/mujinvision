@@ -74,11 +74,11 @@ public:
 
     /** \brief Writes color image to disk.
      */
-    virtual void WriteColorImage(ImageConstPtr colorimage, const std::string& filename) = 0;
+    virtual void WriteColorImage(const std::string& cameraname, const std::string& filename) = 0;
 
     /** \brief Writes depth image to disk.
      */
-    virtual void WriteDepthImage(ImageConstPtr depthimage, const std::string& filename) = 0;
+    virtual void WriteDepthImage(const std::string& cameraname, const std::string& filename) = 0;
 
 protected:
 

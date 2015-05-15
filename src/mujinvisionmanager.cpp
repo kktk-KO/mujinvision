@@ -1887,40 +1887,25 @@ void MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool 
         std::string colorcameraname = iter->first;
         std::string camerabodyname, sensorname;
         _ParseCameraName(colorcameraname, camerabodyname, sensorname);
-        CameraPtr colorcamera = _mNameCamera[colorcameraname];
         if (std::find(cameranamestobeused.begin(), cameranamestobeused.end(), colorcameraname) != cameranamestobeused.end()) {
             std::stringstream filename_ss;
             filename_ss << camerabodyname << "-" << sensorname << "-2d-" << GetMilliTime() << ".png";
             std::vector<std::string> ccamnames;
             ccamnames.push_back(colorcameraname);
-            std::vector<ImagePtr> colorimages;
-            _GetColorImages(regionname, ccamnames, colorimages, ignoreocclusion, maxage, fetchimagetimeout, request);
-            ImagePtr colorimage = colorimages.at(0);
-            if (!!colorimage) {
-                _pImagesubscriberManager->WriteColorImage(colorimage, filename_ss.str());
-            } else {
-                VISIONMANAGER_LOG_ERROR("Failed to get colorimage, please try again.");
-            }
+            _pImagesubscriberManager->WriteColorImage(colorcameraname, filename_ss.str());
         }
     }
     FOREACH(iter,_mRegionDepthCameraMap[regionname]) {
         std::string depthcameraname = iter->first;
         std::string camerabodyname, sensorname;
         _ParseCameraName(depthcameraname, camerabodyname, sensorname);
-        CameraPtr depthcamera = _mNameCamera[depthcameraname];
         if (std::find(cameranamestobeused.begin(), cameranamestobeused.end(), depthcameraname) != cameranamestobeused.end()) {
             std::stringstream filename_ss;
             filename_ss << camerabodyname << "-" << sensorname << "-3d-" << GetMilliTime() << ".pcd";
             std::vector<ImagePtr> depthimages;
             std::vector<std::string> dcamnames;
             dcamnames.push_back(depthcameraname);
-            _GetDepthImages(regionname, dcamnames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, request);
-            ImagePtr depthimage = depthimages.at(0);
-            if (!!depthimage) {
-                _pImagesubscriberManager->WriteDepthImage(depthimage, filename_ss.str());
-            } else {
-                VISIONMANAGER_LOG_ERROR("Failed to get depthimage, please try again.");
-            }
+            _pImagesubscriberManager->WriteDepthImage(depthcameraname, filename_ss.str());
         }
     }
     _SetStatus(MS_Succeeded);

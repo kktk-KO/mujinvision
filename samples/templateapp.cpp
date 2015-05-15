@@ -62,10 +62,10 @@ public:
     {
     }
 
-    void WriteColorImage(ImageConstPtr colorimage, const std::string& filename) {
+    void WriteColorImage(const std::string& cameraname, const std::string& filename) {
     }
 
-    void WriteDepthImage(ImageConstPtr depthimage, const std::string& filename) {
+    void WriteDepthImage(const std::string& cameraname, const std::string& filename) {
     }
 
 };

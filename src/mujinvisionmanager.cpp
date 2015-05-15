@@ -947,6 +947,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     int numfastdetection = 2; // max num of times to run fast detection
     int lastPickedFromSourceId = -1;
     int lastDetectedId = -1;
+    uint64_t lastwarnedtimestamp = 0;
     while (!_bStopDetectionThread) {
         time0 = GetMilliTime();
         // update picked positions
@@ -1019,7 +1020,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         if (isControllerPickPlaceRunning && numPickAttempt >= 0) {
             if (numPickAttempt <= lastPickedFromSourceId) {
                 if (lastDetectedId >= numPickAttempt) {
-                    VISIONMANAGER_LOG_INFO("sent detection result already. waiting for robot to pick...");
+                    if (GetMilliTime() - lastwarnedtimestamp > 1000.0) {
+                        VISIONMANAGER_LOG_INFO("sent detection result already. waiting for robot to pick...");
+                        lastwarnedtimestamp = GetMilliTime();
+                    }
                     continue;
                 }
             } else {
@@ -1284,12 +1288,24 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
     pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, _binpickingTaskHeartbeatTimeout);
 
     BinPickingTaskResource::ResultGetBinpickingState binpickingstate;
-
+    uint64_t lastwarnedtimestamp = 0;
     while (!_bStopControllerMonitorThread) {
         uint64_t lastUpdateTimestamp;
         {
             boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
-            pBinpickingTask->GetBinpickingState(binpickingstate, "m", 1.0);
+            try {
+                pBinpickingTask->GetBinpickingState(binpickingstate, "m", 1.0);
+            }
+            catch(const std::exception& ex) {
+                if (GetMilliTime() - lastwarnedtimestamp > 1000.0) {
+                    lastwarnedtimestamp = GetMilliTime();
+                    std::stringstream ss;
+                    ss << "Failed to get binpicking state from mujin controller: " << ex.what() << ".";
+                    VISIONMANAGER_LOG_WARN(ss.str());
+                }
+                boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                continue;
+            }
             _bIsControllerPickPlaceRunning = (binpickingstate.statusPickPlace == "Running");
             _bIsRobotOccludingSourceContainer = binpickingstate.isRobotOccludingSourceContainer;
             _numPickAttempt = binpickingstate.pickAttemptFromSourceId;

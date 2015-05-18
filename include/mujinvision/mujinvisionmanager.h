@@ -552,6 +552,7 @@ private:
 
     bool _bIsControllerPickPlaceRunning; ///< whether pick and place thread is running on the controller
     bool _bIsRobotOccludingSourceContainer; ///< whether robot is occluding the source container
+    bool _bForceRequestDetectionResults; ///< whether to run detection ignoring _numPickAttempt
     
     bool _bInitialized; ///< whether visionmanager is initialized
     bool _bShutdown; ///< whether the visionmanager is shut down

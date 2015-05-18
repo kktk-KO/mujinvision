@@ -1008,17 +1008,19 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         int numPickAttempt;
         bool isControllerPickPlaceRunning;
         bool isRobotOccludingSourceContainer;
+        bool forceRequestDetectionResults;
         unsigned long long binpickingstateTimestamp;
         {
             boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
             numPickAttempt = _numPickAttempt;
             isControllerPickPlaceRunning = _bIsControllerPickPlaceRunning;
             isRobotOccludingSourceContainer = _bIsRobotOccludingSourceContainer;
+            forceRequestDetectionResults = _bForceRequestDetectionResults;
             binpickingstateTimestamp = _binpickingstateTimestamp;
         }
 
         if (isControllerPickPlaceRunning && numPickAttempt >= 0) {
-            if (numPickAttempt <= lastPickedFromSourceId) {
+            if (numPickAttempt <= lastPickedFromSourceId && !forceRequestDetectionResults) {
                 if (lastDetectedId >= numPickAttempt) {
                     if (GetMilliTime() - lastwarnedtimestamp > 1000.0) {
                         VISIONMANAGER_LOG_INFO("sent detection result already. waiting for robot to pick...");
@@ -1308,6 +1310,7 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
             }
             _bIsControllerPickPlaceRunning = (binpickingstate.statusPickPlace == "Running");
             _bIsRobotOccludingSourceContainer = binpickingstate.isRobotOccludingSourceContainer;
+            _bForceRequestDetectionResults = binpickingstate.forceRequestDetectionResults;
             _numPickAttempt = binpickingstate.pickAttemptFromSourceId;
             _binpickingstateTimestamp = binpickingstate.timestamp;
             lastUpdateTimestamp = GetMilliTime();
@@ -1496,7 +1499,7 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                 } else if (maxage>0 && GetMilliTime()-starttime>maxage) {
                     if (!warned) {
                         std::stringstream msg_ss;
-                        msg_ss << "Image is more than " << maxage + " ms old (" << (GetMilliTime()-starttime) << "), will try to get again. " << iscolor;
+                        msg_ss << "Image is more than " << maxage << " ms old (" << (GetMilliTime()-starttime) << "), will try to get again. " << iscolor;
                         VISIONMANAGER_LOG_WARN(msg_ss.str());
                         if (images.size()>0) {
                             msg_ss << "One of the images is more than " << maxage << " ms old (" << (GetMilliTime()-starttime) << "), start over." << iscolor;

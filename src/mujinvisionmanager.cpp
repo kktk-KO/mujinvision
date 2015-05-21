@@ -1039,6 +1039,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         bool iscontainerempty = false;
         try {
             if (numfastdetection > 0) {
+                VISIONMANAGER_LOG_INFO("starting image capturing for fast detection...");
+                _pImagesubscriberManager->StartCaptureThread();
                 while (detectedobjects.size() == 0 && numfastdetection > 0) {
                     VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode");
                     DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, true, true);

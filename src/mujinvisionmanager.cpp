@@ -1061,6 +1061,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 lastDetectedId = numPickAttempt;
                 VISIONMANAGER_LOG_INFO("detected object, stop image capturing...");
                 _pImagesubscriberManager->StopCaptureThread();
+            } else {
+                _pImagesubscriberManager->StartCaptureThread();
             }
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
             for (unsigned int i=0; i<cameranamestobeused.size(); i++) {

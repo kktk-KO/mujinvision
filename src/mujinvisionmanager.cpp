@@ -1021,12 +1021,15 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
         if (isControllerPickPlaceRunning && numPickAttempt >= 0) {
             if (numPickAttempt <= lastPickedFromSourceId && !forceRequestDetectionResults) {
-                if (lastDetectedId >= numPickAttempt) {
+                if (numPickAttempt <= lastDetectedId ) {
                     if (GetMilliTime() - lastwarnedtimestamp > 1000.0) {
                         VISIONMANAGER_LOG_INFO("sent detection result already. waiting for robot to pick...");
                         lastwarnedtimestamp = GetMilliTime();
                     }
                     continue;
+                } else {
+                    VISIONMANAGER_LOG_INFO("need to detect for this picking attempt, starting image capturing...");
+                    _pImagesubscriberManager->StartCaptureThread();
                 }
             } else {
                 lastPickedFromSourceId = numPickAttempt;
@@ -1040,7 +1043,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         try {
             if (numfastdetection > 0) {
                 VISIONMANAGER_LOG_INFO("starting image capturing for fast detection...");
-                _pImagesubscriberManager->StartCaptureThread();
                 while (detectedobjects.size() == 0 && numfastdetection > 0) {
                     VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode");
                     DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, true, true);
@@ -1054,15 +1056,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode found no object, detect in normal mode");
                     DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, false, false);
                 }
+                numfastdetection -= 1;
             } else {
                 DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, false, false);
-            }
-            if (isControllerPickPlaceRunning && detectedobjects.size() > 0 && lastDetectedId < numPickAttempt) {
-                lastDetectedId = numPickAttempt;
-                VISIONMANAGER_LOG_INFO("detected object, stop image capturing...");
-                _pImagesubscriberManager->StopCaptureThread();
-            } else {
-                _pImagesubscriberManager->StartCaptureThread();
             }
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
             for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
@@ -1074,8 +1070,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     _mResultPoints[cameraname] = points;
                 }
             }
-            if (numfastdetection > 0) {
-                numfastdetection -= 1;
+            if (isControllerPickPlaceRunning && numPickAttempt >= 0) {
+                lastDetectedId = numPickAttempt;
+                if (detectedobjects.size() > 0) {
+                    VISIONMANAGER_LOG_INFO("detected at least 1 object, stop image capturing...");
+                    _pImagesubscriberManager->StopCaptureThread();
+                }
             }
         }
         catch(const std::exception& ex) {

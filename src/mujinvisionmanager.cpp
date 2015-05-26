@@ -1018,6 +1018,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             forceRequestDetectionResults = _bForceRequestDetectionResults;
             binpickingstateTimestamp = _binpickingstateTimestamp;
         }
+        if (_bStopDetectionThread) {
+            break;
+        }
 
         if (isControllerPickPlaceRunning && numPickAttempt >= 0) {
             if (numPickAttempt <= lastPickedFromSourceId && !forceRequestDetectionResults) {
@@ -1033,11 +1036,16 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 }
             } else {
                 lastPickedFromSourceId = numPickAttempt;
-                VISIONMANAGER_LOG_INFO("robot just attempted a pick, starting image capturing...");
+                std::stringstream ss;
+                ss << "robot just attempted a pick, starting image capturing... " << int(_bStopDetectionThread) << std::endl;
+                VISIONMANAGER_LOG_INFO(ss.str());
                 _pImagesubscriberManager->StartCaptureThread();
             }
         }
 
+        if (_bStopDetectionThread) {
+            break;
+        }
         std::vector<DetectedObjectPtr> detectedobjects;
         bool iscontainerempty = false;
         try {
@@ -1060,6 +1068,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             } else {
                 DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, false, false);
             }
+            _vDetectedObject = detectedobjects;
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
             for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
                 std::string cameraname = cameranamestobeused[i];

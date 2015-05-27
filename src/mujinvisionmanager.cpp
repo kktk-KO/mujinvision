@@ -1031,7 +1031,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     }
                     continue;
                 } else {
-                    VISIONMANAGER_LOG_INFO("need to detect for this picking attempt, starting image capturing...");
+                    std::stringstream ss;
+                    ss << "need to detect for this picking attempt, starting image capturing... " << int(_bStopDetectionThread) << std::endl;
+                    VISIONMANAGER_LOG_INFO(ss.str());
                     _pImagesubscriberManager->StartCaptureThread();
                 }
             } else {
@@ -1050,7 +1052,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         bool iscontainerempty = false;
         try {
             if (numfastdetection > 0) {
-                VISIONMANAGER_LOG_INFO("starting image capturing for fast detection...");
+                std::stringstream ss;
+                ss << "starting image capturing for fast detection... " << int(_bStopDetectionThread) << std::endl;
+                VISIONMANAGER_LOG_INFO(ss.str());
                 while (detectedobjects.size() == 0 && numfastdetection > 0) {
                     VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode");
                     DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, true, true);
@@ -1478,7 +1482,7 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
     while (!_bCancelCommand && !_bShutdown && ( (fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime()-start0 < fetchimagetimeout))) {
         cameraname = cameranames.at(images.size());
         ImagePtr image;
-        if (!request) {
+        if (!request && !warned) {
             if (iscolor) {
                 image = _pImagesubscriberManager->GetColorImageFromBuffer(cameraname, starttime, endtime);
             } else {
@@ -1504,6 +1508,7 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
             } else {
+                warned = false;
                 if (GetMilliTime()  < starttime - 100) {
                     std::stringstream errss;
                     errss << "Image timestamp is more than 100ms (" << starttime << ", " << GetMilliTime() << ") in the future, please ensure that clocks are synchronized.";
@@ -1559,6 +1564,7 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                         isoccluding = false;
                     }
                     if (!isoccluding) {
+                        warned = false;
                         images.push_back(image);
                         if (images.size() == cameranames.size()) {
                             // got one image for each camera, exit

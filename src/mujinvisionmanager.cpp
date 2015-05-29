@@ -1553,8 +1553,9 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                                 _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
                             }
                         } catch (...) {
+                            isoccluding = true;
                             if (!warned) {
-                                VISIONMANAGER_LOG_WARN("Failed to check for occlusion, will try again.");
+                                VISIONMANAGER_LOG_WARN("Failed to check for occlusion, setting isoccluding to true, and will try again.");
                                 warned = true;
                             }
                             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));

@@ -1057,7 +1057,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 VISIONMANAGER_LOG_INFO(ss.str());
                 while (detectedobjects.size() == 0 && numfastdetection > 0) {
                     VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode");
-                    DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 2000, true, true);
+                    DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, true, true);
                     if (detectedobjects.size() == 0) {
                         numfastdetection -= 1;
                     } else {
@@ -1066,11 +1066,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 }
                 if (detectedobjects.size() == 0 && numfastdetection == 0) {
                     VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode found no object, detect in normal mode");
-                    DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 2000, false, false);
+                    DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, false, false);
                 }
                 numfastdetection -= 1;
             } else {
-                DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 2000, false, false);
+                DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, false, false);
             }
             _vDetectedObject = detectedobjects;
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
@@ -1478,13 +1478,23 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
     std::string cameraname;
     uint64_t lastfailedtimestamp = 0;
     bool usecache = !request;
+    double snaptimeout = fetchimagetimeout / 1000.0;
+
+    //
+    // Enforce a minimum timeout for zmq socket req rep.
+    // Otherwise, zmq may be blocked on recv forever, preventing
+    // client from cancelling detection.
+    //
+    if (snaptimeout < 2.0) {
+        snaptimeout = 2.0;
+    }
 
     images.clear();
 
     while (!_bCancelCommand &&
            !_bShutdown &&
            ((fetchimagetimeout == 0) ||
-            (fetchimagetimeout > 0 && GetMilliTime() - start0 < cameranames.size() * fetchimagetimeout))) {
+            (fetchimagetimeout > 0 && GetMilliTime() - start0 < fetchimagetimeout))) {
 
         cameraname = cameranames.at(images.size());
         ImagePtr image;
@@ -1497,9 +1507,9 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
             }
         } else {
             if (iscolor) {
-                image = _pImagesubscriberManager->SnapColorImage(cameraname, starttime, endtime, fetchimagetimeout / 1000.0);
+                image = _pImagesubscriberManager->SnapColorImage(cameraname, starttime, endtime, snaptimeout);
             } else {
-                image = _pImagesubscriberManager->SnapDepthImage(cameraname, starttime, endtime, fetchimagetimeout / 1000.0);
+                image = _pImagesubscriberManager->SnapDepthImage(cameraname, starttime, endtime, snaptimeout);
             }
         }
 

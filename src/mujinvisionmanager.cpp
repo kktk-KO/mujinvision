@@ -1477,12 +1477,12 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
     unsigned long long starttime, endtime;
     bool isoccluding = true;
     std::string cameraname;
-    bool warned = false;
     uint64_t lastfailedtimestamp = 0;
+    bool usecache = !request;
     while (!_bCancelCommand && !_bShutdown && ( (fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime()-start0 < fetchimagetimeout))) {
         cameraname = cameranames.at(images.size());
         ImagePtr image;
-        if (!request && !warned) {
+        if (usecache) {
             if (iscolor) {
                 image = _pImagesubscriberManager->GetColorImageFromBuffer(cameraname, starttime, endtime);
             } else {
@@ -1490,58 +1490,53 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
             }
         } else {
             if (iscolor) {
-                image = _pImagesubscriberManager->SnapColorImage(cameraname, starttime, endtime, fetchimagetimeout);
+                image = _pImagesubscriberManager->SnapColorImage(cameraname, starttime, endtime, fetchimagetimeout / 1000.0);
             } else {
-                image = _pImagesubscriberManager->SnapDepthImage(cameraname, starttime, endtime, fetchimagetimeout);
+                image = _pImagesubscriberManager->SnapDepthImage(cameraname, starttime, endtime, fetchimagetimeout / 1000.0);
             }
         }
         if (_bStopDetectionThread) {
             break;
         } else {
             if (!image) {
-                if (!warned) {
-                    std::stringstream msg_ss;
-                    msg_ss <<"Could not get image for camera: " << cameraname << ", will try again. " << iscolor;
-                    VISIONMANAGER_LOG_WARN(msg_ss.str());
-                    warned = true;
-                }
+                std::stringstream msg_ss;
+                msg_ss <<"Could not get image for camera: " << cameraname << ", will try again. " << iscolor;
+                VISIONMANAGER_LOG_WARN(msg_ss.str());
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                usecache = false;
                 continue;
             } else {
-                warned = false;
                 if (GetMilliTime()  < starttime - 100) {
                     std::stringstream errss;
                     errss << "Image timestamp is more than 100ms (" << starttime << ", " << GetMilliTime() << ") in the future, please ensure that clocks are synchronized.";
                     VISIONMANAGER_LOG_ERROR(errss.str());
+                    usecache = false;
                     continue;
                 } else if (maxage>0 && GetMilliTime()-starttime>maxage) {
-                    if (!warned) {
+                    std::stringstream msg_ss;
+                    msg_ss << "Image is more than " << maxage << " ms old (" << (GetMilliTime()-starttime) << "), will try to get again. " << iscolor;
+                    VISIONMANAGER_LOG_WARN(msg_ss.str());
+                    if (images.size()>0) {
                         std::stringstream msg_ss;
-                        msg_ss << "Image is more than " << maxage << " ms old (" << (GetMilliTime()-starttime) << "), will try to get again. " << iscolor;
+                        msg_ss << "One of the images is more than " << maxage << " ms old (" << (GetMilliTime()-starttime) << "), start over." << iscolor;
                         VISIONMANAGER_LOG_WARN(msg_ss.str());
-                        if (images.size()>0) {
-                            msg_ss << "One of the images is more than " << maxage << " ms old (" << (GetMilliTime()-starttime) << "), start over." << iscolor;
-                            VISIONMANAGER_LOG_WARN(msg_ss.str());
-                        }
-                        warned = true;
                     }
                     if (images.size()>0) {
                         images.clear(); // need to start over, all color images need to be equally new
                     }
+                    usecache = false;
                     continue;
                 } else if (starttime < _tsStartDetection) {
-                    if (!warned) {
-                        VISIONMANAGER_LOG_WARN("Image was taken " + boost::lexical_cast<std::string>(_tsStartDetection-starttime) + " ms before StartDetectionLoop was called, will try to get again.");
-                        if (images.size() > 0) {
-                            std::stringstream msg_ss;
-                            msg_ss << "One of the images was taken " << (_tsStartDetection-starttime) << " ms before StartDetectionLoop was called, will start over. " << iscolor;
-                            VISIONMANAGER_LOG_WARN(msg_ss.str());
-                        }
-                        warned = true;
+                    VISIONMANAGER_LOG_WARN("Image was taken " + boost::lexical_cast<std::string>(_tsStartDetection-starttime) + " ms before StartDetectionLoop was called, will try to get again.");
+                    if (images.size() > 0) {
+                        std::stringstream msg_ss;
+                        msg_ss << "One of the images was taken " << (_tsStartDetection-starttime) << " ms before StartDetectionLoop was called, will start over. " << iscolor;
+                        VISIONMANAGER_LOG_WARN(msg_ss.str());
                     }
                     if (images.size() > 0) {
                         images.clear(); // need to start over, all color images need to be equally new
                     }
+                    usecache = false;
                     continue;
                 } else {
                     //std::stringstream msg_ss;
@@ -1553,18 +1548,15 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                                 _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
                             }
                         } catch (...) {
-                            if (!warned) {
-                                VISIONMANAGER_LOG_WARN("Failed to check for occlusion, will try again.");
-                                warned = true;
-                            }
+                            VISIONMANAGER_LOG_WARN("Failed to check for occlusion, will try again.");
                             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                            usecache = false;
                             continue;
                         }
                     } else {
                         isoccluding = false;
                     }
                     if (!isoccluding) {
-                        warned = false;
                         images.push_back(image);
                         if (images.size() == cameranames.size()) {
                             // got one image for each camera, exit
@@ -1575,12 +1567,10 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                         }
                     } else {
                         lastfailedtimestamp = starttime;
-                        if (!warned) {
-                            std::stringstream msg_ss;
-                            msg_ss << "Region is occluded in the view of " << cameraname << ", will try again. " << iscolor;
-                            VISIONMANAGER_LOG_WARN(msg_ss.str());
-                            warned = true;
-                        }
+                        std::stringstream msg_ss;
+                        msg_ss << "Region is occluded in the view of " << cameraname << ", will try again. " << iscolor;
+                        VISIONMANAGER_LOG_WARN(msg_ss.str());
+                        usecache = false;
                         continue;
                     }
                 }

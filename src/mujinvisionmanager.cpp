@@ -1608,11 +1608,9 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                << ", stop_detection = " << int(_bStopDetectionThread);
         VISIONMANAGER_LOG_WARN(msg_ss.str());
 
-        if (fetchimagetimeout > 0 && GetMilliTime() - start0 < cameranames.size() * fetchimagetimeout) {
-            std::stringstream msg_ss;
-            msg_ss << "Failed to get " << cameranames.size() << " images, got " << images.size();
-            throw MujinVisionException(msg_ss.str(), MVE_ImageAcquisitionError);
-        }
+        std::stringstream exception_ss;
+        exception_ss << "Failed to get " << cameranames.size() << " images, got " << images.size();
+        throw MujinVisionException(exception_ss.str(), MVE_ImageAcquisitionError);
     }
 
     return images.size();

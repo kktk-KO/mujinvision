@@ -1282,7 +1282,8 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                 iscontainerempty = _resultIsContainerEmpty;
             }
             if (totalpoints.size()>0) {
-                pBinpickingTask->UpdateEnvironmentState(_targetname, transformsworld, confidences, timestamps, totalpoints, iscontainerempty, pointsize, obstaclename, "m");
+                pBinpickingTask->UpdateEnvironmentState(_targetname, _defaultobjecturi, _vDetectedobjects, totalpoints, iscontainerempty, pointsize, obstaclename, "m");
+                //pBinpickingTask->UpdateEnvironmentState(_targetname, transformsworld, confidences, timestamps, totalpoints, iscontainerempty, pointsize, obstaclename, "m");
             }
         }
     }

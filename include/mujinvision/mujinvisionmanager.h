@@ -541,8 +541,8 @@ private:
     unsigned long long _tsStartDetection; ///< timestamp when start detection loop was first called
     std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
     boost::mutex _mutexDetectedInfo; ///< lock for detection result
-    std::vector<mujinclient::DetectedObject> _vDetectedObjects; ///< latest detection result
-    //std::vector<DetectedObjectPtr> _vDetectedObject; ///< latest detection result
+    std::vector<DetectedInfo> _vDetectedInfo; ///< latest detection result
+    std::vector<DetectedObjectPtr> _vDetectedObject; ///< latest detection result
     unsigned long long _resultTimestamp; ///< timestamp of latest detection result
     std::map<std::string, std::vector<Real> > _mResultPoints; ///< result pointcloud obstacle, cameraname -> points
     boost::mutex _mutexControllerBinpickingState; ///< lock for controller binpicking state

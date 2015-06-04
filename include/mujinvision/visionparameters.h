@@ -385,7 +385,8 @@ typedef boost::weak_ptr<CalibrationData> CalibrationDataWeakPtr;
 struct MUJINVISION_API DetectedObject : public ParametersBase
 {
     DetectedObject() {
-        confidence = "{global_confidence: 0.0}";
+        confidence = "0";
+        extra = "null";
     }
 
     /// assume input is in milimeter
@@ -393,6 +394,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
     {
         _pt = pt;
         name = pt.get<std::string>("name");
+        objecturi = pt.get<std::string>("object_uri");
         unsigned int i=0;
         FOREACH(v, pt.get_child("translation_")) {
             transform.trans[i] = boost::lexical_cast<double>(v->second.data()); // assuming in milimeter
@@ -417,24 +419,29 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
         }
         confidence = pt.get<std::string>("confidence");
         timestamp = pt.get<uint64_t>("timestamp");
+        extra = "null";
     }
 
     /// assume input is in meter
-    DetectedObject(const std::string& n, const Transform& t, const std::string& c, const uint64_t ts)
+    DetectedObject(const std::string& n, const std::string& u, const Transform& t, const std::string& c, const uint64_t ts, const std::string& e)
     {
         name = n;
+        objecturi = u;
         transform = t;
         confidence = c;
         timestamp = ts;
+        extra = e;
     }
 
     virtual ~DetectedObject() {
     }
 
     std::string name;
+    std::string objecturi;
     Transform transform; ///< in meter
     std::string confidence; ///< detection confidence
     uint64_t timestamp; ///< timestamp of the detection
+    std::string extra;
 
     std::string GetJsonString()
     {
@@ -443,6 +450,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
         //"{\"name\": \"obj\",\"translation_\":[100,200,300],\"quat_\":[1,0,0,0],\"confidence\":{}}"
         ss << "{";
         ss << "\"name\": \"" << name << "\", ";
+        ss << "\"object_uri\": \"" << objecturi << "\", ";
         ss << "\"translation_\": [";
         for (unsigned int i=0; i<3; i++) {
             ss << transform.trans[i];
@@ -469,6 +477,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
     {
         if (_pt.empty()) {
             _pt.put<std::string>("name", name);
+            _pt.put<std::string>("object_uri", objecturi);
             ptree translation_pt;
             for (unsigned int i=0; i<3; i++) {
                 ptree p;

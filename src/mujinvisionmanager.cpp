@@ -1209,7 +1209,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                         Transform transform;
                         transform.trans = _vDetectedInfo.at(i).meanPosition;
                         transform.rot = _vDetectedInfo.at(i).meanRotation;
-                        DetectedObjectPtr obj(new DetectedObject(detectedobjects[0]->name, transform, _vDetectedInfo.at(i).confidences.at(0), _vDetectedInfo.at(i).timestamp));
+                        DetectedObjectPtr obj(new DetectedObject(detectedobjects[0]->name, detectedobjects[0]->objecturi, transform, _vDetectedInfo.at(i).confidences.at(0), _vDetectedInfo.at(i).timestamp, detectedobjects[0]->extra));
                         newdetectedobjects.push_back(obj);
                         //obj->Print();
                     }
@@ -1252,9 +1252,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
             continue;
         } else {
             lastUpdateTimestamp = _resultTimestamp;
-            std::vector<mujinclient::Transform> transformsworld;
-            std::vector<std::string> confidences;
-            std::vector<uint64_t> timestamps;
+            std::vector<BinPickingTaskResource::DetectedObject> detectedobjects;
             std::vector<Real> totalpoints;
             //uint64_t starttime = GetMilliTime();
             bool iscontainerempty = false;
@@ -1269,9 +1267,16 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                     transform.translate[0] = _vDetectedObject[i]->transform.trans[0];
                     transform.translate[1] = _vDetectedObject[i]->transform.trans[1];
                     transform.translate[2] = _vDetectedObject[i]->transform.trans[2];
-                    transformsworld.push_back(transform);
-                    confidences.push_back(_vDetectedObject[i]->confidence);
-                    timestamps.push_back(_vDetectedObject[i]->timestamp);
+
+                    BinPickingTaskResource::DetectedObject detectedobject;
+                    std::stringstream name_ss;
+                    name_ss << _vDetectedObject[i]->name << "_" << i;
+                    detectedobject.name = name_ss.str();
+                    detectedobject.transform = transform;
+                    detectedobject.confidence = _vDetectedObject[i]->confidence;
+                    detectedobject.timestamp = _vDetectedObject[i]->timestamp;
+                    detectedobject.extra = _vDetectedObject[i]->extra;
+                    detectedobjects.push_back(detectedobject);
                 }
                 for(unsigned int i=0; i<cameranamestobeused.size(); i++) {
                     std::string cameraname = cameranamestobeused[i];
@@ -1282,8 +1287,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                 iscontainerempty = _resultIsContainerEmpty;
             }
             if (totalpoints.size()>0) {
-                pBinpickingTask->UpdateEnvironmentState(_targetname, _defaultobjecturi, _vDetectedobjects, totalpoints, iscontainerempty, pointsize, obstaclename, "m");
-                //pBinpickingTask->UpdateEnvironmentState(_targetname, transformsworld, confidences, timestamps, totalpoints, iscontainerempty, pointsize, obstaclename, "m");
+                pBinpickingTask->UpdateEnvironmentState(_targetname, "mujin:/" + _targetname + ".mujin.dae", detectedobjects, totalpoints, iscontainerempty, pointsize, obstaclename, "m");
             }
         }
     }
@@ -2082,7 +2086,7 @@ void Utils::TransformDetectedObjects(const std::vector<DetectedObjectPtr>& detec
     const std::string name = detectedobjectsfrom.at(0)->name;
     for (size_t i=0; i<detectedobjectsfrom.size(); i++) {
         Transform G_T_A = G_T_S * detectedobjectsfrom.at(i)->transform;
-        DetectedObjectPtr detectedobj(new DetectedObject(name, G_T_A, detectedobjectsfrom.at(i)->confidence, detectedobjectsfrom.at(i)->timestamp));
+        DetectedObjectPtr detectedobj(new DetectedObject(name, detectedobjectsfrom.at(i)->objecturi, G_T_A, detectedobjectsfrom.at(i)->confidence, detectedobjectsfrom.at(i)->timestamp, detectedobjectsfrom.at(i)->extra));
         detectedobjectsto.push_back(detectedobj);
     }
     BOOST_ASSERT(detectedobjectsfrom.size() == detectedobjectsto.size());

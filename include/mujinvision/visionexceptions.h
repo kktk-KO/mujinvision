@@ -34,6 +34,7 @@ enum MujinVisionErrorCode
     MVE_Busy=8,
     MVE_NotInitialized=9,
     MVE_ControllerError=10,
+    MVE_NoResponse=11,
 };
 
 inline const char* GetErrorCodeString(MujinVisionErrorCode error)
@@ -50,6 +51,7 @@ inline const char* GetErrorCodeString(MujinVisionErrorCode error)
     case MVE_Busy: return "Busy";
     case MVE_NotInitialized: return "NotInitialized";
     case MVE_ControllerError: return "ControllerError";
+    case MVE_NoResponse: return "NoResponse";
     }
     // throw an exception?
     return "";

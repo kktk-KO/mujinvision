@@ -1285,6 +1285,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                     std::stringstream name_ss;
                     name_ss << _vDetectedObject[i]->name << "_" << i;
                     detectedobject.name = name_ss.str();
+                    detectedobject.object_uri = _vDetectedObject[i]->objecturi;
                     detectedobject.transform = transform;
                     detectedobject.confidence = _vDetectedObject[i]->confidence;
                     detectedobject.timestamp = _vDetectedObject[i]->timestamp;

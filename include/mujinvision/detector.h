@@ -38,7 +38,7 @@ public:
         \param mRegionDepthCameraMap map to depth camera maps from region names
         \param extraInitializationOptions optional extra options
      */
-    virtual void Initialize(const ptree& oparams_pt, const ptree& dparams_pt, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>()) = 0;
+    virtual void Initialize(const ptree& oparams_pt, const ptree& dparams_pt, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), const bool getgil=false) = 0;
 
     virtual void DeInitialize() = 0;
 
@@ -60,8 +60,9 @@ public:
         \param points result points representing the point cloud obstacle in world frame
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
         \param fast whether to prioritize speed
+        \param whether to get python gil
      */
-    virtual void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsworld, std::vector<double>& points, const double voxelsize=0.01, const bool fast=false) = 0;
+    virtual void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsworld, std::vector<double>& points, const double voxelsize=0.01, const bool fast=false, const bool getgil=false) = 0;
 
     /** \brief Gets point cloud in world frame from depth image.
         \param regionname

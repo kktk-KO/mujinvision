@@ -1077,7 +1077,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
                 std::string cameraname = cameranamestobeused[i];
                 std::vector<Real> points;
-                _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false);
+                _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false, false);
                 {
                     boost::mutex::scoped_lock lock(_mutexDetectedInfo);
                     _mResultPoints[cameraname] = points;
@@ -1852,7 +1852,7 @@ void MujinVisionManager::SendPointCloudObstacleToController(const std::string& r
             _pDetector->SetDepthImage(cameraname, depthimages.at(i));
             // get point cloud obstacle
             std::vector<Real> points;
-            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast);
+            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true);
             std::stringstream ss;
             ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
             _SetStatusMessage(ss.str());

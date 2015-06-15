@@ -1251,7 +1251,8 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
 
     BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
     pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, _binpickingTaskHeartbeatTimeout);
-
+    uint64_t starttime;
+    uint64_t lastwarnedtimestamp = 0;
     while (!_bStopUpdateEnvironmentThread) {
         bool update = false;
 
@@ -1301,7 +1302,21 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                 iscontainerempty = _resultIsContainerEmpty;
             }
             if (totalpoints.size()>0) {
-                pBinpickingTask->UpdateEnvironmentState(_targetname, "mujin:/" + _targetname + ".mujin.dae", detectedobjects, totalpoints, iscontainerempty, pointsize, obstaclename, "m");
+                try {
+                    starttime = GetMilliTime();
+                    pBinpickingTask->UpdateEnvironmentState(_targetname, "mujin:/" + _targetname + ".mujin.dae", detectedobjects, totalpoints, iscontainerempty, pointsize, obstaclename, "m");
+                    std::stringstream ss;
+                    ss << "UpdateEnvironmentState with " << transformsworld.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
+                    _SetStatusMessage(ss.str());
+                } catch(const std::exception& ex) {
+                    if (GetMilliTime() - lastwarnedtimestamp > 1000.0) {
+                        lastwarnedtimestamp = GetMilliTime();
+                        std::stringstream ss;
+                        ss << "Failed to update environment state: " << ex.what() << ".";
+                        VISIONMANAGER_LOG_WARN(ss.str());
+                    }
+                    boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                }
             }
         }
     }

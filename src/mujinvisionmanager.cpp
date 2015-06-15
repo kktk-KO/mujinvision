@@ -1306,7 +1306,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                     starttime = GetMilliTime();
                     pBinpickingTask->UpdateEnvironmentState(_targetname, "mujin:/" + _targetname + ".mujin.dae", detectedobjects, totalpoints, iscontainerempty, pointsize, obstaclename, "m");
                     std::stringstream ss;
-                    ss << "UpdateEnvironmentState with " << transformsworld.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
+                    ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                     _SetStatusMessage(ss.str());
                 } catch(const std::exception& ex) {
                     if (GetMilliTime() - lastwarnedtimestamp > 1000.0) {

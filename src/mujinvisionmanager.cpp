@@ -1338,7 +1338,7 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
         {
             boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
             try {
-                pBinpickingTask->GetBinpickingState(binpickingstate, "m", 1.0);
+                pBinpickingTask->GetBinpickingState(binpickingstate, "m", false, 1.0);
             }
             catch(const std::exception& ex) {
                 if (GetMilliTime() - lastwarnedtimestamp > 1000.0) {

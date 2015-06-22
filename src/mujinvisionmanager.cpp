@@ -240,7 +240,11 @@ void MujinVisionManager::_SetStatus(ManagerStatus status, const std::string& msg
     }
     std::stringstream ss;
     ss << GetMilliTime() << " " << _GetManagerStatusString(status) << ": " << msg;
-    VISIONMANAGER_LOG_INFO(ss.str());
+    if (msg == "") {
+        VISIONMANAGER_LOG_DEBUG(ss.str());
+    } else {
+        VISIONMANAGER_LOG_INFO(ss.str());
+    }
     boost::mutex::scoped_lock lock(_mutexStatusQueue);
     _statusQueue.push(status);
     _messageQueue.push(msg);
@@ -1239,8 +1243,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             break;
         }
 
-        VISIONMANAGER_LOG_DEBUG("Cycle time: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
-        VISIONMANAGER_LOG_DEBUG(" ------------------------");
+        VISIONMANAGER_LOG_INFO("Cycle time: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
+        VISIONMANAGER_LOG_INFO(" ------------------------");
     }
 }
 

@@ -1497,7 +1497,10 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
     unsigned long long starttime = 0, endtime = 0;
     bool isoccluding = !ignoreocclusion;
     std::string cameraname;
-    uint64_t lastfailedtimestamp = 0;
+    //uint64_t lastfirstimagecheckfailurets = 0;
+    uint64_t lastfirstimagecheckfailurewarnts = 0;
+    uint64_t lastocclusioncheckfailurets = 0;
+    uint64_t lastocclusioncheckfailurewarnts = 0;
     bool usecache = !request;
     double snaptimeout = fetchimagetimeout / 1000.0;
 
@@ -1579,13 +1582,17 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
         }
 
         if (starttime < _tsStartDetection) {
-            std::stringstream msg_ss;
-            msg_ss << "Image was taken " << (_tsStartDetection - starttime) << " ms before StartDetectionLoop was called, will try to get again"
-                   << ": camera = " << cameraname
-                   << ", is_color = " << iscolor
-                   << ", use_cache = " << usecache
-                   << ", images_size = " << images.size();
-            VISIONMANAGER_LOG_WARN(msg_ss.str());
+            if (GetMilliTime() - lastfirstimagecheckfailurewarnts > 1000.0) {
+                lastfirstimagecheckfailurewarnts = GetMilliTime();
+                std::stringstream msg_ss;
+                msg_ss << "Image was taken " << (_tsStartDetection - starttime) << " ms before StartDetectionLoop was called, will try to get again"
+                       << ": camera = " << cameraname
+                       << ", is_color = " << iscolor
+                       << ", use_cache = " << usecache
+                       << ", images_size = " << images.size();
+                VISIONMANAGER_LOG_WARN(msg_ss.str());
+            }
+            //lastfirstimagecheckfailurets = starttime;
             if (images.size() > 0) {
                 images.clear(); // need to start over, all color images need to be equally new
             }
@@ -1598,7 +1605,7 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
         //VISIONMANAGER_LOG_DEBUG(msg_ss.str());
         if (!ignoreocclusion) {
             try {
-                if (starttime > lastfailedtimestamp) {
+                if (starttime > lastocclusioncheckfailurets) {
                     _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
                 }
             } catch (...) {
@@ -1610,14 +1617,17 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
         }
 
         if (isoccluding) {
-            lastfailedtimestamp = starttime;
-            std::stringstream msg_ss;
-            msg_ss << "Region is occluded in the view of camera, will try again"
-                   << ": camera = " << cameraname
-                   << ", is_color = " << iscolor
-                   << ", use_cache = " << usecache
-                   << ", images_size = " << images.size();
-            VISIONMANAGER_LOG_WARN(msg_ss.str());
+            if (GetMilliTime() - lastocclusioncheckfailurewarnts > 1000.0) {
+                lastocclusioncheckfailurewarnts = GetMilliTime();
+                std::stringstream msg_ss;
+                msg_ss << "Region is occluded in the view of camera, will try again"
+                       << ": camera = " << cameraname
+                       << ", is_color = " << iscolor
+                       << ", use_cache = " << usecache
+                       << ", images_size = " << images.size();
+                VISIONMANAGER_LOG_WARN(msg_ss.str());
+            }
+            lastocclusioncheckfailurets = starttime;
             usecache = false;
             continue;
         }

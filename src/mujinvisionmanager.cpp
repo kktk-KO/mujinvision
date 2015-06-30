@@ -1043,9 +1043,15 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             } else {
                 lastPickedFromSourceId = numPickAttempt;
                 std::stringstream ss;
-                ss << "robot just attempted a pick, starting image capturing... " << int(_bStopDetectionThread) << std::endl;
-                VISIONMANAGER_LOG_INFO(ss.str());
-                _pImagesubscriberManager->StartCaptureThread();
+                if (isRobotOccludingSourceContainer) {
+                    ss << "robot just attempted a pick, wait until it stops occluding container" << std::endl;
+                    VISIONMANAGER_LOG_INFO(ss.str());
+                    continue;
+                } else {
+                    ss << "robot just attempted a pick and is out of camera view, starting image capturing... " << int(_bStopDetectionThread) << std::endl;
+                    VISIONMANAGER_LOG_INFO(ss.str());
+                    _pImagesubscriberManager->StartCaptureThread();
+                }
             }
         }
 

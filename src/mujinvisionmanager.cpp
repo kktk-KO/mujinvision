@@ -951,7 +951,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     int numfastdetection = 2; // max num of times to run fast detection
     int lastPickedFromSourceId = -1;
     int lastDetectedId = -1;
-    uint64_t lastwarnedtimestamp = 0;
+    uint64_t lastocclusionwarningts = 0;
+    uint64_t lastdetectionresultwarningts = 0;
+    uint64_t lastbinpickingstatewarningts = 0;
     while (!_bStopDetectionThread) {
         time0 = GetMilliTime();
         // update picked positions
@@ -1029,9 +1031,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         if (isControllerPickPlaceRunning && numPickAttempt >= 0) {
             if (numPickAttempt <= lastPickedFromSourceId && !forceRequestDetectionResults) {
                 if (numPickAttempt <= lastDetectedId ) {
-                    if (GetMilliTime() - lastwarnedtimestamp > 1000.0) {
+                    if (GetMilliTime() - lastdetectionresultwarningts > 1000.0) {
                         VISIONMANAGER_LOG_INFO("sent detection result already. waiting for robot to pick...");
-                        lastwarnedtimestamp = GetMilliTime();
+                        lastdetectionresultwarningts = GetMilliTime();
                     }
                     continue;
                 } else {
@@ -1043,14 +1045,26 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             } else {
                 lastPickedFromSourceId = numPickAttempt;
                 std::stringstream ss;
-                if (isRobotOccludingSourceContainer) {
-                    ss << "robot just attempted a pick, wait until it stops occluding container" << std::endl;
-                    VISIONMANAGER_LOG_INFO(ss.str());
-                    continue;
+                if (GetMilliTime() - binpickingstateTimestamp < maxage) {
+                    if (isRobotOccludingSourceContainer) {
+                        if (GetMilliTime() - lastocclusionwarningts > 1000.0) {
+                            ss << "robot just attempted a pick, wait until it stops occluding container" << std::endl;
+                            VISIONMANAGER_LOG_INFO(ss.str());
+                            lastocclusionwarningts = GetMilliTime();
+                        }
+                        continue;
+                    } else {
+                        ss << "robot just attempted a pick and is out of camera view, starting image capturing... " << int(_bStopDetectionThread) << std::endl;
+                        VISIONMANAGER_LOG_INFO(ss.str());
+                        _pImagesubscriberManager->StartCaptureThread();
+                    }
                 } else {
-                    ss << "robot just attempted a pick and is out of camera view, starting image capturing... " << int(_bStopDetectionThread) << std::endl;
-                    VISIONMANAGER_LOG_INFO(ss.str());
-                    _pImagesubscriberManager->StartCaptureThread();
+                    if (GetMilliTime() - lastbinpickingstatewarningts > 1000.0) {
+                        ss << "binpickingstateTimestamp (" << binpickingstateTimestamp << ") is > " << maxage << "ms older than current time (" << GetMilliTime() << ")" << std::endl;
+                        VISIONMANAGER_LOG_WARN(ss.str());
+                        lastbinpickingstatewarningts = GetMilliTime();
+                    }
+                    continue;
                 }
             }
         }
@@ -1896,6 +1910,9 @@ void MujinVisionManager::StopDetectionLoop()
     _StopDetectionThread();
     _StopUpdateEnvironmentThread();
     _StopControllerMonitorThread();
+    if (!!_pImagesubscriberManager) {
+        _pImagesubscriberManager->StopCaptureThread();
+    }
     _SetStatus(MS_Succeeded);
 }
 

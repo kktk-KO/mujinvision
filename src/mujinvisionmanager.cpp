@@ -1924,6 +1924,7 @@ void MujinVisionManager::SendPointCloudObstacleToController(const std::string& r
                     _GetDepthImages(regionname, depthcameranames1, depthimages1, ignoreocclusion, maxage, fetchimagetimeout, request);
                     _pDetector->SetDepthImage(cameraname, depthimages1.at(0));
                     _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast);
+                    numretries--;
                 }
                 if (points.size() / 3 == 0) {
                     throw MujinVisionException("got 0 point from GetPointCloudObstacle() after retries", MVE_Failed);

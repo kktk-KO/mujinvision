@@ -240,7 +240,11 @@ void MujinVisionManager::_SetStatus(ManagerStatus status, const std::string& msg
     }
     std::stringstream ss;
     ss << GetMilliTime() << " " << _GetManagerStatusString(status) << ": " << msg;
+    if (msg == "") {
+        VISIONMANAGER_LOG_DEBUG(ss.str());
+    } else {
     VISIONMANAGER_LOG_INFO(ss.str());
+    }
     boost::mutex::scoped_lock lock(_mutexStatusQueue);
     _statusQueue.push(status);
     _messageQueue.push(msg);
@@ -947,7 +951,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     int numfastdetection = 2; // max num of times to run fast detection
     int lastPickedFromSourceId = -1;
     int lastDetectedId = -1;
-    uint64_t lastwarnedtimestamp = 0;
+    uint64_t lastocclusionwarningts = 0;
+    uint64_t lastdetectionresultwarningts = 0;
+    uint64_t lastbinpickingstatewarningts = 0;
     while (!_bStopDetectionThread) {
         time0 = GetMilliTime();
         // update picked positions
@@ -1025,9 +1031,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         if (isControllerPickPlaceRunning && numPickAttempt >= 0) {
             if (numPickAttempt <= lastPickedFromSourceId && !forceRequestDetectionResults) {
                 if (numPickAttempt <= lastDetectedId ) {
-                    if (GetMilliTime() - lastwarnedtimestamp > 1000.0) {
+                    if (GetMilliTime() - lastdetectionresultwarningts > 1000.0) {
                         VISIONMANAGER_LOG_INFO("sent detection result already. waiting for robot to pick...");
-                        lastwarnedtimestamp = GetMilliTime();
+                        lastdetectionresultwarningts = GetMilliTime();
                     }
                     continue;
                 } else {
@@ -1039,9 +1045,27 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             } else {
                 lastPickedFromSourceId = numPickAttempt;
                 std::stringstream ss;
-                ss << "robot just attempted a pick, starting image capturing... " << int(_bStopDetectionThread) << std::endl;
+                if (GetMilliTime() - binpickingstateTimestamp < maxage) {
+                    if (isRobotOccludingSourceContainer) {
+                        if (GetMilliTime() - lastocclusionwarningts > 1000.0) {
+                            ss << "robot just attempted a pick, wait until it stops occluding container" << std::endl;
+                            VISIONMANAGER_LOG_INFO(ss.str());
+                            lastocclusionwarningts = GetMilliTime();
+                        }
+                        continue;
+                    } else {
+                        ss << "robot just attempted a pick and is out of camera view, starting image capturing... " << int(_bStopDetectionThread) << std::endl;
                 VISIONMANAGER_LOG_INFO(ss.str());
                 _pImagesubscriberManager->StartCaptureThread();
+                    }
+                } else {
+                    if (GetMilliTime() - lastbinpickingstatewarningts > 1000.0) {
+                        ss << "binpickingstateTimestamp (" << binpickingstateTimestamp << ") is > " << maxage << "ms older than current time (" << GetMilliTime() << ")" << std::endl;
+                        VISIONMANAGER_LOG_WARN(ss.str());
+                        lastbinpickingstatewarningts = GetMilliTime();
+                    }
+                    continue;
+                }
             }
         }
 
@@ -1239,8 +1263,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             break;
         }
 
-        VISIONMANAGER_LOG_DEBUG("Cycle time: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
-        VISIONMANAGER_LOG_DEBUG(" ------------------------");
+        VISIONMANAGER_LOG_INFO("Cycle time: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
+        VISIONMANAGER_LOG_INFO(" ------------------------");
     }
 }
 
@@ -1476,7 +1500,10 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
     unsigned long long starttime = 0, endtime = 0;
     bool isoccluding = !ignoreocclusion;
     std::string cameraname;
-    uint64_t lastfailedtimestamp = 0;
+    //uint64_t lastfirstimagecheckfailurets = 0;
+    uint64_t lastfirstimagecheckfailurewarnts = 0;
+    uint64_t lastocclusioncheckfailurets = 0;
+    uint64_t lastocclusioncheckfailurewarnts = 0;
     bool usecache = !request;
     double snaptimeout = fetchimagetimeout / 1000.0;
 
@@ -1558,6 +1585,8 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
         }
 
         if (starttime < _tsStartDetection) {
+            if (GetMilliTime() - lastfirstimagecheckfailurewarnts > 1000.0) {
+                lastfirstimagecheckfailurewarnts = GetMilliTime();
             std::stringstream msg_ss;
             msg_ss << "Image was taken " << (_tsStartDetection - starttime) << " ms before StartDetectionLoop was called, will try to get again"
                    << ": camera = " << cameraname
@@ -1565,6 +1594,8 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                    << ", use_cache = " << usecache
                    << ", images_size = " << images.size();
             VISIONMANAGER_LOG_WARN(msg_ss.str());
+            }
+            //lastfirstimagecheckfailurets = starttime;
             if (images.size() > 0) {
                 images.clear(); // need to start over, all color images need to be equally new
             }
@@ -1577,7 +1608,7 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
         //VISIONMANAGER_LOG_DEBUG(msg_ss.str());
         if (!ignoreocclusion) {
             try {
-                if (starttime > lastfailedtimestamp) {
+                if (starttime > lastocclusioncheckfailurets) {
                     _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
                 }
             } catch (...) {
@@ -1589,7 +1620,8 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
         }
 
         if (isoccluding) {
-            lastfailedtimestamp = starttime;
+            if (GetMilliTime() - lastocclusioncheckfailurewarnts > 1000.0) {
+                lastocclusioncheckfailurewarnts = GetMilliTime();
             std::stringstream msg_ss;
             msg_ss << "Region is occluded in the view of camera, will try again"
                    << ": camera = " << cameraname
@@ -1597,6 +1629,8 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                    << ", use_cache = " << usecache
                    << ", images_size = " << images.size();
             VISIONMANAGER_LOG_WARN(msg_ss.str());
+            }
+            lastocclusioncheckfailurets = starttime;
             usecache = false;
             continue;
         }
@@ -1819,7 +1853,7 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
     _GetColorImages(regionname, colorcameranames, colorimages, ignoreocclusion, maxage, fetchimagetimeout, request);
     std::vector<ImagePtr> depthimages;
     _GetDepthImages(regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, request);
-    VISIONMANAGER_LOG_DEBUG("Getting images took " + boost::lexical_cast<std::string>((GetMilliTime() - starttime) / 1000.0f));
+    VISIONMANAGER_LOG_INFO("Getting images took " + boost::lexical_cast<std::string>((GetMilliTime() - starttime) / 1000.0f));
     starttime = GetMilliTime();
     if (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size()) {
         for (size_t i=0; i<colorimages.size(); ++i) {

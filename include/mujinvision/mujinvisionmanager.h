@@ -401,17 +401,6 @@ private:
     void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename, const unsigned long long& starttime);
     void _StopDetectionThread();
 
-    struct UpdateEnvironmentThreadParameters {
-        std::string regionname;
-        std::vector<std::string> cameranames;
-        double voxelsize;
-        double pointsize;
-        std::string obstaclename;
-        unsigned int waitinterval;
-    };
-
-    UpdateEnvironmentThreadParameters _lastUpdateEnvironmentThreadParameters;
-
     /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
         \param regionname name of the region of which the pointcloud obstacle represents
         \param cameranames names of the cameras to be used to capture the pointcloud obstacle
@@ -426,6 +415,15 @@ private:
     void _ControllerMonitorThread(const unsigned int waitinterval=100);
     void _StartControllerMonitorThread(const unsigned int waitinterval=100);
     void _StopControllerMonitorThread();
+
+    void _SendPointCloudObstacleToControllerThread(const std::string& regionname,
+                                                   const std::vector<std::string>& cameranames,
+                                                   const std::vector<DetectedObjectPtr>& detectedobjectsworld,
+                                                   const unsigned int maxage=0,
+                                                   const unsigned int fetchimagetimeout=0,
+                                                   const double voxelsize=0.01,
+                                                   const double pointsize=0.005,
+                                                   const std::string obstaclename="__dynamicobstacle__");
 
     /** \brief Gets transform of the instobject in meters.
      */
@@ -536,6 +534,7 @@ private:
     boost::shared_ptr<boost::thread> _pDetectionThread;
     boost::shared_ptr<boost::thread> _pUpdateEnvironmentThread;
     boost::shared_ptr<boost::thread> _pControllerMonitorThread;
+    boost::shared_ptr<boost::thread> _pSendPointCloudObstacleThread;
 
     boost::mutex _mutexCancelCommand;
     std::map<unsigned int, CommandServerPtr> _mPortCommandServer; ///< port -> server

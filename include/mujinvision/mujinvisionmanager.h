@@ -551,6 +551,7 @@ private:
 
     ImageSubscriberManagerPtr _pImagesubscriberManager;
 
+    boost::property_tree::ptree _ptDetectorConfig; ///< pt of detector config
     ObjectDetectorPtr _pDetector;
     DetectorManagerPtr _pDetectorManager;
 

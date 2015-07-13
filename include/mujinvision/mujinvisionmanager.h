@@ -567,6 +567,7 @@ private:
     unsigned long long _binpickingstateTimestamp; ///< timestamp of latest binpicking state
     std::vector<ImagePtr> _lastcolorimages; ///< last color images used for detection
     std::vector<ImagePtr> _lastdepthimages; ///< last depth images used for detection
+    boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
 
     bool _resultIsContainerEmpty; ///< container status of the latest result
 

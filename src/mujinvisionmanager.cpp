@@ -139,6 +139,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bIsControllerPickPlaceRunning = false;
     _bIsRobotOccludingSourceContainer = false;
     _numPickAttempt = -1;
+    _tsStartDetection = 0;
 
     _pImagesubscriberManager = imagesubscribermanager;
     _pDetectorManager = detectormanager;
@@ -1654,7 +1655,7 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
             continue;
         }
 
-        if (starttime < _tsStartDetection) {
+        if (_tsStartDetection > 0 && starttime < _tsStartDetection) {
             if (GetMilliTime() - lastfirstimagecheckfailurewarnts > 1000.0) {
                 lastfirstimagecheckfailurewarnts = GetMilliTime();
                 std::stringstream msg_ss;

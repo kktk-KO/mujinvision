@@ -1102,6 +1102,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 std::string cameraname = cameranamestobeused[i];
                 std::vector<Real> points;
                 _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false, false);
+                if (points.size() / 3 == 0) {
+                    _SetStatusMessage("got 0 point from GetPointCloudObstacle() in detection loop");
+                }
                 {
                     boost::mutex::scoped_lock lock(_mutexDetectedInfo);
                     _mResultPoints[cameraname] = points;
@@ -1931,6 +1934,25 @@ void MujinVisionManager::SendPointCloudObstacleToController(const std::string& r
             // get point cloud obstacle
             std::vector<Real> points;
             _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true);
+            if (points.size() / 3 == 0) {
+                _SetStatusMessage("got 0 point from GetPointCloudObstacle()");
+                int numretries = 3;
+                std::vector<std::string> depthcameranames1;
+                std::vector<ImagePtr> depthimages1;
+                depthcameranames1.push_back(cameraname);
+                while (numretries > 0 && points.size() / 3 == 0) {
+                    points.clear();
+                    _SetStatusMessage("re-try getting depthimage and pointcloudobstacle");
+                    
+                    _GetDepthImages(regionname, depthcameranames1, depthimages1, ignoreocclusion, maxage, fetchimagetimeout, request);
+                    _pDetector->SetDepthImage(cameraname, depthimages1.at(0));
+                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true);
+                    numretries--;
+                }
+                if (points.size() / 3 == 0) {
+                    throw MujinVisionException("got 0 point from GetPointCloudObstacle() after retries", MVE_Failed);
+                }
+            }
             std::stringstream ss;
             ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
             _SetStatusMessage(ss.str());

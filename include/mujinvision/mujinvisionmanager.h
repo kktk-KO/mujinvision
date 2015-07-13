@@ -185,6 +185,7 @@ public:
         \param fastdetection whether to prioritize speed
         \param bindetection whether to detect bin
         \param request whether to request new images instead of getting them off the buffer
+        \param useold whether to use previously captured images
      */
     virtual void DetectObjects(const std::string& regionname,
                                const std::vector<std::string>& cameranames,
@@ -195,7 +196,8 @@ public:
                                const unsigned int fetchimagetimeout=0,
                                const bool fastdetection=false,
                                const bool bindetection=false,
-                               const bool request=false);
+                               const bool request=false,
+                               const bool useold=false);
 
     /** \brief starts detection thread to continuously detect objects and sends detection results to mujin controller
      */
@@ -443,19 +445,21 @@ private:
         \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
         \param fetchimagetimeout in milliseconds, if 0, block until the image is fetched
         \param bool request, whether to request new images instead of getting them off the buffer
+        \param useold, whether to use the previously capatured images
         \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
         \return number of images fetched
      */
-    unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50);
+    unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50);
 
     /** \brief Gets depth images (uncropped) from image subscriber manager.
         \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
         \param fetchimagetimeout in milliseconds, if 0, block until the image is fetched
         \param bool request, whether to request new images instead of getting them off the buffer
+        \param useold, whether to use the previously capatured images
         \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
         \return number of images fetched
      */
-    unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50/*ms*/);
+    unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50/*ms*/);
 
     unsigned int _GetImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50/*ms*/, const bool iscolor=true);
 
@@ -562,6 +566,9 @@ private:
     boost::mutex _mutexControllerBinpickingState; ///< lock for controller binpicking state
     int _numPickAttempt; ///< num of picking attempts
     unsigned long long _binpickingstateTimestamp; ///< timestamp of latest binpicking state
+    std::vector<ImagePtr> _lastcolorimages; ///< last color images used for detection
+    std::vector<ImagePtr> _lastdepthimages; ///< last depth images used for detection
+
     bool _resultIsContainerEmpty; ///< container status of the latest result
 
     bool _bIsControllerPickPlaceRunning; ///< whether pick and place thread is running on the controller

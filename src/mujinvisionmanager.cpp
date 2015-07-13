@@ -892,21 +892,24 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
 
 void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval)
 {
-    if (!!_pUpdateEnvironmentThread && !_bStopUpdateEnvironmentThread &&
-        _lastUpdateEnvironmentThreadParameters.regionname == regionname &&
-        _lastUpdateEnvironmentThreadParameters.cameranames.size() == cameranames.size() &&
-        _lastUpdateEnvironmentThreadParameters.voxelsize == voxelsize &&
-        _lastUpdateEnvironmentThreadParameters.pointsize == pointsize &&
-        _lastUpdateEnvironmentThreadParameters.obstaclename == obstaclename &&
-        _lastUpdateEnvironmentThreadParameters.waitinterval == waitinterval) {
-        std::set<std::string> s1(cameranames.begin(), cameranames.end());
-        std::set<std::string> s2(_lastUpdateEnvironmentThreadParameters.cameranames.begin(), _lastUpdateEnvironmentThreadParameters.cameranames.end());
-        std::vector<std::string> v3;
-        std::set_intersection(s1.begin(), s1.end(), s2.begin(), s2.end(), std::back_inserter(v3));
-        if (v3.size() == cameranames.size()) {
-            _SetStatusMessage("UpdateEnvironment thread is already running, do nothing.");
-            return;
+    if (!!_pUpdateEnvironmentThread && !_bStopUpdateEnvironmentThread) {
+        if (_lastUpdateEnvironmentThreadParameters.regionname == regionname &&
+            _lastUpdateEnvironmentThreadParameters.cameranames.size() == cameranames.size() &&
+            _lastUpdateEnvironmentThreadParameters.voxelsize == voxelsize &&
+            _lastUpdateEnvironmentThreadParameters.pointsize == pointsize &&
+            _lastUpdateEnvironmentThreadParameters.obstaclename == obstaclename &&
+            _lastUpdateEnvironmentThreadParameters.waitinterval == waitinterval) {
+            std::set<std::string> s1(cameranames.begin(), cameranames.end());
+            std::set<std::string> s2(_lastUpdateEnvironmentThreadParameters.cameranames.begin(), _lastUpdateEnvironmentThreadParameters.cameranames.end());
+            std::vector<std::string> v3;
+            std::set_intersection(s1.begin(), s1.end(), s2.begin(), s2.end(), std::back_inserter(v3));
+            if (v3.size() == cameranames.size()) {
+                _SetStatusMessage("UpdateEnvironment thread is already running, do nothing.");
+                return;
+            }
         }
+        _bStopUpdateEnvironmentThread = true;
+        _pUpdateEnvironmentThread->join();
     }
     _lastUpdateEnvironmentThreadParameters.regionname = regionname;
     _lastUpdateEnvironmentThreadParameters.cameranames = cameranames;
@@ -1116,7 +1119,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 }
                 if (detectedobjects.size() == 0 && numfastdetection == 0) {
                     VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode found no object, detect in normal mode");
-                    DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, false, false);
+                    DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, false, false, false, true);
                 }
                 numfastdetection -= 1;
             } else {
@@ -1535,14 +1538,30 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
     }
 }
 
-unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& colorimages, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const unsigned int waitinterval)
+unsigned int MujinVisionManager::_GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& colorimages, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval)
 {
-    return _GetImages(regionname, cameranames, colorimages, ignoreocclusion, maxage, fetchimagetimeout, request, waitinterval, true);
+    if (!useold) {
+        unsigned int ret = _GetImages(regionname, cameranames, colorimages, ignoreocclusion, maxage, fetchimagetimeout, request, waitinterval, true);
+        _lastcolorimages = colorimages;
+        return ret;
+    } else {
+        VISIONMANAGER_LOG_INFO("using cached color images");
+        colorimages = _lastcolorimages;
+        return colorimages.size();
+    }
 }
 
-unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const unsigned int waitinterval)
+unsigned int MujinVisionManager::_GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval)
 {
-    return _GetImages(regionname, cameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, request, waitinterval, false);
+    if (!useold) {
+        unsigned int ret = _GetImages(regionname, cameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, request, waitinterval, false);
+        _lastdepthimages = depthimages;
+        return ret;
+    } else {
+        VISIONMANAGER_LOG_INFO("using cached depth images");
+        depthimages = _lastdepthimages;
+        return depthimages.size();
+    }
 }
 
 unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const unsigned int waitinterval, const bool iscolor)
@@ -1892,7 +1911,7 @@ void MujinVisionManager::_DeInitialize()
     _SetStatusMessage("DeInitialized vision manager.");
 }
 
-void MujinVisionManager::DetectObjects(const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request)
+void MujinVisionManager::DetectObjects(const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request, const bool useold)
 {
     uint64_t starttime = GetMilliTime();
 
@@ -1901,9 +1920,9 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
 
     // set up images
     std::vector<ImagePtr> colorimages;
-    _GetColorImages(regionname, colorcameranames, colorimages, ignoreocclusion, maxage, fetchimagetimeout, request);
+    _GetColorImages(regionname, colorcameranames, colorimages, ignoreocclusion, maxage, fetchimagetimeout, request, useold);
     std::vector<ImagePtr> depthimages;
-    _GetDepthImages(regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, request);
+    _GetDepthImages(regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, request, useold);
     VISIONMANAGER_LOG_INFO("Getting images took " + boost::lexical_cast<std::string>((GetMilliTime() - starttime) / 1000.0f));
     starttime = GetMilliTime();
     if (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size()) {

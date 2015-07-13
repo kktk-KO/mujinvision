@@ -220,6 +220,7 @@ public:
         \param pointsize size of the point in meters to be sent to the mujin controller
         \param fast whether to prioritize speed
         \param request whether to request new images instead of getting them off the buffer
+        \param async whether to return immediately
      */
     virtual void SendPointCloudObstacleToController(const std::string& regionname,
                                                     const std::vector<std::string>& cameranames,
@@ -230,7 +231,8 @@ public:
                                                     const double pointsize=0.005,
                                                     const std::string obstaclename="__dynamicobstacle__",
                                                     const bool fast=false,
-                                                    const bool request=true);
+                                                    const bool request=true,
+                                                    const bool async=false);
 
     /** \brief Visualizes the raw camera point clouds on mujin controller
      */
@@ -412,6 +414,27 @@ private:
     void _StartControllerMonitorThread(const unsigned int waitinterval=100);
     void _StopControllerMonitorThread();
 
+    void _SendPointCloudObstacleToController(BinPickingTaskResourcePtr pBinpickingTask,
+                                             const std::string& regionname,
+                                             const std::vector<std::string>& cameranames,
+                                             const std::vector<DetectedObjectPtr>& detectedobjectsworld,
+                                             const unsigned int maxage=0,
+                                             const unsigned int fetchimagetimeout=0,
+                                             const double voxelsize=0.01,
+                                             const double pointsize=0.005,
+                                             const std::string obstaclename="__dynamicobstacle__",
+                                             const bool fast=false,
+                                             const bool request=true);
+
+    void _SendPointCloudObstacleToControllerThread(const std::string& regionname,
+                                             const std::vector<std::string>& cameranames,
+                                             const std::vector<DetectedObjectPtr>& detectedobjectsworld,
+                                             const unsigned int maxage=0,
+                                             const unsigned int fetchimagetimeout=0,
+                                             const double voxelsize=0.01,
+                                             const double pointsize=0.005,
+                                             const std::string obstaclename="__dynamicobstacle__");
+
     /** \brief Gets transform of the instobject in meters.
      */
     mujinvision::Transform _GetTransform(const std::string& instobjname);
@@ -519,6 +542,7 @@ private:
     boost::shared_ptr<boost::thread> _pDetectionThread;
     boost::shared_ptr<boost::thread> _pUpdateEnvironmentThread;
     boost::shared_ptr<boost::thread> _pControllerMonitorThread;
+    boost::shared_ptr<boost::thread> _pSendPointCloudObstacleThread;
 
     boost::mutex _mutexCancelCommand;
     std::map<unsigned int, CommandServerPtr> _mPortCommandServer; ///< port -> server

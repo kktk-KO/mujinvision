@@ -1378,7 +1378,7 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
             _bIsRobotOccludingSourceContainer = binpickingstate.isRobotOccludingSourceContainer;
             _bForceRequestDetectionResults = binpickingstate.forceRequestDetectionResults;
             _numPickAttempt = binpickingstate.pickAttemptFromSourceId;
-            _binpickingstateTimestamp = binpickingstate.timestamp;
+            _binpickingstateTimestamp = binpickingstate.timestamp * 1000; // s -> ms
             lastUpdateTimestamp = GetMilliTime();
         }
 

@@ -892,12 +892,31 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
 
 void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval)
 {
-    if (!!_pUpdateEnvironmentThread && !_bStopUpdateEnvironmentThread) {
-        _SetStatusMessage("UpdateEnvironment thread is already running, do nothing.");
-    } else {
-        _bStopUpdateEnvironmentThread = false;
-        _pUpdateEnvironmentThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_UpdateEnvironmentThread, this, regionname, cameranames, voxelsize, pointsize, obstaclename, waitinterval)));
+    if (!!_pUpdateEnvironmentThread && !_bStopUpdateEnvironmentThread &&
+        _lastUpdateEnvironmentThreadParameters.regionname == regionname &&
+        _lastUpdateEnvironmentThreadParameters.cameranames.size() == cameranames.size() &&
+        _lastUpdateEnvironmentThreadParameters.voxelsize == voxelsize &&
+        _lastUpdateEnvironmentThreadParameters.pointsize == pointsize &&
+        _lastUpdateEnvironmentThreadParameters.obstaclename == obstaclename &&
+        _lastUpdateEnvironmentThreadParameters.waitinterval == waitinterval) {
+        std::set<std::string> s1(cameranames.begin(), cameranames.end());
+        std::set<std::string> s2(_lastUpdateEnvironmentThreadParameters.cameranames.begin(), _lastUpdateEnvironmentThreadParameters.cameranames.end());
+        std::vector<std::string> v3;
+        std::set_intersection(s1.begin(), s1.end(), s2.begin(), s2.end(), std::back_inserter(v3));
+        if (v3.size() == cameranames.size()) {
+            _SetStatusMessage("UpdateEnvironment thread is already running, do nothing.");
+            return;
+        }
     }
+    _lastUpdateEnvironmentThreadParameters.regionname = regionname;
+    _lastUpdateEnvironmentThreadParameters.cameranames = cameranames;
+    _lastUpdateEnvironmentThreadParameters.voxelsize = voxelsize;
+    _lastUpdateEnvironmentThreadParameters.pointsize = pointsize;
+    _lastUpdateEnvironmentThreadParameters.obstaclename = obstaclename;
+    _lastUpdateEnvironmentThreadParameters.waitinterval = waitinterval;
+
+    _bStopUpdateEnvironmentThread = false;
+    _pUpdateEnvironmentThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_UpdateEnvironmentThread, this, regionname, cameranames, voxelsize, pointsize, obstaclename, waitinterval)));   
 }
 
 void MujinVisionManager::_StartControllerMonitorThread(const unsigned int waitinterval)
@@ -1929,63 +1948,50 @@ void MujinVisionManager::StopDetectionLoop()
 void MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string obstaclename, const bool fast, const bool request, const bool async)
 {
     if (!async) {
-        _SendPointCloudObstacleToController(_pBinpickingTask, regionname, cameranames, detectedobjectsworld, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request);
-    }  else {
-        _pSendPointCloudObstacleThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendPointCloudObstacleToControllerThread, this, regionname, cameranames, detectedobjectsworld, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename)));
-    }
-    _SetStatus(MS_Succeeded);
-}
-
-void MujinVisionManager::_SendPointCloudObstacleToControllerThread(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string obstaclename)
-{
-    BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, _binpickingTaskHeartbeatTimeout);
-    _SendPointCloudObstacleToController(pBinpickingTask, regionname, cameranames, detectedobjectsworld, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, false, true);
-}
-
-void MujinVisionManager::_SendPointCloudObstacleToController(BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string obstaclename, const bool fast, const bool request)
-{
-    std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
-    // set up images
-    std::vector<ImagePtr> depthimages;
-    bool ignoreocclusion = true;
-    _GetDepthImages(regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, request);
-    if (depthimages.size() == depthcameranames.size()) {
-        for (size_t i=0; i<depthimages.size(); ++i) {
-            std::string cameraname = depthcameranames.at(i);
-            CameraPtr camera= _mNameCamera[cameraname];
-            _pDetector->SetDepthImage(cameraname, depthimages.at(i));
-            // get point cloud obstacle
-            std::vector<Real> points;
-            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true);
-            if (points.size() / 3 == 0) {
-                _SetStatusMessage("got 0 point from GetPointCloudObstacle()");
-                int numretries = 3;
-                std::vector<std::string> depthcameranames1;
-                std::vector<ImagePtr> depthimages1;
-                depthcameranames1.push_back(cameraname);
-                while (numretries > 0 && points.size() / 3 == 0) {
-                    points.clear();
-                    _SetStatusMessage("re-try getting depthimage and pointcloudobstacle");
-                    
-                    _GetDepthImages(regionname, depthcameranames1, depthimages1, ignoreocclusion, maxage, fetchimagetimeout, request);
-                    _pDetector->SetDepthImage(cameraname, depthimages1.at(0));
-                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true);
-                    numretries--;
-                }
+        std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
+        // set up images
+        std::vector<ImagePtr> depthimages;
+        bool ignoreocclusion = true;
+        _GetDepthImages(regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, request);
+        if (depthimages.size() == depthcameranames.size()) {
+            for (size_t i=0; i<depthimages.size(); ++i) {
+                std::string cameraname = depthcameranames.at(i);
+                CameraPtr camera= _mNameCamera[cameraname];
+                _pDetector->SetDepthImage(cameraname, depthimages.at(i));
+                // get point cloud obstacle
+                std::vector<Real> points;
+                _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true);
                 if (points.size() / 3 == 0) {
-                    throw MujinVisionException("got 0 point from GetPointCloudObstacle() after retries", MVE_Failed);
+                    _SetStatusMessage("got 0 point from GetPointCloudObstacle()");
+                    int numretries = 3;
+                    std::vector<std::string> depthcameranames1;
+                    std::vector<ImagePtr> depthimages1;
+                    depthcameranames1.push_back(cameraname);
+                    while (numretries > 0 && points.size() / 3 == 0) {
+                        points.clear();
+                        _SetStatusMessage("re-try getting depthimage and pointcloudobstacle");
+                    
+                        _GetDepthImages(regionname, depthcameranames1, depthimages1, ignoreocclusion, maxage, fetchimagetimeout, request);
+                        _pDetector->SetDepthImage(cameraname, depthimages1.at(0));
+                        _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true);
+                        numretries--;
+                    }
+                    if (points.size() / 3 == 0) {
+                        throw MujinVisionException("got 0 point from GetPointCloudObstacle() after retries", MVE_Failed);
+                    }
                 }
+                std::stringstream ss;
+                ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
+                _SetStatusMessage(ss.str());
+                _pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename);
             }
-            std::stringstream ss;
-            ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
-            _SetStatusMessage(ss.str());
-            pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename);
         }
+        _SetStatus(MS_Succeeded);
+    }  else {
+        _StartUpdateEnvironmentThread(regionname, cameranames, voxelsize, pointsize, obstaclename);
     }
     _SetStatus(MS_Succeeded);
 }
-
 
 void MujinVisionManager::DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request)
 {

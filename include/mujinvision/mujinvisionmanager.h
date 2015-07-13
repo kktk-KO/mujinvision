@@ -205,7 +205,8 @@ public:
                                     const double pointsize=0.005,
                                     const bool ignoreocclusion=false,
                                     const unsigned int maxage=0,
-                                    const std::string& obstaclename="__dynamicobstacle__");
+                                    const std::string& obstaclename="__dynamicobstacle__",
+                                    const unsigned long long& starttime=0 /*ms*/);
 
     virtual void StopDetectionLoop();
 
@@ -393,7 +394,7 @@ private:
     void _PublishStopStatus();
 
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename, const unsigned long long& starttime);
     void _StopDetectionThread();
 
     /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.

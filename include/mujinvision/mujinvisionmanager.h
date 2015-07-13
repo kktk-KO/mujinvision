@@ -552,7 +552,6 @@ private:
     ImageSubscriberManagerPtr _pImagesubscriberManager;
 
     ObjectDetectorPtr _pDetector;
-    boost::mutex _mutexDetector;
     DetectorManagerPtr _pDetectorManager;
 
     unsigned long long _tsStartDetection; ///< timestamp when start detection loop was first called
@@ -568,6 +567,7 @@ private:
     std::vector<ImagePtr> _lastcolorimages; ///< last color images used for detection
     std::vector<ImagePtr> _lastdepthimages; ///< last depth images used for detection
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
+    boost::mutex _mutexDetector; ///< lock for detector
 
     bool _resultIsContainerEmpty; ///< container status of the latest result
 

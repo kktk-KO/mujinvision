@@ -1108,7 +1108,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 std::vector<Real> points;
                 std::stringstream ss;
                 uint64_t starttime = GetMilliTime();
-                _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false, false);
+                {
+                    boost::mutex::scoped_lock lock(_mutexDetector);
+                    _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false, false);
+                }
                 ss << "GetPointCloudObstacle() took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                 VISIONMANAGER_LOG_INFO(ss.str());
                 if (points.size() / 3 == 0) {
@@ -1707,7 +1710,7 @@ void MujinVisionManager::_GetImages(const std::string& regionname, const std::ve
     uint64_t start0 = GetMilliTime();
     unsigned long long starttime = 0, endtime = 0;
     std::string cameraname;
-    //uint64_t lastfirstimagecheckfailurets = 0;
+    uint64_t lastimageagecheckfailurets = 0;
     uint64_t lastfirstimagecheckfailurewarnts = 0;
     uint64_t lastocclusioncheckfailurets = 0;
     uint64_t lastocclusioncheckfailurewarnts = 0;
@@ -1756,10 +1759,13 @@ void MujinVisionManager::_GetImages(const std::string& regionname, const std::ve
         }
 
         if (maxage>0 && GetMilliTime()-starttime>maxage) {
-            std::stringstream msg_ss;
-            msg_ss << "Image is more than " << maxage << " ms old (" << (GetMilliTime() - starttime) << "), will try to get again"
-                   << ", use_cache = " << usecache;
-            VISIONMANAGER_LOG_WARN(msg_ss.str());
+            if (GetMilliTime() - lastimageagecheckfailurets > 1000.0) {
+                std::stringstream msg_ss;
+                msg_ss << "Image is more than " << maxage << " ms old (" << (GetMilliTime() - starttime) << "), will try to get again"
+                       << ", use_cache = " << usecache;
+                VISIONMANAGER_LOG_WARN(msg_ss.str());
+                lastimageagecheckfailurets = GetMilliTime();
+            }
             //usecache = false;  // do not force snap, because images come in pairs, and snap can only get one new image
             colorimages.clear();
             depthimages.clear();

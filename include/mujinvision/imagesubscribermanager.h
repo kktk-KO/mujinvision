@@ -61,6 +61,9 @@ public:
         \return pointer to the depth image
      */
     virtual ImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime) = 0;
+
+    virtual void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, unsigned long long& starttime, unsigned long long& endtime) = 0;
+
     /** \brief Gets the depth image from the latest n images with depth data, and the min/max timestamps of the images used.
         \param cameraname name of the camera
         \param starttime timestamp of the earliest image

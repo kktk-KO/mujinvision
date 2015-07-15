@@ -54,6 +54,9 @@ public:
         return ImagePtr();
     }
 
+    void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, unsigned long long& starttime, unsigned long long& endtime)
+    {
+    }
     void StartCaptureThread()
     {
     }

@@ -1712,7 +1712,6 @@ void MujinVisionManager::_GetImages(const std::string& regionname, const std::ve
     std::string cameraname;
     uint64_t lastimageagecheckfailurets = 0;
     uint64_t lastfirstimagecheckfailurewarnts = 0;
-    uint64_t lastocclusioncheckfailurets = 0;
     uint64_t lastocclusioncheckfailurewarnts = 0;
     bool usecache = !request;
 
@@ -1741,7 +1740,6 @@ void MujinVisionManager::_GetImages(const std::string& regionname, const std::ve
                    << ", use_cache = " << usecache;
             VISIONMANAGER_LOG_WARN(msg_ss.str());
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
-            // usecache = false;  // do not force snap, because images come in pairs, and snap can only get one new image
             colorimages.clear();
             depthimages.clear();
             continue;
@@ -1751,11 +1749,10 @@ void MujinVisionManager::_GetImages(const std::string& regionname, const std::ve
             std::stringstream msg_ss;
             msg_ss << "Image timestamp is more than 100ms in the future, please ensure that clocks are synchronized"
                    << ", use_cache = " << usecache;
-            VISIONMANAGER_LOG_WARN(msg_ss.str());
-            // usecache = false; // do not force snap, because images come in pairs, and snap can only get one new image
+            VISIONMANAGER_LOG_ERROR(msg_ss.str());
             colorimages.clear();
             depthimages.clear();
-            continue;
+            throw MujinVisionException(msg_ss.str(), MVE_ImageAcquisitionError);
         }
 
         if (maxage>0 && GetMilliTime()-starttime>maxage) {
@@ -1766,7 +1763,6 @@ void MujinVisionManager::_GetImages(const std::string& regionname, const std::ve
                 VISIONMANAGER_LOG_WARN(msg_ss.str());
                 lastimageagecheckfailurets = GetMilliTime();
             }
-            //usecache = false;  // do not force snap, because images come in pairs, and snap can only get one new image
             colorimages.clear();
             depthimages.clear();
             continue;
@@ -1780,7 +1776,6 @@ void MujinVisionManager::_GetImages(const std::string& regionname, const std::ve
                        << ", use_cache = " << usecache;
                 VISIONMANAGER_LOG_WARN(msg_ss.str());
             }
-            //usecache = false;  // do not force snap, because images come in pairs, and snap can only get one new image
             colorimages.clear();
             depthimages.clear();
             continue;
@@ -1789,20 +1784,17 @@ void MujinVisionManager::_GetImages(const std::string& regionname, const std::ve
         bool isoccluding = false;
         if (!ignoreocclusion) {
             try {
-                if (starttime > lastocclusioncheckfailurets) {
-                    for (size_t i=0; i<colorcameranames.size() && !isoccluding; ++i) {
-                        uint64_t time0 = GetMilliTime();
-                        std::stringstream ss;
-                        _pBinpickingTask->IsRobotOccludingBody(regionname, colorcameranames.at(i), starttime, endtime, isoccluding);
-                        ss << "_pBinpickingTask->IsRobotOccludingBody() took " << (GetMilliTime() - time0) / 1000.0f << " secs";
-                        VISIONMANAGER_LOG_DEBUG(ss.str());
-                    }
-                    // skip checking for depth camera, assuming depth image is derived from color
+                for (size_t i=0; i<colorcameranames.size() && !isoccluding; ++i) {
+                    //uint64_t time0 = GetMilliTime();
+                    //std::stringstream ss;
+                    _pBinpickingTask->IsRobotOccludingBody(regionname, colorcameranames.at(i), starttime, endtime, isoccluding);
+                    //ss << "_pBinpickingTask->IsRobotOccludingBody() took " << (GetMilliTime() - time0) / 1000.0f << " secs";
+                    //VISIONMANAGER_LOG_DEBUG(ss.str());
                 }
+                // skip checking for depth camera, assuming depth image is derived from color
             } catch (...) {
                 VISIONMANAGER_LOG_WARN("Failed to check for occlusion, will try again.");
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
-                //usecache = false; // do not force snap, because images come in pairs, and snap can only get one new image
                 colorimages.clear();
                 depthimages.clear();
                 continue;
@@ -1814,17 +1806,21 @@ void MujinVisionManager::_GetImages(const std::string& regionname, const std::ve
                 lastocclusioncheckfailurewarnts = GetMilliTime();
                 std::stringstream msg_ss;
                 msg_ss << "Region is occluded in the view of camera, will try again"
+                       << " starttime " << starttime
+                       << " endtime " << endtime
                        << ", use_cache = " << usecache;
                 VISIONMANAGER_LOG_WARN(msg_ss.str());
             }
-            lastocclusioncheckfailurets = starttime;
-            //usecache = false; // do not force snap, because images come in pairs, and snap can only get one new image
             colorimages.clear();
             depthimages.clear();
             continue;
+        } else {
+            std::stringstream ss;
+            ss << "imagepack starttime " << starttime << " endtime " << endtime;
+            VISIONMANAGER_LOG_DEBUG(ss.str());
+            _lastcolorimages = colorimages;
+            _lastdepthimages = depthimages;
         }
-        _lastcolorimages = colorimages;
-        _lastdepthimages = depthimages;
     }
 }
 

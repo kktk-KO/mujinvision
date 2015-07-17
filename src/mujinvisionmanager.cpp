@@ -421,7 +421,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 }
             }
             result_ss << "], ";
-            result_ss << ParametersBase::GetJsonString("state") << ": " << ParametersBase::GetJsonString(resultstate) << ", ";
+            result_ss << ParametersBase::GetJsonString("state") << ": " << resultstate << ", ";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "GetCameraId") {
@@ -528,7 +528,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             DetectObjects(regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection);
             result_ss << "{";
             result_ss << _GetJsonString(detectedobjects) << ", ";
-            result_ss << ParametersBase::GetJsonString("state") << ": " << ParametersBase::GetJsonString(resultstate) << ", ";
+            result_ss << ParametersBase::GetJsonString("state") << ": " << resultstate << ", ";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "SendPointCloudObstacleToController") {

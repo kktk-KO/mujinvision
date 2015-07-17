@@ -178,7 +178,7 @@ public:
         \param regionname name of the region
         \param cameranames names of the cameras
         \param detectedobjects detection results in meters in world frame
-        \param iscontainerempty whether container is empty (useful when no object is detected but there are points inside bin)
+        \param resultstate additional information about the detection result
         \param ignoreocclusion whether to skip occlusion check
         \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
         \param fetchimagetimeout max time in ms to wait for getting images for detection
@@ -190,7 +190,7 @@ public:
     virtual void DetectObjects(const std::string& regionname,
                                const std::vector<std::string>& cameranames,
                                std::vector<DetectedObjectPtr>& detectedobjectsworld,
-                               bool& iscontainerempty,
+                               std::string& resultstate,
                                const bool ignoreocclusion=false,
                                const unsigned int maxage=0,
                                const unsigned int fetchimagetimeout=0,
@@ -269,7 +269,7 @@ public:
         \param detectedobjectsworld detection result in world frame
         \param sendtocontroller whether to send the list to mujin controller
      */
-    virtual void UpdateDetectedObjects(const std::vector<DetectedObjectPtr>& detectobjectsworld, const bool iscontainerempty, const bool sendtocontroller=false);
+    virtual void UpdateDetectedObjects(const std::vector<DetectedObjectPtr>& detectobjectsworld, const std::string& resultstate, const bool sendtocontroller=false);
 
     /** \brief Updates the region info from the mujin controller
         - updates position of the region
@@ -295,7 +295,7 @@ public:
      */
     bool IsShutdown();
 
-    virtual void GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectobjectsworld, bool& iscontainerempty);
+    virtual void GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectobjectsworld, std::string& resultstate);
 
     virtual void GetConfig(const std::string& type, std::string& config);
     virtual void SaveConfig(const std::string& type, const std::string& configname, const std::string& config="");
@@ -480,7 +480,7 @@ private:
     /** \brief Sends detected object list to mujin controller.
         \param detectobjectsworld detected objects in world frame
      */
-    void _SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld, const bool iscontainerempty);
+    void _SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld, const std::string& resultstate);
 
     /** \brief Converts mujinclient::Transform to Transform.
      */
@@ -570,7 +570,7 @@ private:
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
     boost::mutex _mutexDetector; ///< lock for detector
 
-    bool _resultIsContainerEmpty; ///< container status of the latest result
+    std::string _resultState; ///< additional information about the detection result
 
     bool _bIsControllerPickPlaceRunning; ///< whether pick and place thread is running on the controller
     bool _bIsRobotOccludingSourceContainer; ///< whether robot is occluding the source container

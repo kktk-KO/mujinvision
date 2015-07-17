@@ -47,11 +47,11 @@ public:
         \param colorcameraname
         \param depthcameraname
         \param detectedobjects in world frame
-        \param iscontainerempty whether the container is empty (useful when no object is detected but there are points inside bin)
+        \param resultstate additional information about the detection result
         \param fastdetection whether to prioritize speed
         \param bindetection whether to detect bin
      */
-    virtual void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty, const bool fastdetection=false, const bool bindetection=false) = 0;
+    virtual void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false) = 0;
 
     /** \brief Gets point cloud obstacle from depth data and detection result.
         \param regionname
@@ -113,9 +113,9 @@ public:
         }
     }
 
-    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty, const bool fastdetection=false, const bool bindetection=false) {
+    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false) {
         if (colorcameranames.size()>0 && depthcameranames.size()>0) {
-            DetectObjects(regionname, colorcameranames.at(0), depthcameranames.at(0), detectedobjects, iscontainerempty, fastdetection, bindetection);
+            DetectObjects(regionname, colorcameranames.at(0), depthcameranames.at(0), detectedobjects, resultstate, fastdetection, bindetection);
         }
     };
 

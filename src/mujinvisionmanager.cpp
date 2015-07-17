@@ -135,7 +135,6 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bStopControllerMonitorThread = false;
     _bCancelCommand = false;
     _bExecutingUserCommand = false;
-    _resultIsContainerEmpty = false;
     _bIsControllerPickPlaceRunning = false;
     _bIsRobotOccludingSourceContainer = false;
     _numPickAttempt = -1;
@@ -410,8 +409,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
             }
             std::vector<DetectedObjectPtr> detectedobjectsworld;
-            bool iscontainerempty = false;
-            GetLatestDetectedObjects(detectedobjectsworld, iscontainerempty);
+            std::string resultstate;
+            GetLatestDetectedObjects(detectedobjectsworld, resultstate);
 
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("detectedobjects") << ": [";
@@ -422,7 +421,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 }
             }
             result_ss << "], ";
-            result_ss << ParametersBase::GetJsonString("iscontainerempty") << ": " << int(iscontainerempty) << ", ";
+            result_ss << ParametersBase::GetJsonString("state") << ": " << ParametersBase::GetJsonString(resultstate) << ", ";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "GetCameraId") {
@@ -525,11 +524,11 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             bool fastdetection = command_pt.get("fastdetection", false);
             bool bindetection = command_pt.get("bindetection", false);
             std::vector<DetectedObjectPtr> detectedobjects;
-            bool iscontainerempty = false;
-            DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection);
+            std::string resultstate;
+            DetectObjects(regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection);
             result_ss << "{";
             result_ss << _GetJsonString(detectedobjects) << ", ";
-            result_ss << ParametersBase::GetJsonString("iscontainerempty") << ": " << int(iscontainerempty) << ", ";
+            result_ss << ParametersBase::GetJsonString("state") << ": " << ParametersBase::GetJsonString(resultstate) << ", ";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "SendPointCloudObstacleToController") {
@@ -650,9 +649,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                     detectedobjects.push_back(DetectedObjectPtr(new DetectedObject(v->second.get_child(""))));
                 }
             }
-            bool iscontainerempty = command_pt.get<bool>("iscontainerempty", false);
+            std::string resultstate = command_pt.get<std::string>("state", "");
             bool sendtocontroller = command_pt.get<bool>("sendtocontroller", true);
-            UpdateDetectedObjects(detectedobjects, iscontainerempty, sendtocontroller);
+            UpdateDetectedObjects(detectedobjects, resultstate, sendtocontroller);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -1081,12 +1080,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             break;
         }
         std::vector<DetectedObjectPtr> detectedobjects;
-        bool iscontainerempty = false;
+        std::string resultstate;
         try {
             if (numfastdetection > 0) {
                 while (detectedobjects.size() == 0 && numfastdetection > 0) {
                     VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode");
-                    DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, true, true);
+                    DetectObjects(regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, 0, true, true);
                     if (detectedobjects.size() == 0) {
                         numfastdetection -= 1;
                     } else {
@@ -1095,11 +1094,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 }
                 if (detectedobjects.size() == 0 && numfastdetection == 0) {
                     VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode found no object, detect in normal mode");
-                    DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, false, false, false, true);
+                    DetectObjects(regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, 0, false, false, false, true);
                 }
                 numfastdetection -= 1;
             } else {
-                DetectObjects(regionname, cameranames, detectedobjects, iscontainerempty, ignoreocclusion, maxage, 0, false, false);
+                DetectObjects(regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, 0, false, false);
             }
             _vDetectedObject = detectedobjects;
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
@@ -1270,7 +1269,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 newdetectedobjects = detectedobjects;
                 _vDetectedObject = detectedobjects;
             }
-            _resultIsContainerEmpty = iscontainerempty;
+            _resultState = resultstate;
             _resultTimestamp = GetMilliTime();
         }
         // send results to mujin controller
@@ -1308,7 +1307,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
             std::vector<BinPickingTaskResource::DetectedObject> detectedobjects;
             std::vector<Real> totalpoints;
             //uint64_t starttime = GetMilliTime();
-            bool iscontainerempty = false;
+            std::string resultstate;
             {
                 boost::mutex::scoped_lock lock(_mutexDetectedInfo);
                 for (unsigned int i=0; i<_vDetectedObject.size(); i++) {
@@ -1338,12 +1337,12 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                     std::vector<Real> points = _mResultPoints[cameraname];
                     totalpoints.insert(totalpoints.end(), points.begin(), points.end());
                 }
-                iscontainerempty = _resultIsContainerEmpty;
+                resultstate = _resultState;
             }
             if (totalpoints.size()>0) {
                 try {
                     starttime = GetMilliTime();
-                    pBinpickingTask->UpdateEnvironmentState(_targetname, "mujin:/" + _targetname + ".mujin.dae", detectedobjects, totalpoints, iscontainerempty, pointsize, obstaclename, "m");
+                    pBinpickingTask->UpdateEnvironmentState(_targetname, "mujin:/" + _targetname + ".mujin.dae", detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
                     std::stringstream ss;
                     ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                     _SetStatusMessage(ss.str());
@@ -2005,7 +2004,7 @@ void MujinVisionManager::_DeInitialize()
     _SetStatusMessage("DeInitialized vision manager.");
 }
 
-void MujinVisionManager::DetectObjects(const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, bool& iscontainerempty, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request, const bool useold)
+void MujinVisionManager::DetectObjects(const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request, const bool useold)
 {
     boost::mutex::scoped_lock lock(_mutexDetector);
     uint64_t starttime = GetMilliTime();
@@ -2036,9 +2035,9 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
             _pDetector->SetDepthImage(cameraname, depthimages.at(i));
         }
         // detect objects
-        _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, iscontainerempty, fastdetection, bindetection);
+        _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, resultstate, fastdetection, bindetection);
         std::stringstream msgss;
-        msgss << "Detected " << detectedobjects.size() << " objects, iscontainerempty: " << int(iscontainerempty) <<". Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
+        msgss << "Detected " << detectedobjects.size() << " objects, state: " << resultstate <<". Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
         _SetStatusMessage(msgss.str());
     }
     _SetStatus(MS_Succeeded);
@@ -2271,13 +2270,13 @@ void MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool 
     _SetStatus(MS_Succeeded);
 }
 
-void MujinVisionManager::UpdateDetectedObjects(const std::vector<DetectedObjectPtr>&detectobjectsworld, const bool iscontainerempty, const bool sendtocontroller)
+void MujinVisionManager::UpdateDetectedObjects(const std::vector<DetectedObjectPtr>&detectobjectsworld, const std::string& resultstate, const bool sendtocontroller)
 {
     if (detectobjectsworld.size()==0) {
         _SetStatus(MS_Succeeded);
     }
     if (sendtocontroller) {
-        _SendDetectedObjectsToController(detectobjectsworld, iscontainerempty);
+        _SendDetectedObjectsToController(detectobjectsworld, resultstate);
     }
     _SetStatus(MS_Succeeded);
 }
@@ -2308,11 +2307,11 @@ void MujinVisionManager::GetCameraId(const std::string& cameraname, std::string&
     _SetStatus(MS_Succeeded);
 }
 
-void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectedobjectsworld, bool& iscontainerempty)
+void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectedobjectsworld, std::string& resultstate)
 {
     boost::mutex::scoped_lock lock(_mutexDetectedInfo);
     detectedobjectsworld = _vDetectedObject;
-    iscontainerempty = _resultIsContainerEmpty;
+    resultstate = _resultState;
     _SetStatus(MS_Succeeded);
 }
 
@@ -2377,7 +2376,7 @@ std::vector<std::string> MujinVisionManager::_GetDepthCameraNames(const std::str
     return colorcameranames;
 }
 
-void MujinVisionManager::_SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld, const bool iscontainerempty)
+void MujinVisionManager::_SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld, const std::string& resultstate)
 {
     std::vector<mujinclient::Transform> transformsworld;
     std::vector<std::string> confidences;
@@ -2393,7 +2392,7 @@ void MujinVisionManager::_SendDetectedObjectsToController(const std::vector<Dete
         transformsworld.push_back(transform);
         confidences.push_back(detectedobjectsworld[i]->confidence);
     }
-    _pBinpickingTask->UpdateObjects(detectedobjectsworld[0]->name, transformsworld, confidences, iscontainerempty, "m");
+    _pBinpickingTask->UpdateObjects(detectedobjectsworld[0]->name, transformsworld, confidences, resultstate, "m");
 }
 
 Transform MujinVisionManager::_GetTransform(const mujinclient::Transform& t)

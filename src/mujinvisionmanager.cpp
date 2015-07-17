@@ -139,7 +139,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bIsRobotOccludingSourceContainer = false;
     _numPickAttempt = -1;
     _tsStartDetection = 0;
-
+    _resultTimestamp = 0;
     _pImagesubscriberManager = imagesubscribermanager;
     _pDetectorManager = detectormanager;
     _zmqcontext.reset(new zmq::context_t(8));
@@ -1296,7 +1296,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
 
         {
             boost::mutex::scoped_lock lock(_mutexDetectedInfo);
-            update = _resultTimestamp > lastUpdateTimestamp;
+            update = _resultTimestamp != 0 && _resultTimestamp > lastUpdateTimestamp;
         }
 
         if (!update) {

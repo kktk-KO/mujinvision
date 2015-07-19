@@ -137,6 +137,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bExecutingUserCommand = false;
     _bIsControllerPickPlaceRunning = false;
     _bIsRobotOccludingSourceContainer = false;
+    _bForceRequestDetectionResults = false;
     _numPickAttempt = -1;
     _tsStartDetection = 0;
     _resultTimestamp = 0;
@@ -147,6 +148,11 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _commandport = commandport;
     _configport = configport;
     _configdir = configdir;
+    _binpickingTaskZmqPort = 0;
+    _binpickingTaskHeartbeatPort = 0;
+    _binpickingTaskHeartbeatTimeout = 10;
+    _binpickingstateTimestamp = 0;
+    _tsStartDetection = 0;
     _StartStatusThread(statusport);
     _StartCommandThread(commandport);
     _StartCommandThread(configport);

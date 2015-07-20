@@ -38,7 +38,7 @@ public:
         \param mRegionDepthCameraMap map to depth camera maps from region names
         \param setstatusfn function the detector can use to set status
      */
-    virtual ObjectDetectorPtr CreateObjectDetector(const ptree& objectparams_pt, const ptree& detectionparams_pt, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap, const boost::function<void(const std::string& msg)>& setstatusfn) = 0;
+    virtual ObjectDetectorPtr CreateObjectDetector(const ptree& objectparams_pt, const ptree& detectionparams_pt, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn) = 0;
 };
 
 typedef boost::shared_ptr<DetectorManager> DetectorManagerPtr;

@@ -373,8 +373,8 @@ private:
 
     void _DeInitialize();
     
-    void _SetStatusMessage(const std::string& msg);
-    void _SetStatus(ManagerStatus status, const std::string& msg="", const bool allowInterrupt=true);
+    void _SetStatusMessage(const std::string& msg, const std::string& err="");
+    void _SetStatus(ManagerStatus status, const std::string& msg="", const std::string& error="", const bool allowInterrupt=true);
 
     /** \brief Executes command in json string. Returns result in json string.
      */
@@ -492,7 +492,7 @@ private:
 
     /** \brief Gets status json string.
      */
-    std::string _GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& message);
+    std::string _GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& message, const std::string& error="");
 
     /** \brief Breaks the camera name string into camerabodyname and sensorname.
         \param cameraname string such as 'camerabodyname/sensorname'
@@ -525,6 +525,7 @@ private:
 
     std::queue<ManagerStatus> _statusQueue;
     std::queue<std::string> _messageQueue;
+    std::queue<std::string> _errorQueue;
     std::queue<unsigned long long> _timestampQueue;
     boost::mutex _mutexStatusQueue; ///< protects _statusQueue, _messageQueue, and _timestampQueue
     //boost::condition _condStatus; ///< notification when _statusqueue has data

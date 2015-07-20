@@ -233,7 +233,7 @@ void MujinVisionManager::SaveConfig(const std::string& type, const std::string& 
     out.close();
 }
 
-void MujinVisionManager::_SetStatus(ManagerStatus status, const std::string& msg, const bool allowInterrupt)
+void MujinVisionManager::_SetStatus(ManagerStatus status, const std::string& msg, const std::string& err, const bool allowInterrupt)
 {
     if (status == MS_Preempted) {
         {
@@ -254,13 +254,14 @@ void MujinVisionManager::_SetStatus(ManagerStatus status, const std::string& msg
     boost::mutex::scoped_lock lock(_mutexStatusQueue);
     _statusQueue.push(status);
     _messageQueue.push(msg);
+    _errorQueue.push(err);
     _timestampQueue.push(GetMilliTime());
 }
 
-void MujinVisionManager::_SetStatusMessage(const std::string& msg)
+void MujinVisionManager::_SetStatusMessage(const std::string& msg, const std::string& err)
 {
     if (_statusQueue.size()>0) {
-        _SetStatus(_statusQueue.front(), msg);
+        _SetStatus(_statusQueue.front(), msg, err);
     } else {
         throw MujinVisionException("VisionManager is in invalid state.", MVE_Failed);
     }
@@ -347,7 +348,7 @@ void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, s
         boost::mutex::scoped_lock lock(_mutexCancelCommand);
         if (_bExecutingUserCommand) { // only cancel when user command is being executed
             _bCancelCommand = true;
-            _SetStatus(MS_Preempting, "", false);
+            _SetStatus(MS_Preempting, "", "", false);
         } else {
             _SetStatusMessage("No command is being excuted, do nothing.");
         }
@@ -758,40 +759,59 @@ void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned i
     VISIONMANAGER_LOG_DEBUG(ss.str());
     std::vector<ManagerStatus> vstatus;
     std::vector<std::string> vmessage;
+    std::vector<std::string> verror;
     std::vector<unsigned long long> vtimestamp;
     boost::shared_ptr<void> onexit = boost::shared_ptr<void>((void*)0, boost::bind(&MujinVisionManager::_PublishStopStatus, this));
     while (!_bStopStatusThread) {
         {
             boost::mutex::scoped_lock lock(_mutexStatusQueue);
             vstatus.resize(0);
+            vmessage.resize(0);
+            verror.resize(0);
+            vtimestamp.resize(0);
             while (_statusQueue.size()>1) {
                 vstatus.push_back(_statusQueue.front());
                 _statusQueue.pop();
                 vmessage.push_back(_messageQueue.front());
                 _messageQueue.pop();
+                verror.push_back(_errorQueue.front());
+                _errorQueue.pop();
                 vtimestamp.push_back(_timestampQueue.front());
                 _timestampQueue.pop();
             }
             if (vstatus.size()==0) {
                 vstatus.push_back(_statusQueue.front());
                 vmessage.push_back(_messageQueue.front());
+                verror.push_back(_errorQueue.front());
                 vtimestamp.push_back(_timestampQueue.front());
             }
         }
         for (unsigned int i=0; i<vstatus.size(); i++) {
-            _pStatusPublisher->Publish(_GetStatusJsonString(vtimestamp.at(i), _GetManagerStatusString(vstatus.at(i)), vmessage.at(i)));
+            VISIONMANAGER_LOG_ERROR(_GetStatusJsonString(vtimestamp.at(i), _GetManagerStatusString(vstatus.at(i)), vmessage.at(i), verror.at(i)));
+            _pStatusPublisher->Publish(_GetStatusJsonString(vtimestamp.at(i), _GetManagerStatusString(vstatus.at(i)), vmessage.at(i), verror.at(i)));
         }
         boost::this_thread::sleep(boost::posix_time::milliseconds(ms));
     }
 }
 
-std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& message)
+std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& message, const std::string& error)
 {
+    std::string msg = message;
+    boost::replace_all(msg, "\"", "\\\"");
+    boost::replace_all(msg, "\n", "\\n");
+
+
     std::stringstream ss;
     ss << "{";
     ss << ParametersBase::GetJsonString("timestamp") << ": " << timestamp << ", ";
     ss << ParametersBase::GetJsonString("status", status) << ", ";
-    ss << ParametersBase::GetJsonString("message", message) << ", ";
+    ss << ParametersBase::GetJsonString("message", msg) << ", ";
+    if (error != "") {
+        std::string err = error;
+        boost::replace_all(err, "\"", "\\\"");
+        boost::replace_all(err, "\n", "\\n");
+        ss << ParametersBase::GetJsonString("error", err) << ", ";
+    }
     ss << ParametersBase::GetJsonString("isdetectionrunning", IsDetectionRunning());
     ss << "}";
     return ss.str();
@@ -830,7 +850,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                     if (port == _configport) {
                         VISIONMANAGER_LOG_WARN("User requested program exit.");
                     } else {
-                        _SetStatus(MS_Preempted, "", false);
+                        _SetStatus(MS_Preempted, "", "", false);
                         VISIONMANAGER_LOG_WARN("User interruped command execution.");
                         result_ss << "{" << ParametersBase::GetJsonString("status", _GetManagerStatusString(MS_Preempted)) << "}";
                     }
@@ -851,14 +871,14 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                     default: break;
                     }
                     result_ss << "{" << ParametersBase::GetJsonString(e) << "}";
-                    _SetStatus(MS_Aborted, e.message(), false);
+                    _SetStatus(MS_Aborted, "", e.message(), false);
                 }
                 catch (std::exception& e) {
                     std::string whatstr = e.what();
                     boost::replace_all(whatstr, "\"", "\\\"");
                     result_ss << "{" << ParametersBase::GetExceptionJsonString("std::exception", whatstr) << "}";
                     VISIONMANAGER_LOG_ERROR("unhandled exception, " + whatstr);
-                    _SetStatus(MS_Aborted, e.what(), false);
+                    _SetStatus(MS_Aborted, "", e.what(), false);
                 }
 
                 // send output
@@ -873,7 +893,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
             }
         }
         catch (const UserInterruptException& ex) {
-            _SetStatus(MS_Aborted, "", false);
+            _SetStatus(MS_Aborted, "User requested program exit", "", false);
             VISIONMANAGER_LOG_WARN("User requested program exit.");
             throw;
         }
@@ -979,6 +999,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             catch(const std::exception& ex) {
                 std::stringstream ss;
                 ss << "Failed to get picked positions from mujin controller: " << ex.what() << ".";
+                _SetStatusMessage("", ss.str());
                 VISIONMANAGER_LOG_WARN(ss.str());
                 continue;
             }
@@ -1137,8 +1158,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         }
         catch(const std::exception& ex) {
             std::stringstream ss;
-            ss << "Caugh unhandled exception while debugging: " << ex.what();
+            ss << "Caught exception in the detection loop: " << ex.what();
             VISIONMANAGER_LOG_ERROR(ss.str());
+            _SetStatusMessage("", ss.str());
             continue;
         }
 
@@ -1357,6 +1379,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                         lastwarnedtimestamp = GetMilliTime();
                         std::stringstream ss;
                         ss << "Failed to update environment state: " << ex.what() << ".";
+                        _SetStatusMessage("", ss.str());
                         VISIONMANAGER_LOG_WARN(ss.str());
                     }
                     boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
@@ -1386,6 +1409,7 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
                     lastwarnedtimestamp = GetMilliTime();
                     std::stringstream ss;
                     ss << "Failed to get binpicking state from mujin controller: " << ex.what() << ".";
+                    _SetStatusMessage("", ss.str());
                     VISIONMANAGER_LOG_WARN(ss.str());
                 }
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
@@ -1655,9 +1679,12 @@ unsigned int MujinVisionManager::_GetImages(const std::string& regionname, const
                     _pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
                 }
             } catch (...) {
-                VISIONMANAGER_LOG_WARN("Failed to check for occlusion, will try again.");
+                std::stringstream ss;
+                ss << "Failed to check for occlusion, will try again.";
+                VISIONMANAGER_LOG_WARN(ss.str());
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 //usecache = false; // do not force snap, because images come in pairs, and snap can only get one new image
+                _SetStatusMessage("", ss.str());
                 continue;
             }
         }
@@ -1798,10 +1825,13 @@ void MujinVisionManager::_GetImages(const std::string& regionname, const std::ve
                 }
                 // skip checking for depth camera, assuming depth image is derived from color
             } catch (...) {
-                VISIONMANAGER_LOG_WARN("Failed to check for occlusion, will try again.");
+                std::stringstream ss;
+                ss << "Failed to check for occluded, will try again";
+                VISIONMANAGER_LOG_WARN(ss.str());
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 colorimages.clear();
                 depthimages.clear();
+                _SetStatusMessage("", ss.str());
                 continue;
             }
         }
@@ -1985,7 +2015,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     std::stringstream detectorconfigss;
     detectorconfigss << detectorconfig;
     read_json(detectorconfigss, pt);
-    _pDetector = _pDetectorManager->CreateObjectDetector(pt.get_child("object"),pt.get_child("detection"), _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetStatusMessage,this,_1));
+    _pDetector = _pDetectorManager->CreateObjectDetector(pt.get_child("object"),pt.get_child("detection"), _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetStatusMessage,this,_1, _2));
     _targetname = targetname;
     VISIONMANAGER_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");

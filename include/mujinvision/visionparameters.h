@@ -716,19 +716,19 @@ public:
     virtual ~MujinInterruptable() {
     }
 
-    virtual void SetSetStatusFn(const boost::function<void(const std::string& msg)>& setstatusfn) {
+    virtual void SetSetStatusFn(const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn) {
         _setstatusfn = setstatusfn;
     }
 
-    virtual void SetStatus(const std::string& msg)
+    virtual void SetStatus(const std::string& msg, const std::string& err="")
     {
         if( !!_setstatusfn ) {
-            _setstatusfn(msg);
+            _setstatusfn(msg, err);
         }
     }
 
 protected:
-    boost::function<void(const std::string& msg)> _setstatusfn;
+    boost::function<void(const std::string& msg, const std::string& err)> _setstatusfn;
 };
 
 class MUJINVISION_API Utils

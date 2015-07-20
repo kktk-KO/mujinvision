@@ -787,7 +787,6 @@ void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned i
             }
         }
         for (unsigned int i=0; i<vstatus.size(); i++) {
-            VISIONMANAGER_LOG_ERROR(_GetStatusJsonString(vtimestamp.at(i), _GetManagerStatusString(vstatus.at(i)), vmessage.at(i), verror.at(i)));
             _pStatusPublisher->Publish(_GetStatusJsonString(vtimestamp.at(i), _GetManagerStatusString(vstatus.at(i)), vmessage.at(i), verror.at(i)));
         }
         boost::this_thread::sleep(boost::posix_time::milliseconds(ms));

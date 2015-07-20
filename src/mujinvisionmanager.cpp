@@ -153,6 +153,18 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _binpickingTaskHeartbeatTimeout = 10;
     _binpickingstateTimestamp = 0;
     _tsStartDetection = 0;
+    _commandMessageQueue.push("");
+    _commandErrorQueue.push("");
+    _configMessageQueue.push("");
+    _configErrorQueue.push("");
+    _detectorMessageQueue.push("");
+    _detectorErrorQueue.push("");
+    _updateenvironmentMessageQueue.push("");
+    _updateenvironmentErrorQueue.push("");
+    _controllermonitorMessageQueue.push("");
+    _controllermonitorErrorQueue.push("");
+    _sendpointcloudMessageQueue.push("");
+    _sendpointcloudErrorQueue.push("");
     _StartStatusThread(statusport);
     _StartCommandThread(commandport);
     _StartCommandThread(configport);
@@ -252,37 +264,61 @@ void MujinVisionManager::_SetStatus(ThreadType tt, ManagerStatus status, const s
         VISIONMANAGER_LOG_INFO(ss.str());
     }
     boost::mutex::scoped_lock lock(_mutexStatusQueue);
-    _statusQueue.push(status);
+    std::string cmdmsg = "";
+    std::string cmderr = "";
+    std::string cfgmsg = "";
+    std::string cfgerr = "";
+    std::string detectormsg = "";
+    std::string detectorerr = "";
+    std::string updateenvmsg = "";
+    std::string updateenverr = "";
+    std::string controllermonmsg = "";
+    std::string controllermonerr = "";
+    std::string sendpclmsg = "";
+    std::string sendpclerr = "";
     switch (tt) {
     case TT_Command:
-        _commandMessageQueue.push(msg);
-        _commandErrorQueue.push(err);
+        cmdmsg = msg;
+        cmderr = err;
         break;
     case TT_Config:
-        _configMessageQueue.push(msg);
-        _configErrorQueue.push(err);
+        cfgmsg = msg;
+        cfgerr = err;
         break;
     case TT_Detector:
-        _detectorMessageQueue.push(msg);
-        _detectorErrorQueue.push(err);
+        detectormsg = msg;
+        detectorerr = err;
         break;
     case TT_UpdateEnvironment:
-        _updateenvironmentMessageQueue.push(msg);
-        _updateenvironmentErrorQueue.push(err);
+        updateenvmsg = msg;
+        updateenverr = err;
         break;
     case TT_ControllerMonitor:
-        _controllermonitorMessageQueue.push(msg);
-        _controllermonitorErrorQueue.push(err);
+        controllermonmsg = msg;
+        controllermonerr = err;
         break;
     case TT_SendPointcloudObstacle:
-        _sendpointcloudMessageQueue.push(msg);
-        _sendpointcloudErrorQueue.push(err);
+        sendpclmsg = msg;
+        sendpclerr = err;
         break;
     default:
         std::stringstream ss;
         ss << "unknown thread type " << tt << " cannot update status";
         throw MujinVisionException(ss.str(), MVE_Failed);
     }
+    _statusQueue.push(status);
+    _commandMessageQueue.push(cmdmsg);
+    _commandErrorQueue.push(cmderr);
+    _configMessageQueue.push(cfgmsg);
+    _configErrorQueue.push(cfgerr);
+    _detectorMessageQueue.push(detectormsg);
+    _detectorErrorQueue.push(detectorerr);
+    _updateenvironmentMessageQueue.push(updateenvmsg);
+    _updateenvironmentErrorQueue.push(updateenverr);
+    _controllermonitorMessageQueue.push(controllermonmsg);
+    _controllermonitorErrorQueue.push(controllermonerr);
+    _sendpointcloudMessageQueue.push(sendpclmsg);
+    _sendpointcloudErrorQueue.push(sendpclerr);
     _timestampQueue.push(GetMilliTime());
 }
 
@@ -809,7 +845,7 @@ void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned i
             vdetectormsg.resize(0);
             vupdateenvmsg.resize(0);
             vcontrollermonmsg.resize(0);
-            vsendpclerr.resize(0);
+            vsendpclmsg.resize(0);
             vcmderr.resize(0);
             vcfgerr.resize(0);
             vdetectorerr.resize(0);
@@ -840,7 +876,7 @@ void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned i
                 vcfgmsg.push_back(_configMessageQueue.front());
                 _configMessageQueue.pop();
                 vcfgerr.push_back(_configErrorQueue.front());
-                _configMessageQueue.pop();
+                _configErrorQueue.pop();
             }
             if (vcfgmsg.size() == 0) {
                 vcfgmsg.push_back(_configMessageQueue.front());
@@ -888,7 +924,7 @@ void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned i
             }
         }
         for (unsigned int i=0; i<vstatus.size(); i++) {
-            VISIONMANAGER_LOG_ERROR(_GetStatusJsonString(vtimestamp.at(i), _GetManagerStatusString(vstatus.at(i)), vcmdmsg.at(i), vcmderr.at(i), vcfgmsg.at(i), vcfgerr.at(i), vdetectormsg.at(i), vdetectorerr.at(i), vupdateenvmsg.at(i), vupdateenverr.at(i), vcontrollermonmsg.at(i), vcontrollermonerr.at(i), vsendpclmsg.at(i), vsendpclerr.at(i)));
+            //VISIONMANAGER_LOG_ERROR(_GetStatusJsonString(vtimestamp.at(i), _GetManagerStatusString(vstatus.at(i)), vcmdmsg.at(i), vcmderr.at(i), vcfgmsg.at(i), vcfgerr.at(i), vdetectormsg.at(i), vdetectorerr.at(i), vupdateenvmsg.at(i), vupdateenverr.at(i), vcontrollermonmsg.at(i), vcontrollermonerr.at(i), vsendpclmsg.at(i), vsendpclerr.at(i)));
             _pStatusPublisher->Publish(_GetStatusJsonString(vtimestamp.at(i), _GetManagerStatusString(vstatus.at(i)), vcmdmsg.at(i), vcmderr.at(i), vcfgmsg.at(i), vcfgerr.at(i), vdetectormsg.at(i), vdetectorerr.at(i), vupdateenvmsg.at(i), vupdateenverr.at(i), vcontrollermonmsg.at(i), vcontrollermonerr.at(i), vsendpclmsg.at(i), vsendpclerr.at(i)));
         }
         boost::this_thread::sleep(boost::posix_time::milliseconds(ms));

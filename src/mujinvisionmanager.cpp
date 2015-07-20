@@ -795,21 +795,13 @@ void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned i
 
 std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& message, const std::string& error)
 {
-    std::string msg = message;
-    boost::replace_all(msg, "\"", "\\\"");
-    boost::replace_all(msg, "\n", "\\n");
-
-
     std::stringstream ss;
     ss << "{";
     ss << ParametersBase::GetJsonString("timestamp") << ": " << timestamp << ", ";
     ss << ParametersBase::GetJsonString("status", status) << ", ";
-    ss << ParametersBase::GetJsonString("message", msg) << ", ";
+    ss << ParametersBase::GetJsonString("message", message) << ", ";
     if (error != "") {
-        std::string err = error;
-        boost::replace_all(err, "\"", "\\\"");
-        boost::replace_all(err, "\n", "\\n");
-        ss << ParametersBase::GetJsonString("error", err) << ", ";
+        ss << ParametersBase::GetJsonString("error", error) << ", ";
     }
     ss << ParametersBase::GetJsonString("isdetectionrunning", IsDetectionRunning());
     ss << "}";
@@ -874,17 +866,15 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 }
                 catch (std::exception& e) {
                     std::string whatstr = e.what();
-                    boost::replace_all(whatstr, "\"", "\\\"");
-                    result_ss << "{" << ParametersBase::GetExceptionJsonString("std::exception", whatstr) << "}";
+                    std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), whatstr);
+                    result_ss << "{" << errstr << "}";
                     VISIONMANAGER_LOG_ERROR("unhandled exception, " + whatstr);
-                    _SetStatus(MS_Aborted, "", e.what(), false);
+                    _SetStatus(MS_Aborted, "", errstr, false);
                 }
 
                 // send output
                 // TODO: verify validity
-                resultstr = result_ss.str();
-                boost::replace_all(resultstr, "\n", "\\n");
-                _mPortCommandServer[port]->Send(resultstr);
+                _mPortCommandServer[port]->Send(result_ss.str());
 
             } else {
                 // wait for command
@@ -998,7 +988,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             catch(const std::exception& ex) {
                 std::stringstream ss;
                 ss << "Failed to get picked positions from mujin controller: " << ex.what() << ".";
-                _SetStatusMessage("", ss.str());
+                std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_ControllerError), ss.str());
+                _SetStatusMessage("", errstr);
                 VISIONMANAGER_LOG_WARN(ss.str());
                 continue;
             }
@@ -1158,8 +1149,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         catch(const std::exception& ex) {
             std::stringstream ss;
             ss << "Caught exception in the detection loop: " << ex.what();
-            VISIONMANAGER_LOG_ERROR(ss.str());
-            _SetStatusMessage("", ss.str());
+            std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_RecognitionError), ss.str());
+            VISIONMANAGER_LOG_ERROR(errstr);
+            _SetStatusMessage("", errstr);
             continue;
         }
 
@@ -1378,8 +1370,9 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                         lastwarnedtimestamp = GetMilliTime();
                         std::stringstream ss;
                         ss << "Failed to update environment state: " << ex.what() << ".";
-                        _SetStatusMessage("", ss.str());
-                        VISIONMANAGER_LOG_WARN(ss.str());
+                        std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_ControllerError), ss.str());
+                        _SetStatusMessage("", errstr);
+                        VISIONMANAGER_LOG_WARN(errstr);
                     }
                     boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 }
@@ -1408,8 +1401,9 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
                     lastwarnedtimestamp = GetMilliTime();
                     std::stringstream ss;
                     ss << "Failed to get binpicking state from mujin controller: " << ex.what() << ".";
-                    _SetStatusMessage("", ss.str());
-                    VISIONMANAGER_LOG_WARN(ss.str());
+                    std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_ControllerError), ss.str());
+                    _SetStatusMessage("", errstr);
+                    VISIONMANAGER_LOG_WARN(errstr);
                 }
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;

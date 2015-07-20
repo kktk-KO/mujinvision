@@ -60,7 +60,11 @@ struct MUJINVISION_API ParametersBase
 
     static std::string GetJsonString(const std::string& str)
     {
-        return "\""+str+"\"";
+        std::string newstr = str;
+        boost::replace_all(newstr, "\"", "\\\"");
+        boost::replace_all(newstr, "\n", "\\n");
+
+        return "\""+newstr+"\"";
     }
 
     static std::string GetJsonString(const std::string& key, const std::string& value)

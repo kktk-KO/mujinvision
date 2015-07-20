@@ -373,8 +373,18 @@ private:
 
     void _DeInitialize();
     
-    void _SetStatusMessage(const std::string& msg, const std::string& err="");
-    void _SetStatus(ManagerStatus status, const std::string& msg="", const std::string& error="", const bool allowInterrupt=true);
+    enum ThreadType {
+        TT_Command=0,
+        TT_Config=1,
+        TT_Detector=2,
+        TT_UpdateEnvironment=3,
+        TT_ControllerMonitor=4,
+        TT_SendPointcloudObstacle=5,
+    };
+
+    void _SetDetectorStatusMessage(const std::string& msg, const std::string& err="");
+    void _SetStatusMessage(ThreadType tt, const std::string& msg, const std::string& err="");
+    void _SetStatus(ThreadType tt, ManagerStatus status, const std::string& msg="", const std::string& err="", const bool allowInterrupt=true);
 
     /** \brief Executes command in json string. Returns result in json string.
      */
@@ -397,6 +407,18 @@ private:
     void _StartStatusPublisher(const unsigned int port);
     void _PublishStopStatus();
 
+    void _DetectObjects(ThreadType tt,
+                        const std::string& regionname,
+                        const std::vector<std::string>& cameranames,
+                        std::vector<DetectedObjectPtr>& detectedobjectsworld,
+                        std::string& resultstate,
+                        const bool ignoreocclusion=false,
+                        const unsigned int maxage=0,
+                        const unsigned int fetchimagetimeout=0,
+                        const bool fastdetection=false,
+                        const bool bindetection=false,
+                        const bool request=false,
+                        const bool useold=false);
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename);
     void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename, const unsigned long long& starttime);
     void _StopDetectionThread();
@@ -416,6 +438,18 @@ private:
     void _StartControllerMonitorThread(const unsigned int waitinterval=100);
     void _StopControllerMonitorThread();
 
+    void _SendPointCloudObstacleToController(ThreadType tt,
+                                             const std::string& regionname,
+                                             const std::vector<std::string>& cameranames,
+                                             const std::vector<DetectedObjectPtr>& detectedobjectsworld,
+                                             const unsigned int maxage=0,
+                                             const unsigned int fetchimagetimeout=0,
+                                             const double voxelsize=0.01,
+                                             const double pointsize=0.005,
+                                             const std::string obstaclename="__dynamicobstacle__",
+                                             const bool fast=false,
+                                             const bool request=true,
+                                             const bool async=false);
     void _SendPointCloudObstacleToControllerThread(const std::string& regionname,
                                                    const std::vector<std::string>& cameranames,
                                                    const std::vector<DetectedObjectPtr>& detectedobjectsworld,
@@ -446,7 +480,7 @@ private:
         \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
         \return number of images fetched
      */
-    unsigned int _GetColorImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50);
+    unsigned int _GetColorImages(ThreadType tt, const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50);
 
     /** \brief Gets depth images (uncropped) from image subscriber manager.
         \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
@@ -455,11 +489,11 @@ private:
         \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
         \return number of images fetched
      */
-    unsigned int _GetDepthImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50/*ms*/);
+    unsigned int _GetDepthImages(ThreadType tt, const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50/*ms*/);
 
-    unsigned int _GetImages(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50/*ms*/, const bool iscolor=true);
+    unsigned int _GetImages(ThreadType tt, const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50/*ms*/, const bool iscolor=true);
 
-    void _GetImages(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50/*ms*/);
+    void _GetImages(ThreadType tt, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50/*ms*/);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -492,7 +526,7 @@ private:
 
     /** \brief Gets status json string.
      */
-    std::string _GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& message, const std::string& error="");
+    std::string _GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& cmdmsg="", const std::string& cmderr="", const std::string& cfgmsg="", const std::string& cfgerr="", const std::string& detectormsg="", const std::string& detectorerr="", const std::string& updateenvmsg="", const std::string& updateenverr="", const std::string& controllermonmsg="", const std::string& controllermonerr="", const std::string& sendpclmsg="", const std::string& sendpclerr="");
 
     /** \brief Breaks the camera name string into camerabodyname and sensorname.
         \param cameraname string such as 'camerabodyname/sensorname'
@@ -524,8 +558,8 @@ private:
     BinPickingTaskResourcePtr _pBinpickingTask;
 
     std::queue<ManagerStatus> _statusQueue;
-    std::queue<std::string> _messageQueue;
-    std::queue<std::string> _errorQueue;
+    std::queue<std::string> _commandMessageQueue, _configMessageQueue, _detectorMessageQueue, _updateenvironmentMessageQueue, _controllermonitorMessageQueue, _sendpointcloudMessageQueue;
+    std::queue<std::string> _commandErrorQueue, _configErrorQueue, _detectorErrorQueue, _updateenvironmentErrorQueue, _controllermonitorErrorQueue, _sendpointcloudErrorQueue;
     std::queue<unsigned long long> _timestampQueue;
     boost::mutex _mutexStatusQueue; ///< protects _statusQueue, _messageQueue, and _timestampQueue
     //boost::condition _condStatus; ///< notification when _statusqueue has data

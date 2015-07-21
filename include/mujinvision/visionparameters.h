@@ -24,6 +24,7 @@
 #include <boost/format.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
 #include <boost/function.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include "geometry.h"
 #include "visionexceptions.h"

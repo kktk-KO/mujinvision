@@ -153,6 +153,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _binpickingTaskHeartbeatTimeout = 10;
     _binpickingstateTimestamp = 0;
     _tsStartDetection = 0;
+    _controllerCommandTimeout = 10.0;
     _commandMessageQueue.push("");
     _commandErrorQueue.push("");
     _configMessageQueue.push("");
@@ -578,7 +579,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<std::string>("targetname"),
                        command_pt.get<std::string>("streamerIp"),
                        command_pt.get<unsigned int>("streamerPort"),
-                       command_pt.get<std::string>("tasktype","binpicking")
+                       command_pt.get<std::string>("tasktype","binpicking"),
+                       command_pt.get<unsigned int>("controllertimeout", 10),
+                       command_pt.get<std::string>("locale", "")
                        );
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -1461,7 +1464,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
     std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
 
     BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, _binpickingTaskHeartbeatTimeout);
+    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json);
     uint64_t starttime;
     uint64_t lastwarnedtimestamp = 0;
     while (!_bStopUpdateEnvironmentThread) {
@@ -1538,7 +1541,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
 void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterval)
 {
     BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, _binpickingTaskHeartbeatTimeout);
+    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _controllerCommandTimeout, _binpickingTaskHeartbeatTimeout);
 
     BinPickingTaskResource::ResultGetBinpickingState binpickingstate;
     uint64_t lastwarnedtimestamp = 0;
@@ -2006,7 +2009,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
     }
 }
 
-void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const std::string& robotDeviceIOUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const unsigned int controllertimeout)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const std::string& robotDeviceIOUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale)
 {
     uint64_t time0 = GetMilliTime();
     uint64_t starttime = GetMilliTime();
@@ -2014,6 +2017,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     _binpickingTaskHeartbeatPort = binpickingTaskHeartbeatPort;
     _binpickingTaskHeartbeatTimeout = binpickingTaskHeartbeatTimeout;
     _binpickingTaskScenePk = binpickingTaskScenePk;
+    _controllerCommandTimeout = controllertimeout;
     _robotControllerUri = robotControllerUri;
     _robotDeviceIOUri = robotDeviceIOUri;
     _tasktype = tasktype;
@@ -2045,11 +2049,13 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     url_ss << "http://" << controllerIp << ":" << controllerPort;
     ControllerClientPtr controller = CreateControllerClient(controllerUsernamePass, url_ss.str());
     _pControllerClient = controller;
+    _pControllerClient->SetLanguage(locale);
+    _userinfo_json = _pControllerClient->GetUserInfo();
     _SetStatusMessage(TT_Command, "Connected to mujin controller at " + url_ss.str());
     SceneResourcePtr scene(new SceneResource(controller,binpickingTaskScenePk));
     _pSceneResource = scene;
     _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8(tasktype+std::string("task1"), tasktype, TRO_EnableZMQ);
-    _pBinpickingTask->Initialize(robotControllerUri, robotDeviceIOUri, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, binpickingTaskHeartbeatTimeout);
+    _pBinpickingTask->Initialize(robotControllerUri, robotDeviceIOUri, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json);
 
     // sync regions and cameras
     _SetStatusMessage(TT_Command, "Syncing regions and cameras");
@@ -2315,7 +2321,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(ThreadType tt, cons
 void MujinVisionManager::_SendPointCloudObstacleToControllerThread(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string obstaclename)
 {
     BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, _binpickingTaskHeartbeatTimeout);
+    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json);
 
     std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
     // set up images

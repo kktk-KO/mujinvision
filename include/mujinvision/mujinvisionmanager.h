@@ -171,7 +171,8 @@ public:
                             const std::string& streamerIp,
                             const unsigned int streamerPort,
                             const std::string& tasktype="binpicking",
-                            const unsigned int controllertimeout=10.0 /*seconds*/
+                            const double controllertimeout=10.0, /*seconds*/
+                            const std::string& locale=""
                             );
 
     /** \brief Detects objects in specified region with specified cameras
@@ -606,6 +607,8 @@ private:
     boost::mutex _mutexDetector; ///< lock for detector
 
     std::string _resultState; ///< additional information about the detection result
+    double _controllerCommandTimeout; ///< controller command timeout in seconds
+    std::string _userinfo_json; ///< userinfo json
 
     bool _bIsControllerPickPlaceRunning; ///< whether pick and place thread is running on the controller
     bool _bIsRobotOccludingSourceContainer; ///< whether robot is occluding the source container

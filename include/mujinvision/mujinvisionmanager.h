@@ -172,7 +172,7 @@ public:
                             const unsigned int streamerPort,
                             const std::string& tasktype="binpicking",
                             const double controllertimeout=10.0, /*seconds*/
-                            const std::string& locale=""
+                            const std::string& locale="en_US"
                             );
 
     /** \brief Detects objects in specified region with specified cameras
@@ -209,7 +209,8 @@ public:
                                     const bool ignoreocclusion=false,
                                     const unsigned int maxage=0,
                                     const std::string& obstaclename="__dynamicobstacle__",
-                                    const unsigned long long& starttime=0 /*ms*/);
+                                    const unsigned long long& starttime=0 /*ms*/,
+                                    const std::string& locale="en_US");
 
     virtual void StopDetectionLoop();
 
@@ -232,10 +233,11 @@ public:
                                                     const unsigned int fetchimagetimeout=0,
                                                     const double voxelsize=0.01,
                                                     const double pointsize=0.005,
-                                                    const std::string obstaclename="__dynamicobstacle__",
+                                                    const std::string& obstaclename="__dynamicobstacle__",
                                                     const bool fast=false,
                                                     const bool request=true,
-                                                    const bool async=false);
+                                                    const bool async=false,
+                                                    const std::string& locale="en_US");
 
     /** \brief Visualizes the raw camera point clouds on mujin controller
      */
@@ -431,12 +433,12 @@ private:
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
         \param pointsize size of the point in meters to be sent to the mujin controller
      */
-    void _UpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename="__dynamicobstacle__", const unsigned int waitinterval=50);
-    void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50);
+    void _UpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename="__dynamicobstacle__", const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopUpdateEnvironmentThread();
 
-    void _ControllerMonitorThread(const unsigned int waitinterval=100);
-    void _StartControllerMonitorThread(const unsigned int waitinterval=100);
+    void _ControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
+    void _StartControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StopControllerMonitorThread();
 
     void _SendPointCloudObstacleToController(ThreadType tt,
@@ -447,10 +449,11 @@ private:
                                              const unsigned int fetchimagetimeout=0,
                                              const double voxelsize=0.01,
                                              const double pointsize=0.005,
-                                             const std::string obstaclename="__dynamicobstacle__",
+                                             const std::string& obstaclename="__dynamicobstacle__",
                                              const bool fast=false,
                                              const bool request=true,
-                                             const bool async=false);
+                                             const bool async=false,
+                                             const std::string& locale="en_US");
     void _SendPointCloudObstacleToControllerThread(const std::string& regionname,
                                                    const std::vector<std::string>& cameranames,
                                                    const std::vector<DetectedObjectPtr>& detectedobjectsworld,
@@ -458,7 +461,7 @@ private:
                                                    const unsigned int fetchimagetimeout=0,
                                                    const double voxelsize=0.01,
                                                    const double pointsize=0.005,
-                                                   const std::string obstaclename="__dynamicobstacle__");
+                                                   const std::string& obstaclename="__dynamicobstacle__");
 
     /** \brief Gets transform of the instobject in meters.
      */
@@ -606,6 +609,7 @@ private:
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
     boost::mutex _mutexDetector; ///< lock for detector
 
+    std::string _locale; ///< controller locale
     std::string _resultState; ///< additional information about the detection result
     double _controllerCommandTimeout; ///< controller command timeout in seconds
     std::string _userinfo_json; ///< userinfo json

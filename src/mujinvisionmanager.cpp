@@ -154,6 +154,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _binpickingstateTimestamp = 0;
     _tsStartDetection = 0;
     _controllerCommandTimeout = 10.0;
+    _locale = "en_US";
     _commandMessageQueue.push("");
     _commandErrorQueue.push("");
     _configMessageQueue.push("");
@@ -472,6 +473,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             unsigned int maxage = command_pt.get<unsigned int>("maxage", 0);
             std::string obstaclename = command_pt.get<std::string>("obstaclename", "__dynamicobstacle__");
             unsigned long long starttime = command_pt.get<unsigned long long>("starttime", 0);
+            std::string locale = command_pt.get<std::string>("locale", "en_US");
+            _locale = locale;
             StartDetectionLoop(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, obstaclename, starttime);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -562,7 +565,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             } else {
                 _bInitialized = true;
             }
-
+            std::string locale = command_pt.get<std::string>("locale", "en_US");
+            _locale = locale;
             Initialize(command_pt.get<std::string>("visionmanagerconfigname"),
                        command_pt.get<std::string>("detectorconfigname"),
                        command_pt.get<std::string>("imagesubscriberconfigname"),
@@ -581,7 +585,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<unsigned int>("streamerPort"),
                        command_pt.get<std::string>("tasktype","binpicking"),
                        command_pt.get<unsigned int>("controllertimeout", 10),
-                       command_pt.get<std::string>("locale", "")
+                       command_pt.get<std::string>("locale", "en_US")
                        );
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -645,7 +649,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             bool fast = command_pt.get("fast", false);
             bool request = command_pt.get("request", true);
             bool async = command_pt.get("async", false);
-            SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async);
+            std::string locale = command_pt.get("locale", "en_US");
+            _locale = locale;
+            SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -1062,23 +1068,23 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
     }
 }
 
-void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval)
+void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval, const std::string& locale)
 {
     if (!!_pUpdateEnvironmentThread && !_bStopUpdateEnvironmentThread) {
         _SetStatusMessage(TT_Command, "UpdateEnvironment thread is already running, do nothing.");
     } else {
         _bStopUpdateEnvironmentThread = false;
-        _pUpdateEnvironmentThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_UpdateEnvironmentThread, this, regionname, cameranames, voxelsize, pointsize, obstaclename, waitinterval)));
+        _pUpdateEnvironmentThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_UpdateEnvironmentThread, this, regionname, cameranames, voxelsize, pointsize, obstaclename, waitinterval, locale)));
     }
 }
 
-void MujinVisionManager::_StartControllerMonitorThread(const unsigned int waitinterval)
+void MujinVisionManager::_StartControllerMonitorThread(const unsigned int waitinterval, const std::string& locale)
 {
     if (!!_pControllerMonitorThread && !_bStopControllerMonitorThread) {
         _SetStatusMessage(TT_Command, "ControllerMonitor thread is already running, do nothing.");
     } else {
         _bStopControllerMonitorThread = false;
-        _pControllerMonitorThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_ControllerMonitorThread, this, waitinterval)));
+        _pControllerMonitorThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_ControllerMonitorThread, this, waitinterval, locale)));
     }
 }
 
@@ -1458,13 +1464,15 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     }
 }
 
-void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval)
+void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval, const std::string& locale)
 {
     uint64_t lastUpdateTimestamp = GetMilliTime();
     std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
 
     BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json);
+    std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(locale) + "}";
+    VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in UpdateEnvironmentThread with userinfo " + userinfo_json);
+    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json);
     uint64_t starttime;
     uint64_t lastwarnedtimestamp = 0;
     while (!_bStopUpdateEnvironmentThread) {
@@ -1538,10 +1546,11 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
     }
 }
 
-void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterval)
+void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterval, const std::string& locale)
 {
     BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _controllerCommandTimeout, _binpickingTaskHeartbeatTimeout);
+    std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(_locale) + "}";
+    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json);
 
     BinPickingTaskResource::ResultGetBinpickingState binpickingstate;
     uint64_t lastwarnedtimestamp = 0;
@@ -2049,12 +2058,13 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     url_ss << "http://" << controllerIp << ":" << controllerPort;
     ControllerClientPtr controller = CreateControllerClient(controllerUsernamePass, url_ss.str());
     _pControllerClient = controller;
-    _pControllerClient->SetLanguage(locale);
-    _userinfo_json = _pControllerClient->GetUserInfo();
+    _userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(locale) + "}";
+
     _SetStatusMessage(TT_Command, "Connected to mujin controller at " + url_ss.str());
     SceneResourcePtr scene(new SceneResource(controller,binpickingTaskScenePk));
     _pSceneResource = scene;
     _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8(tasktype+std::string("task1"), tasktype, TRO_EnableZMQ);
+    VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in Initialize() with userinfo " + _userinfo_json);
     _pBinpickingTask->Initialize(robotControllerUri, robotDeviceIOUri, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json);
 
     // sync regions and cameras
@@ -2236,7 +2246,7 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, const std::string& region
     _SetStatus(tt, MS_Succeeded);
 }
 
-void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>&cameranames,const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename, const unsigned long long& starttime)
+void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>&cameranames,const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale)
 {
     if (!!_pImagesubscriberManager) {
         _pImagesubscriberManager->StartCaptureThread();
@@ -2244,8 +2254,8 @@ void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
     }
     _StartDetectionThread(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, obstaclename, starttime);
-    _StartUpdateEnvironmentThread(regionname, cameranames, voxelsize, pointsize, obstaclename);
-    _StartControllerMonitorThread();
+    _StartUpdateEnvironmentThread(regionname, cameranames, voxelsize, pointsize, obstaclename, 50, locale);
+    _StartControllerMonitorThread(50, locale);
     _SetStatus(TT_Command, MS_Succeeded);
 }
 
@@ -2257,12 +2267,12 @@ void MujinVisionManager::StopDetectionLoop()
     _SetStatus(TT_Command, MS_Succeeded);
 }
 
-void MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string obstaclename, const bool fast, const bool request, const bool async)
+void MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
 {
-    _SendPointCloudObstacleToController(TT_Command, regionname, cameranames, detectedobjectsworld, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async);
+    _SendPointCloudObstacleToController(TT_Command, regionname, cameranames, detectedobjectsworld, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
 }
 
-void MujinVisionManager::_SendPointCloudObstacleToController(ThreadType tt, const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string obstaclename, const bool fast, const bool request, const bool async)
+void MujinVisionManager::_SendPointCloudObstacleToController(ThreadType tt, const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
 {
     uint64_t starttime = GetMilliTime();
     if (!async) {
@@ -2318,10 +2328,12 @@ void MujinVisionManager::_SendPointCloudObstacleToController(ThreadType tt, cons
     _SetStatus(tt, MS_Succeeded);
 }
 
-void MujinVisionManager::_SendPointCloudObstacleToControllerThread(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string obstaclename)
+void MujinVisionManager::_SendPointCloudObstacleToControllerThread(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename)
 {
     BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json);
+    std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(_locale) + "}";
+    VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in _SendPointCloudObstacleToControllerThread with userinfo " + userinfo_json);
+    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json);
 
     std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
     // set up images

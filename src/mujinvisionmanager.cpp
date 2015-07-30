@@ -13,6 +13,8 @@
 // limitations under the License.
 #include "mujinvision/mujinvisionmanager.h"
 #include <boost/algorithm/string.hpp>
+#ifndef MUJIN_TIME
+#define MUJIN_TIME
 #include <time.h>
 
 #ifndef _WIN32
@@ -116,7 +118,7 @@ inline static uint64_t GetNanoPerformanceTime()
 #endif
 }
 #endif
-
+#endif
 
 namespace mujinvision {
 

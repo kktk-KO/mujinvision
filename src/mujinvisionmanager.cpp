@@ -459,7 +459,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             std::string regionname = command_pt.get<std::string>("regionname");
             if (!_pDetector || !_pBinpickingTask) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() before calling " + command, MVE_NotInitialized);
             }
 
             std::vector<std::string> cameranames;
@@ -492,7 +492,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << "}";
         } else if (command == "GetLatestDetectedObjects") {
             if (!_pDetector || !_pBinpickingTask) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() before calling " + command, MVE_NotInitialized);
             }
             std::vector<DetectedObjectPtr> detectedobjectsworld;
             std::string resultstate;
@@ -512,7 +512,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << "}";
         } else if (command == "GetCameraId") {
             if (!_pDetector || !_pBinpickingTask) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
             std::string cameraname = command_pt.get<std::string>("cameraname");
             std::string cameraid;
@@ -598,7 +598,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             std::string regionname = command_pt.get<std::string>("regionname");
             if (!_pDetector || !_pBinpickingTask) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
             std::vector<std::string> cameranames;
             boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
@@ -626,7 +626,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             std::string regionname = command_pt.get<std::string>("regionname");
             if (!_pDetector || !_pBinpickingTask) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
 
             std::vector<std::string> cameranames;
@@ -663,7 +663,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             std::string regionname = command_pt.get<std::string>("regionname");
             if (!_pDetector || !_pBinpickingTask) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
             std::vector<std::string> cameranames;
             boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
@@ -682,7 +682,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << "}";
         } else if (command == "ClearVisualizationOnController") {
             if (!_pBinpickingTask) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
             ClearVisualizationOnController();
             result_ss << "{";
@@ -694,7 +694,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             std::string regionname = command_pt.get<std::string>("regionname");
             if (!_pDetector || !_pBinpickingTask) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
             std::vector<std::string> cameranames;
             boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
@@ -714,7 +714,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << "}";
         } else if (command == "SaveSnapshot") {
             if (!_pBinpickingTask || !_pImagesubscriberManager) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
 
             bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
@@ -730,7 +730,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             std::string regionname = command_pt.get<std::string>("regionname");
             if (!_pDetector || !_pBinpickingTask) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
 
             std::vector<DetectedObjectPtr> detectedobjects;
@@ -752,7 +752,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             std::string regionname = command_pt.get<std::string>("regionname");
             if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
             SyncRegion(regionname);
             result_ss << "{";
@@ -764,7 +764,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             std::string regionname = command_pt.get<std::string>("regionname");
             if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first.", MVE_NotInitialized);
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
 
             std::vector<std::string> cameranames;

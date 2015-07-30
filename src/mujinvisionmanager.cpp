@@ -324,6 +324,10 @@ void MujinVisionManager::_SetStatus(ThreadType tt, ManagerStatus status, const s
     _sendpointcloudMessageQueue.push(sendpclmsg);
     _sendpointcloudErrorQueue.push(sendpclerr);
     _timestampQueue.push(GetMilliTime());
+    ss.clear();
+    ss << "updated status queue: " << status << " " << cmdmsg << " " << cmderr << " " << cfgmsg << " " << cfgerr << " " << detectormsg << " " << detectorerr << " " << updateenvmsg << " " << updateenverr << " " << controllermonmsg << " " << controllermonerr << " " << sendpclmsg << " " << sendpclerr << " " << GetMilliTime();
+    VISIONMANAGER_LOG_DEBUG(ss.str());
+
 }
 
 void MujinVisionManager::_SetDetectorStatusMessage(const std::string& msg, const std::string& err)

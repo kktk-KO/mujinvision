@@ -1662,6 +1662,10 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname)
         _mNameRegion[regionname]->pRegionParameters->bInitializedRoi = true;
         VISIONMANAGER_LOG_DEBUG(_mNameRegion[regionname]->pRegionParameters->GetJsonString());
     }
+    // get inner obb from mujin controller
+    BinPickingTaskResource::ResultOBB robb;
+    _pBinpickingTask->GetInnerEmptyRegionOBB(robb, regionname, "base", "m");
+    _mNameRegion[regionname]->pRegionParameters->obb_pt = robb._pt;
 }
 
 void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinclient::Transform& t)

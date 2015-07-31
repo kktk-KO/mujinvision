@@ -511,6 +511,13 @@ typedef boost::weak_ptr<DetectedObject> DetectedObjectWeakPtr;
 struct MUJINVISION_API RegionParameters : public ParametersBase
 {
     RegionParameters() {
+        minx = -1;
+        maxx = -1;
+        miny = -1;
+        maxy = -1;
+        minz = -1;
+        maxz = -1;
+        bInitializedRoi = false;
     }
 
     RegionParameters(const ptree& pt)
@@ -547,6 +554,7 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     /// \brief global roi in meter
     double minx,maxx,miny,maxy,minz,maxz;
     bool bInitializedRoi;
+    boost::property_tree::ptree obb_pt; ///< TODO
 
     std::string GetJsonString()
     {

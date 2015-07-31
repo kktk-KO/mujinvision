@@ -1657,21 +1657,11 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinv
     // update globalroi3d from mujin controller
     VISIONMANAGER_LOG_DEBUG("Computing globalroi3d from mujin controller.");
     // get axis aligned bounding box for region
-    BinPickingTaskResource::ResultAABB raabb;
-    _pBinpickingTask->GetAABB(regionname, raabb, "m");
-    if (raabb.extents.size()!=3 || raabb.pos.size()!=3) {
-        throw MujinVisionException("ResultAABB from Mujin controller is invalid!", MVE_ControllerError);
-    }
-
-    _mNameRegion[regionname]->pRegionParameters->outerTranslation = raabb.pos;
-    _mNameRegion[regionname]->pRegionParameters->outerExtents = raabb.extents;
-    _mNameRegion[regionname]->pRegionParameters->outerRotationmat.resize(0);
-    TransformMatrix tm(regiontransform);
-    for (size_t r=0; r<3; ++r) {
-        for (size_t c=0; c<3; ++c) {
-            _mNameRegion[regionname]->pRegionParameters->outerRotationmat.push_back(tm.m[r*4+c]);
-        }
-    }
+    BinPickingTaskResource::ResultOBB robbe;
+    _pBinpickingTask->GetOBB(robbe, regionname, "m");
+    _mNameRegion[regionname]->pRegionParameters->outerTranslation = robbe.translation;
+    _mNameRegion[regionname]->pRegionParameters->outerExtents = robbe.extents;
+    _mNameRegion[regionname]->pRegionParameters->outerRotationmat = robbe.rotationmat;
     // get inner obb from mujin controller
     VISIONMANAGER_LOG_DEBUG("getting obb from mujin controller.");
     BinPickingTaskResource::ResultOBB robb;

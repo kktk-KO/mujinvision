@@ -471,6 +471,7 @@ private:
      */
     void _SyncRegion(const std::string& regionname);
     void _SyncRegion(const std::string& regionname, const mujinclient::Transform& t);
+    void _SyncRegion(const std::string& regionname, const mujinvision::Transform& t);
 
     /** \brief Updates the world transform of camera from the mujin controller.
      */

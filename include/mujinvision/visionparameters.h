@@ -511,13 +511,6 @@ typedef boost::weak_ptr<DetectedObject> DetectedObjectWeakPtr;
 struct MUJINVISION_API RegionParameters : public ParametersBase
 {
     RegionParameters() {
-        minx = -1;
-        maxx = -1;
-        miny = -1;
-        maxy = -1;
-        minz = -1;
-        maxz = -1;
-        bInitializedRoi = false;
     }
 
     RegionParameters(const ptree& pt)
@@ -527,22 +520,6 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         FOREACH(cv, pt.get_child("cameranames")) {
             cameranames.push_back(cv->second.data());
         }
-        boost::optional<const ptree&> globalroi3d_pt(pt.get_child_optional("globalroi3d"));
-        if (!!globalroi3d_pt) {
-            std::vector<double> roi;
-            FOREACH(rv, *globalroi3d_pt) {
-                roi.push_back(boost::lexical_cast<double>(rv->second.data()));
-            }
-            minx = roi[0];
-            maxx = roi[1];
-            miny = roi[2];
-            maxy = roi[3];
-            minz = roi[4];
-            maxz = roi[5];
-            bInitializedRoi = true;
-        } else {
-            bInitializedRoi = false;
-        }
     }
 
     virtual ~RegionParameters() {
@@ -551,18 +528,19 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     std::string instobjectname; // instobject name in mujin controller that defines the container of the objects to be detected
     std::vector<std::string> cameranames;
 
-    /// \brief global roi in meter
-    double minx,maxx,miny,maxy,minz,maxz;
-    bool bInitializedRoi;
-    boost::property_tree::ptree obb_pt; ///< TODO
+    std::vector<double> innerTranslation;
+    std::vector<double> innerExtents;
+    std::vector<double> innerRotationmat; // row major
+    std::vector<double> outerTranslation;
+    std::vector<double> outerExtents;
+    std::vector<double> outerRotationmat; // row major
 
     std::string GetJsonString()
     {
         std::stringstream ss;
         ss << "{";
         ss << "\"name\": \"" <<  instobjectname << "\", ";
-        ss << "\"cameranames\": " << ParametersBase::GetJsonString(cameranames) << ",";
-        ss << "\"globalroi3d\": [" << minx << ", " << maxx << ", " << miny << ", " << maxy << ", " << minz << ", " << maxz << "]";
+        ss << "\"cameranames\": " << ParametersBase::GetJsonString(cameranames);
         ss << "}";
         return ss.str();
     }
@@ -576,21 +554,6 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
                 cameranames_pt.put<std::string>("", cameranames[i]);
             }
             _pt.put_child("cameranames", cameranames_pt);
-            ptree globalroi3d_pt;
-            ptree p;
-            p.put("",minx);
-            globalroi3d_pt.push_back(std::make_pair("", p));
-            p.put("",maxx);
-            globalroi3d_pt.push_back(std::make_pair("", p));
-            p.put("",miny);
-            globalroi3d_pt.push_back(std::make_pair("", p));
-            p.put("",maxy);
-            globalroi3d_pt.push_back(std::make_pair("", p));
-            p.put("",minz);
-            globalroi3d_pt.push_back(std::make_pair("", p));
-            p.put("",maxz);
-            globalroi3d_pt.push_back(std::make_pair("", p));
-            _pt.put_child("globalroi3d", globalroi3d_pt);
         }
         return _pt;
     }
@@ -678,33 +641,6 @@ public:
     const Transform& GetWorldTransform() const
     {
         return worldTransform;
-    }
-
-    std::vector<double> GetROI() const
-    {
-        std::vector<double> roi;
-        roi.push_back(pRegionParameters->minx);
-        roi.push_back(pRegionParameters->maxx);
-        roi.push_back(pRegionParameters->miny);
-        roi.push_back(pRegionParameters->maxy);
-        roi.push_back(pRegionParameters->minz);
-        roi.push_back(pRegionParameters->maxz);
-        return roi;
-    }
-
-    bool IsPointInROI(const double px, const double py, const double pz) const
-    {
-        if (!pRegionParameters->bInitializedRoi) {
-            throw MujinVisionException("globalroi3d is not initialized!", MVE_Failed);
-        }
-        Vector p(px,py,pz);
-        Vector v = toRegionTransform*p;
-
-        if (v.x >= pRegionParameters->minx && v.x <= pRegionParameters->maxx && v.y >= pRegionParameters->miny && v.y <= pRegionParameters->maxy && v.z >= pRegionParameters->minz && v.z <= pRegionParameters->maxz) {
-            return true;
-        } else {
-            return false;
-        }
     }
 
     RegionParametersPtr pRegionParameters;

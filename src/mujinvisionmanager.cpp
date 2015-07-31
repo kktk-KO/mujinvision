@@ -1637,36 +1637,9 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname)
         throw MujinVisionException("Region "+regionname+ " is unknown!", MVE_InvalidArgument);
     }
     mujinvision::Transform regiontransform = _GetTransform(regionname);
-    _mNameRegion[regionname]->SetWorldTransform(regiontransform);
-    VISIONMANAGER_LOG_DEBUG("setting region transform to:\n" + _GetString(_mNameRegion[regionname]->GetWorldTransform()));
-    // update globalroi3d from mujin controller
-    if (!_mNameRegion[regionname]->pRegionParameters->bInitializedRoi) {
-        VISIONMANAGER_LOG_DEBUG("Computing globalroi3d from mujin controller.");
-        // get axis aligned bounding box for region
-        BinPickingTaskResource::ResultAABB raabb;
-        _pBinpickingTask->GetAABB(regionname, raabb, "m");
-        if (raabb.extents.size()!=3 || raabb.pos.size()!=3) {
-            throw MujinVisionException("ResultAABB from Mujin controller is invalid!", MVE_ControllerError);
-        }
-
-        Transform B_T_O = regiontransform.inverse();
-        Vector mins = B_T_O *(Vector(raabb.pos[0]-raabb.extents[0],raabb.pos[1]-raabb.extents[1],raabb.pos[2]-raabb.extents[2]));
-        Vector maxs = B_T_O *(Vector(raabb.pos[0]+raabb.extents[0],raabb.pos[1]+raabb.extents[1],raabb.pos[2]+raabb.extents[2]));
-
-        _mNameRegion[regionname]->pRegionParameters->minx = std::min(mins[0], maxs[0]);
-        _mNameRegion[regionname]->pRegionParameters->maxx = std::max(mins[0], maxs[0]);
-        _mNameRegion[regionname]->pRegionParameters->miny = std::min(mins[1], maxs[1]);
-        _mNameRegion[regionname]->pRegionParameters->maxy = std::max(mins[1], maxs[1]);
-        _mNameRegion[regionname]->pRegionParameters->minz = std::min(mins[2], maxs[2]);
-        _mNameRegion[regionname]->pRegionParameters->maxz = std::max(mins[2], maxs[2]);
-        _mNameRegion[regionname]->pRegionParameters->bInitializedRoi = true;
-        VISIONMANAGER_LOG_DEBUG(_mNameRegion[regionname]->pRegionParameters->GetJsonString());
-    }
-    // get inner obb from mujin controller
-    BinPickingTaskResource::ResultOBB robb;
-    _pBinpickingTask->GetInnerEmptyRegionOBB(robb, regionname, "base", "m");
-    _mNameRegion[regionname]->pRegionParameters->obb_pt = robb._pt;
+    _SyncRegion(regionname, regiontransform);
 }
+
 
 void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinclient::Transform& t)
 {
@@ -1674,31 +1647,38 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinc
         throw MujinVisionException("Region "+regionname+ " is unknown!", MVE_InvalidArgument);
     }
     mujinvision::Transform regiontransform = _GetTransform(t);
+    _SyncRegion(regionname, regiontransform);
+}
+
+void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinvision::Transform& regiontransform)
+{
     _mNameRegion[regionname]->SetWorldTransform(regiontransform);
     VISIONMANAGER_LOG_DEBUG("setting region transform to:\n" + _GetString(_mNameRegion[regionname]->GetWorldTransform()));
     // update globalroi3d from mujin controller
-    if (!_mNameRegion[regionname]->pRegionParameters->bInitializedRoi) {
-        VISIONMANAGER_LOG_DEBUG("Computing globalroi3d from mujin controller.");
-        // get axis aligned bounding box for region
-        BinPickingTaskResource::ResultAABB raabb;
-        _pBinpickingTask->GetAABB(regionname, raabb, "m");
-        if (raabb.extents.size()!=3 || raabb.pos.size()!=3) {
-            throw MujinVisionException("ResultAABB from Mujin controller is invalid!", MVE_ControllerError);
-        }
-
-        Transform B_T_O = regiontransform.inverse();
-        Vector mins = B_T_O *(Vector(raabb.pos[0]-raabb.extents[0],raabb.pos[1]-raabb.extents[1],raabb.pos[2]-raabb.extents[2]));
-        Vector maxs = B_T_O *(Vector(raabb.pos[0]+raabb.extents[0],raabb.pos[1]+raabb.extents[1],raabb.pos[2]+raabb.extents[2]));
-
-        _mNameRegion[regionname]->pRegionParameters->minx = std::min(mins[0], maxs[0]);
-        _mNameRegion[regionname]->pRegionParameters->maxx = std::max(mins[0], maxs[0]);
-        _mNameRegion[regionname]->pRegionParameters->miny = std::min(mins[1], maxs[1]);
-        _mNameRegion[regionname]->pRegionParameters->maxy = std::max(mins[1], maxs[1]);
-        _mNameRegion[regionname]->pRegionParameters->minz = std::min(mins[2], maxs[2]);
-        _mNameRegion[regionname]->pRegionParameters->maxz = std::max(mins[2], maxs[2]);
-        _mNameRegion[regionname]->pRegionParameters->bInitializedRoi = true;
-        VISIONMANAGER_LOG_DEBUG(_mNameRegion[regionname]->pRegionParameters->GetJsonString());
+    VISIONMANAGER_LOG_DEBUG("Computing globalroi3d from mujin controller.");
+    // get axis aligned bounding box for region
+    BinPickingTaskResource::ResultAABB raabb;
+    _pBinpickingTask->GetAABB(regionname, raabb, "m");
+    if (raabb.extents.size()!=3 || raabb.pos.size()!=3) {
+        throw MujinVisionException("ResultAABB from Mujin controller is invalid!", MVE_ControllerError);
     }
+
+    _mNameRegion[regionname]->pRegionParameters->outerTranslation = raabb.pos;
+    _mNameRegion[regionname]->pRegionParameters->outerExtents = raabb.extents;
+    _mNameRegion[regionname]->pRegionParameters->outerRotationmat.resize(0);
+    TransformMatrix tm(regiontransform);
+    for (size_t r=0; r<3; ++r) {
+        for (size_t c=0; c<3; ++c) {
+            _mNameRegion[regionname]->pRegionParameters->outerRotationmat.push_back(tm.m[r*4+c]);
+        }
+    }
+    // get inner obb from mujin controller
+    VISIONMANAGER_LOG_DEBUG("getting obb from mujin controller.");
+    BinPickingTaskResource::ResultOBB robb;
+    _pBinpickingTask->GetInnerEmptyRegionOBB(robb, regionname, "base", "m");
+    _mNameRegion[regionname]->pRegionParameters->innerTranslation = robb.translation;
+    _mNameRegion[regionname]->pRegionParameters->innerExtents = robb.extents;
+    _mNameRegion[regionname]->pRegionParameters->innerRotationmat = robb.rotationmat;
 }
 
 void MujinVisionManager::RegisterCustomCommand(const std::string& cmdname, CustomCommandFn fncmd)

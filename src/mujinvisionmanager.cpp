@@ -1565,15 +1565,13 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
         {
             boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
             try {
-                //pBinpickingTask->GetBinpickingState(binpickingstate, "m", 1.0);
                 pBinpickingTask->GetPublishedTaskState(binpickingstate, "m", 1.0);
             }
             catch(const std::exception& ex) {
                 if (GetMilliTime() - lastwarnedtimestamp > 1000.0) {
                     lastwarnedtimestamp = GetMilliTime();
                     std::stringstream ss;
-                    ss << "Failed to get binpicking state from mujin controller: " << ex.what() << ".";
-                    //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_ControllerError), ss.str());
+                    ss << "Failed to get published task state from mujin controller: " << ex.what() << ".";
                     _SetStatusMessage(TT_ControllerMonitor, ss.str(), GetErrorCodeString(MVE_ControllerError));
                     VISIONMANAGER_LOG_WARN(ss.str());
                 }

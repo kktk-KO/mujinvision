@@ -1656,7 +1656,7 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinv
     VISIONMANAGER_LOG_DEBUG("Computing globalroi3d from mujin controller.");
     // get axis aligned bounding box for region
     BinPickingTaskResource::ResultOBB robbe;
-    _pBinpickingTask->GetOBB(robbe, regionname, "m");
+    _pBinpickingTask->GetOBB(robbe, regionname, "base", "m");
     _mNameRegion[regionname]->pRegionParameters->outerTranslation = robbe.translation;
     _mNameRegion[regionname]->pRegionParameters->outerExtents = robbe.extents;
     _mNameRegion[regionname]->pRegionParameters->outerRotationmat = robbe.rotationmat;

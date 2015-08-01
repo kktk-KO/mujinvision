@@ -1223,7 +1223,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
         if (isControllerPickPlaceRunning && numPickAttempt >= 0) {
             if (numPickAttempt <= lastPickedFromSourceId && !forceRequestDetectionResults) {
-                if (numPickAttempt <= lastDetectedId ) {
+                if (numPickAttempt <= lastDetectedId && _vDetectedObject.size() > 0) {
                     if (GetMilliTime() - lastdetectionresultwarningts > 1000.0) {
                         VISIONMANAGER_LOG_INFO("sent detection result already. waiting for robot to pick...");
                         lastdetectionresultwarningts = GetMilliTime();

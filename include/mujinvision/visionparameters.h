@@ -162,6 +162,7 @@ struct MUJINVISION_API ParametersBase
         return ss.str();
     }
 
+
 protected:
     ptree _pt;
 

@@ -405,7 +405,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             std::vector<DetectedObjectPtr> detectedobjectsworld;
             bool iscontainerempty = false;
-            GetLatestDetectedObjects(detectedobjectsworld, iscontainerempty);
+            std::vector<Real> points;
+            bool returnpoints = command_pt.get<bool>("returnpoints", false);
+            GetLatestDetectedObjects(detectedobjectsworld, iscontainerempty, points, returnpoints);
 
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("detectedobjects") << ": [";
@@ -417,6 +419,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             result_ss << "], ";
             result_ss << ParametersBase::GetJsonString("iscontainerempty") << ": " << int(iscontainerempty) << ", ";
+            if (returnpoints) {
+                result_ss << ParametersBase::GetJsonString("points") << ": " << ParametersBase::GetJsonString(points) << ", ";
+            }
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "GetCameraId") {
@@ -2033,11 +2038,17 @@ void MujinVisionManager::GetCameraId(const std::string& cameraname, std::string&
     _SetStatus(MS_Succeeded);
 }
 
-void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectedobjectsworld, bool& iscontainerempty)
+void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectedobjectsworld, bool& iscontainerempty, std::vector<Real>& points, const bool returnpoints)
 {
     boost::mutex::scoped_lock lock(_mutexDetectedInfo);
     detectedobjectsworld = _vDetectedObject;
     iscontainerempty = _resultIsContainerEmpty;
+    if (returnpoints) {
+        points.clear();
+        FOREACH(it, _mResultPoints) {
+            points.insert(points.end(), it->second.begin(), it->second.end());
+        }
+    }
     _SetStatus(MS_Succeeded);
 }
 

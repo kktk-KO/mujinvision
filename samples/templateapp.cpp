@@ -49,7 +49,7 @@ public:
     {
         return ImagePtr();
     }
-    ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0)
+    ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0, const unsigned int numimages=1)
     {
         return ImagePtr();
     }
@@ -57,7 +57,7 @@ public:
     void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, unsigned long long& starttime, unsigned long long& endtime)
     {
     }
-    void StartCaptureThread()
+    void StartCaptureThread(const unsigned int numimages=1)
     {
     }
 

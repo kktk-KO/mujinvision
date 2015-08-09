@@ -70,9 +70,9 @@ public:
         \param endtime timestamp of the latest image
         \return pointer to the depth image
      */
-    virtual ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0/*sec*/) = 0;
+    virtual ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0/*sec*/, const unsigned int numimages=1) = 0;
 
-    virtual void StartCaptureThread() = 0;
+    virtual void StartCaptureThread(const unsigned int numimages=1) = 0;
     virtual void StopCaptureThread() = 0;
 
     /** \brief Writes color image to disk.

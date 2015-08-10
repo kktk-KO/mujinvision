@@ -605,6 +605,7 @@ private:
     boost::mutex _mutexControllerBinpickingState; ///< lock for controller binpicking state
     int _numPickAttempt; ///< num of picking attempts
     unsigned long long _binpickingstateTimestamp; ///< timestamp of latest binpicking state
+    unsigned long long _lastocclusionTimestamp;
     std::vector<ImagePtr> _lastcolorimages; ///< last color images used for detection
     std::vector<ImagePtr> _lastdepthimages; ///< last depth images used for detection
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber

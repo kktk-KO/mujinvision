@@ -140,7 +140,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bIsControllerPickPlaceRunning = false;
     _bIsRobotOccludingSourceContainer = false;
     _bForceRequestDetectionResults = false;
-    _numPickAttempt = -1;
+    _numPickAttempt = 0;
     _tsStartDetection = 0;
     _resultTimestamp = 0;
     _pImagesubscriberManager = imagesubscribermanager;
@@ -154,7 +154,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _binpickingTaskHeartbeatPort = 0;
     _binpickingTaskHeartbeatTimeout = 10;
     _binpickingstateTimestamp = 0;
-    _tsStartDetection = 0;
+    _lastocclusionTimestamp = 0;
     _controllerCommandTimeout = 10.0;
     _locale = "en_US";
     _commandMessageQueue.push("");
@@ -1144,11 +1144,19 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 {
     uint64_t time0;
     int numfastdetection = 1; // max num of times to run fast detection
-    int lastPickedFromSourceId = -1;
-    int lastDetectedId = -1;
+    int lastDetectedId = 0;
+    int lastPickedId = -1;
     uint64_t lastocclusionwarningts = 0;
     uint64_t lastdetectionresultwarningts = 0;
     uint64_t lastbinpickingstatewarningts = 0;
+    uint64_t lastwaitforocclusionwarningts = 0;
+    uint64_t lastattemptts = 0;
+    int numPickAttempt = 0;
+    bool isControllerPickPlaceRunning = false;
+    bool isRobotOccludingSourceContainer = false;
+    bool forceRequestDetectionResults = false;
+    unsigned long long binpickingstateTimestamp = 0;
+
     while (!_bStopDetectionThread) {
         time0 = GetMilliTime();
         // update picked positions
@@ -1208,54 +1216,75 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
         }
 
-        int numPickAttempt;
-        bool isControllerPickPlaceRunning;
-        bool isRobotOccludingSourceContainer;
-        bool forceRequestDetectionResults;
-        unsigned long long binpickingstateTimestamp;
         {
             boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
+            if (binpickingstateTimestamp != _binpickingstateTimestamp) {
+                std::stringstream ss;
+                ss << _binpickingstateTimestamp << " " << _numPickAttempt << " " << _bIsControllerPickPlaceRunning << " " << _bIsRobotOccludingSourceContainer << " " << forceRequestDetectionResults;
+                VISIONMANAGER_LOG_DEBUG(ss.str());
+            }
+            binpickingstateTimestamp = _binpickingstateTimestamp;
+            if (_numPickAttempt > numPickAttempt) {
+                lastattemptts = binpickingstateTimestamp;
+            }
             numPickAttempt = _numPickAttempt;
             isControllerPickPlaceRunning = _bIsControllerPickPlaceRunning;
             isRobotOccludingSourceContainer = _bIsRobotOccludingSourceContainer;
             forceRequestDetectionResults = _bForceRequestDetectionResults;
-            binpickingstateTimestamp = _binpickingstateTimestamp;
         }
         if (_bStopDetectionThread) {
             break;
         }
 
-        if (isControllerPickPlaceRunning && numPickAttempt >= 0) {
-            if (numPickAttempt <= lastPickedFromSourceId && !forceRequestDetectionResults) {
-                if (numPickAttempt <= lastDetectedId && _vDetectedObject.size() > 0) {
-                    if (GetMilliTime() - lastdetectionresultwarningts > 1000.0) {
-                        VISIONMANAGER_LOG_INFO("sent detection result already. waiting for robot to pick...");
-                        lastdetectionresultwarningts = GetMilliTime();
-                    }
-                    continue;
-                } else {
-                    std::stringstream ss;
-                    ss << "need to detect for this picking attempt, starting image capturing... " << int(_bStopDetectionThread) << std::endl;
-                    VISIONMANAGER_LOG_INFO(ss.str());
-                    _pImagesubscriberManager->StartCaptureThread();
-                }
-            } else {
-                lastPickedFromSourceId = numPickAttempt;
-                std::stringstream ss;
-                if (GetMilliTime() - binpickingstateTimestamp < maxage) {
-                    if (isRobotOccludingSourceContainer) {
+        if (!isControllerPickPlaceRunning || forceRequestDetectionResults || _vDetectedObject.size() == 0) { // detect if forced or no result
+            std::stringstream ss;
+            ss << "force detection, start capturing..." << (int)isControllerPickPlaceRunning << " " << (int)forceRequestDetectionResults << " " << _vDetectedObject.size();
+            VISIONMANAGER_LOG_INFO(ss.str());
+            _pImagesubscriberManager->StartCaptureThread();
+        } else {  // do the following only if pick and place thread is running and detection is not forced
+            if (numPickAttempt <= lastPickedId) { // if robot has picked
+                if (GetMilliTime() - binpickingstateTimestamp < maxage) { // only do the following if the binpicking state message is up-to-date
+                    if (isRobotOccludingSourceContainer) { // skip detection if robot occludes camera
                         if (GetMilliTime() - lastocclusionwarningts > 1000.0) {
-                            ss << "robot just attempted a pick, wait until it stops occluding container" << std::endl;
-                            VISIONMANAGER_LOG_INFO(ss.str());
+                            VISIONMANAGER_LOG_INFO("robot is picking now (occluding camera), stop capturing");
                             lastocclusionwarningts = GetMilliTime();
                         }
+                        if (binpickingstateTimestamp > _lastocclusionTimestamp) {
+                            _lastocclusionTimestamp = binpickingstateTimestamp;
+                        }
+                        _pImagesubscriberManager->StopCaptureThread();
                         continue;
-                    } else {
-                        ss << "robot just attempted a pick and is out of camera view, starting image capturing... " << int(_bStopDetectionThread) << std::endl;
+                    } else { // detect when robot is not occluding camera
+                        std::stringstream ss;
+                        ss << "need to detect for this picking attempt, starting image capturing... " << numPickAttempt << " " << lastPickedId << " " << int(forceRequestDetectionResults) << " " << lastDetectedId << std::endl;
                         VISIONMANAGER_LOG_INFO(ss.str());
                         _pImagesubscriberManager->StartCaptureThread();
                     }
-                } else {
+                } else { // do not detect if binpicking status message is old (controller in bad state)
+                    if (GetMilliTime() - lastbinpickingstatewarningts > 1000.0) {
+                        std::stringstream ss;
+                        ss << "binpickingstateTimestamp (" << binpickingstateTimestamp << ") is > " << maxage << "ms older than current time (" << GetMilliTime() << ") 1" << std::endl;
+                        VISIONMANAGER_LOG_WARN(ss.str());
+                        lastbinpickingstatewarningts = GetMilliTime();
+                    }
+                    continue;
+                }
+            } else { // if robot has not picked
+                std::stringstream ss;
+                if (GetMilliTime() - binpickingstateTimestamp < maxage) { // only do the following if the binpicking state message is up-to-date
+                    if (!isRobotOccludingSourceContainer && GetMilliTime() - lastattemptts <= 10000.0) { // skip detection if robot does not occlude camera up to 10.0 seconds from last picking attempt
+                        if (GetMilliTime() - lastwaitforocclusionwarningts > 1000.0) {
+                            VISIONMANAGER_LOG_INFO("wait until robot picks (occludes camera)...");
+                            lastwaitforocclusionwarningts = GetMilliTime();
+                        }
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(50));
+                        continue;
+                    } else {
+                        lastPickedId = numPickAttempt;
+                        VISIONMANAGER_LOG_INFO("robot has picked");
+                        continue;
+                    }
+                } else { // do not detect if binpicking status message is old (controller in bad state)
                     if (GetMilliTime() - lastbinpickingstatewarningts > 1000.0) {
                         ss << "binpickingstateTimestamp (" << binpickingstateTimestamp << ") is > " << maxage << "ms older than current time (" << GetMilliTime() << ")" << std::endl;
                         VISIONMANAGER_LOG_WARN(ss.str());
@@ -1311,12 +1340,13 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     _mResultPoints[cameraname] = points;
                 }
             }
-            if (isControllerPickPlaceRunning && numPickAttempt >= 0) {
-                lastDetectedId = numPickAttempt;
-                if (detectedobjects.size() > 0) {
-                    VISIONMANAGER_LOG_INFO("detected at least 1 object, stop image capturing...");
-                    _pImagesubscriberManager->StopCaptureThread();
-                }
+
+            lastDetectedId = numPickAttempt;
+            if (detectedobjects.size() > 0) {
+                VISIONMANAGER_LOG_INFO("detected at least 1 object, stop image capturing...");
+                _pImagesubscriberManager->StopCaptureThread();
+            } else {
+                VISIONMANAGER_LOG_INFO("detected no object, do not stop image capturing...");
             }
         }
         catch(const std::exception& ex) {
@@ -1842,6 +1872,9 @@ unsigned int MujinVisionManager::_GetImages(ThreadType tt, const std::string& re
                 VISIONMANAGER_LOG_WARN(msg_ss.str());
             }
             lastocclusioncheckfailurets = starttime;
+            if (starttime > _lastocclusionTimestamp) {
+                _lastocclusionTimestamp = starttime;
+            }
             //usecache = false; // do not force snap, because images come in pairs, and snap can only get one new image
             continue;
         }
@@ -2246,6 +2279,9 @@ void MujinVisionManager::StopDetectionLoop()
     _StopDetectionThread();
     _StopUpdateEnvironmentThread();
     _StopControllerMonitorThread();
+    if (!!_pImagesubscriberManager) {
+        _pImagesubscriberManager->StopCaptureThread();
+    }
     _SetStatus(TT_Command, MS_Succeeded);
 }
 

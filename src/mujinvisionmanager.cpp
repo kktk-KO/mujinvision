@@ -500,8 +500,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             std::vector<DetectedObjectPtr> detectedobjectsworld;
             std::string resultstate;
-            GetLatestDetectedObjects(detectedobjectsworld, resultstate);
-
+            std::vector<Real> points;
+            bool returnpoints = command_pt.get<bool>("returnpoints", false);
+            GetLatestDetectedObjects(detectedobjectsworld, resultstate, points, returnpoints);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("detectedobjects") << ": [";
             for (unsigned int i=0; i<detectedobjectsworld.size(); ++i) {
@@ -512,6 +513,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             }
             result_ss << "], ";
             result_ss << ParametersBase::GetJsonString("state") << ": " << resultstate << ", ";
+            if (returnpoints) {
+                result_ss << ParametersBase::GetJsonString("points") << ": " << ParametersBase::GetJsonString(points) << ", ";
+            }
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "GetCameraId") {
@@ -2495,11 +2499,17 @@ void MujinVisionManager::GetCameraId(const std::string& cameraname, std::string&
     _SetStatus(TT_Command, MS_Succeeded);
 }
 
-void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectedobjectsworld, std::string& resultstate)
+void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectedobjectsworld, std::string& resultstate, std::vector<Real>& points, const bool returnpoints)
 {
     boost::mutex::scoped_lock lock(_mutexDetectedInfo);
     detectedobjectsworld = _vDetectedObject;
     resultstate = _resultState;
+    if (returnpoints) {
+        points.clear();
+        FOREACH(it, _mResultPoints) {
+            points.insert(points.end(), it->second.begin(), it->second.end());
+        }
+    }
     _SetStatus(TT_Command, MS_Succeeded);
 }
 

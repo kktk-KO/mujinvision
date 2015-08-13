@@ -1150,7 +1150,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     int lastDetectedId = 0;
     int lastPickedId = -1;
     uint64_t lastocclusionwarningts = 0;
-    uint64_t lastdetectionresultwarningts = 0;
     uint64_t lastbinpickingstatewarningts = 0;
     uint64_t lastwaitforocclusionwarningts = 0;
     uint64_t lastattemptts = 0;

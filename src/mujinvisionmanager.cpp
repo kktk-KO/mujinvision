@@ -512,7 +512,10 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 }
             }
             result_ss << "], ";
-            result_ss << ParametersBase::GetJsonString("state") << ": " << ParametersBase::GetJsonString(resultstate) << ", ";
+            if (resultstate == "") {
+                resultstate = "null";
+            }
+            result_ss << ParametersBase::GetJsonString("state") << ": " << resultstate << ", ";
             if (returnpoints) {
                 result_ss << ParametersBase::GetJsonString("points") << ": " << ParametersBase::GetJsonString(points) << ", ";
             }

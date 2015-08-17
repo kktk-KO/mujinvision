@@ -425,7 +425,11 @@ void MujinVisionManager::_StopCommandServer(const unsigned int port)
 void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, std::stringstream& result_ss)
 {
     std::string command = command_pt.get<std::string>("command");
-    if (command == "Cancel") {
+    if (command == "Ping") {
+        result_ss << "{";
+        result_ss << "\"timestamp\": " << GetMilliTime();
+        result_ss << "}";
+    } else if (command == "Cancel") {
         boost::mutex::scoped_lock lock(_mutexCancelCommand);
         if (_bExecutingUserCommand) { // only cancel when user command is being executed
             _bCancelCommand = true;
@@ -456,7 +460,12 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         _bExecutingUserCommand = true;
     }
     std::string command = command_pt.get<std::string>("command");
-    if (command == "StartDetectionLoop" || command == "StopDetectionLoop" || command == "IsDetectionRunning" || (command.size() >= 3 && command.substr(0,3) == "Get")) {
+    if (command == "StartDetectionLoop" ||
+        command == "StopDetectionLoop" ||
+        command == "IsDetectionRunning" ||
+        (command.size() >= 3 && command.substr(0,3) == "Get")) {
+        // these commands can be called at any time
+
         if (command == "StartDetectionLoop") {
             if (command_pt.count("regionname") == 0) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
@@ -568,9 +577,12 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         }
+
     } else if (!!_pDetectionThread && !_bStopDetectionThread) {
         throw MujinVisionException("Cannot execute " + command + " while detection thread is running, please stop it first.", MVE_Busy);
     } else {
+        // these commands can only be called when detection is not running
+
         if (command == "Initialize") {
             if (_bInitialized) {
                 _SetStatusMessage(TT_Command, "Vision manager was initialized, de-initialize it first.");

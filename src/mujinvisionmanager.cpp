@@ -1007,7 +1007,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
     while (!_mPortStopCommandThread[port]) {
         try {
             // receive message
-            if( _mPortCommandServer[port]->Recv(incomingmessage) > 0 ) {
+            if( _mPortCommandServer[port]->Recv(incomingmessage, 100) > 0 ) {
                 VISIONMANAGER_LOG_DEBUG("Received command message: " + incomingmessage + ".");
                 // execute command
                 command_ss.str("");
@@ -1062,9 +1062,6 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 // TODO: verify validity
                 _mPortCommandServer[port]->Send(result_ss.str());
 
-            } else {
-                // wait for command
-                boost::this_thread::sleep(boost::posix_time::milliseconds(100));
             }
         }
         catch (const UserInterruptException& ex) {

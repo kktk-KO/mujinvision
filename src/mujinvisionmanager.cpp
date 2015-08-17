@@ -199,9 +199,7 @@ bool MujinVisionManager::IsShutdown()
 
 void MujinVisionManager::GetConfig(const std::string& type, std::string& config)
 {
-    if (type == "visionmanager") {
-        config = _pVisionServerParameters->GetJsonString();
-    } else if (type == "detector") {
+    if (type == "detector") {
         config = _detectorconfig;
     } else if (type == "imagesubscriber") {
         config = _imagesubscriberconfig;
@@ -1161,148 +1159,91 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
     while (!_bStopDetectionThread) {
         time0 = GetMilliTime();
-        // update picked positions
-        Vector weights(2,2,1); // prioritize XY over Z
-        if (_pVisionServerParameters->clearRadius > 0) {
-            BinPickingTaskResource::ResultGetPickedPositions pickedpositions;
-            try {
-                _pBinpickingTask->GetPickedPositions(pickedpositions,"m");
-            }
-            catch(const std::exception& ex) {
-                std::stringstream ss;
-                ss << "Failed to get picked positions from mujin controller: " << ex.what() << ".";
-                //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_ControllerError), ss.str());
-                _SetDetectorStatusMessage(ss.str(), GetErrorCodeString(MVE_ControllerError));
-                VISIONMANAGER_LOG_WARN(ss.str());
-                continue;
-            }
-            const unsigned int numPickedPositions = pickedpositions.transforms.size();
-            VISIONMANAGER_LOG_DEBUG("Got " + boost::lexical_cast<std::string>(numPickedPositions) + " picked positions");
-
-            // remove saved detection results near picked positions
-            //bool pickedRecently = false;
-            for (unsigned int i=0; i<numPickedPositions; i++) {
-                unsigned long long timestamp = pickedpositions.timestamps[i];
-                // if timestamp is known
-                if (_sTimestamp.find(timestamp)!=_sTimestamp.end()) {
-                    if (GetMilliTime() - timestamp < _pVisionServerParameters->timeToIgnore) {
-                        VISIONMANAGER_LOG_DEBUG("Just picked up an object, keep ignoring detection in this region (" + boost::lexical_cast<std::string>(_pVisionServerParameters->timeToIgnore - (GetMilliTime()-timestamp)) + " ms left).");
-                    } else {
-                        //std::cout << "Already cleared picked position at timestamp " << (GetMilliTime() - timestamp) << " ms ago." << std::endl;
-                        continue;
-                    }
-                } else { // for new timestamp
-                    _sTimestamp.insert(timestamp);
-                    VISIONMANAGER_LOG_DEBUG("Added timestamp " + boost::lexical_cast<std::string>(timestamp) + " to cleared set.");
-                    //pickedRecently = true;
-                }
-                VISIONMANAGER_LOG_DEBUG("An object was picked " + boost::lexical_cast<std::string>(GetMilliTime()-timestamp) + " ms ago, clear known detection results that are nearby.");
-                Transform transform = _GetTransform(pickedpositions.transforms[i]);
-                Vector position = transform.trans;
-
-                if (_vDetectedInfo.size()>0) {
-                    for (int j = _vDetectedInfo.size() - 1; j >= 0; j--) { // have to iterate from the end to remove items from the vectors
-                        double dist = std::sqrt(((position-_vDetectedInfo.at(j).meanPosition)*weights).lengthsqr3());
-                        VISIONMANAGER_LOG_DEBUG("Part " + boost::lexical_cast<std::string>(j) + " distance to object " + boost::lexical_cast<std::string>(dist));
-                        if (dist < _pVisionServerParameters->clearRadius) {
-                            VISIONMANAGER_LOG_DEBUG("Part " + boost::lexical_cast<std::string>(j) + " is within the clear radius of picked position, clear its records.")
-                            _vDetectedInfo.erase(_vDetectedInfo.begin()+j);
-                        }
-                    }
-                }
-            }
-
-            // detect objects
-            if (_bStopDetectionThread) {
-                break;
-            }
-        }
-
-        {
-            boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
-            if (binpickingstateTimestamp != _binpickingstateTimestamp) {
-                std::stringstream ss;
-                ss << _binpickingstateTimestamp << " " << _numPickAttempt << " " << _bIsControllerPickPlaceRunning << " " << _bIsRobotOccludingSourceContainer << " " << forceRequestDetectionResults;
-                VISIONMANAGER_LOG_DEBUG(ss.str());
-            }
-            binpickingstateTimestamp = _binpickingstateTimestamp;
-            if (_numPickAttempt > numPickAttempt) {
-                lastattemptts = binpickingstateTimestamp;
-            }
-            numPickAttempt = _numPickAttempt;
-            isControllerPickPlaceRunning = _bIsControllerPickPlaceRunning;
-            isRobotOccludingSourceContainer = _bIsRobotOccludingSourceContainer;
-            forceRequestDetectionResults = _bForceRequestDetectionResults;
-        }
-        if (_bStopDetectionThread) {
-            break;
-        }
-
-        if (!isControllerPickPlaceRunning || forceRequestDetectionResults || _vDetectedObject.size() == 0) { // detect if forced or no result
-            std::stringstream ss;
-            ss << "force detection, start capturing..." << (int)isControllerPickPlaceRunning << " " << (int)forceRequestDetectionResults << " " << _vDetectedObject.size();
-            VISIONMANAGER_LOG_INFO(ss.str());
-            _pImagesubscriberManager->StartCaptureThread();
-        } else {  // do the following only if pick and place thread is running and detection is not forced
-            if (numPickAttempt <= lastPickedId) { // if robot has picked
-                if (GetMilliTime() - binpickingstateTimestamp < maxage) { // only do the following if the binpicking state message is up-to-date
-                    if (isRobotOccludingSourceContainer) { // skip detection if robot occludes camera
-                        if (GetMilliTime() - lastocclusionwarningts > 1000.0) {
-                            VISIONMANAGER_LOG_INFO("robot is picking now (occluding camera), stop capturing");
-                            lastocclusionwarningts = GetMilliTime();
-                        }
-                        if (binpickingstateTimestamp > _lastocclusionTimestamp) {
-                            _lastocclusionTimestamp = binpickingstateTimestamp;
-                        }
-                        _pImagesubscriberManager->StopCaptureThread();
-                        continue;
-                    } else { // detect when robot is not occluding camera
-                        std::stringstream ss;
-                        ss << "need to detect for this picking attempt, starting image capturing... " << numPickAttempt << " " << lastPickedId << " " << int(forceRequestDetectionResults) << " " << lastDetectedId << std::endl;
-                        VISIONMANAGER_LOG_INFO(ss.str());
-                        _pImagesubscriberManager->StartCaptureThread();
-                    }
-                } else { // do not detect if binpicking status message is old (controller in bad state)
-                    if (GetMilliTime() - lastbinpickingstatewarningts > 1000.0) {
-                        std::stringstream ss;
-                        ss << "binpickingstateTimestamp (" << binpickingstateTimestamp << ") is > " << maxage << "ms older than current time (" << GetMilliTime() << ") 1" << std::endl;
-                        VISIONMANAGER_LOG_WARN(ss.str());
-                        lastbinpickingstatewarningts = GetMilliTime();
-                    }
-                    continue;
-                }
-            } else { // if robot has not picked
-                std::stringstream ss;
-                if (GetMilliTime() - binpickingstateTimestamp < maxage) { // only do the following if the binpicking state message is up-to-date
-                    if (!isRobotOccludingSourceContainer && GetMilliTime() - lastattemptts <= 10000.0) { // skip detection if robot does not occlude camera up to 10.0 seconds from last picking attempt
-                        if (GetMilliTime() - lastwaitforocclusionwarningts > 1000.0) {
-                            VISIONMANAGER_LOG_INFO("wait until robot picks (occludes camera)...");
-                            lastwaitforocclusionwarningts = GetMilliTime();
-                        }
-                        boost::this_thread::sleep(boost::posix_time::milliseconds(50));
-                        continue;
-                    } else {
-                        lastPickedId = numPickAttempt;
-                        VISIONMANAGER_LOG_INFO("robot has picked");
-                        continue;
-                    }
-                } else { // do not detect if binpicking status message is old (controller in bad state)
-                    if (GetMilliTime() - lastbinpickingstatewarningts > 1000.0) {
-                        ss << "binpickingstateTimestamp (" << binpickingstateTimestamp << ") is > " << maxage << "ms older than current time (" << GetMilliTime() << ")" << std::endl;
-                        VISIONMANAGER_LOG_WARN(ss.str());
-                        lastbinpickingstatewarningts = GetMilliTime();
-                    }
-                    continue;
-                }
-            }
-        }
-
-        if (_bStopDetectionThread) {
-            break;
-        }
         std::vector<DetectedObjectPtr> detectedobjects;
         std::string resultstate;
         try {
+            {
+                boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
+                if (binpickingstateTimestamp != _binpickingstateTimestamp) {
+                    std::stringstream ss;
+                    ss << _binpickingstateTimestamp << " " << _numPickAttempt << " " << _bIsControllerPickPlaceRunning << " " << _bIsRobotOccludingSourceContainer << " " << forceRequestDetectionResults;
+                    VISIONMANAGER_LOG_DEBUG(ss.str());
+                }
+                binpickingstateTimestamp = _binpickingstateTimestamp;
+                if (_numPickAttempt > numPickAttempt) {
+                    lastattemptts = binpickingstateTimestamp;
+                }
+                numPickAttempt = _numPickAttempt;
+                isControllerPickPlaceRunning = _bIsControllerPickPlaceRunning;
+                isRobotOccludingSourceContainer = _bIsRobotOccludingSourceContainer;
+                forceRequestDetectionResults = _bForceRequestDetectionResults;
+            }
+            if (_bStopDetectionThread) {
+                break;
+            }
+
+            if (!isControllerPickPlaceRunning || forceRequestDetectionResults || _vDetectedObject.size() == 0) { // detect if forced or no result
+                std::stringstream ss;
+                ss << "force detection, start capturing..." << (int)isControllerPickPlaceRunning << " " << (int)forceRequestDetectionResults << " " << _vDetectedObject.size();
+                VISIONMANAGER_LOG_INFO(ss.str());
+                _pImagesubscriberManager->StartCaptureThread();
+            } else {  // do the following only if pick and place thread is running and detection is not forced
+                if (numPickAttempt <= lastPickedId) { // if robot has picked
+                    if (GetMilliTime() - binpickingstateTimestamp < maxage) { // only do the following if the binpicking state message is up-to-date
+                        if (isRobotOccludingSourceContainer) { // skip detection if robot occludes camera
+                            if (GetMilliTime() - lastocclusionwarningts > 1000.0) {
+                                VISIONMANAGER_LOG_INFO("robot is picking now (occluding camera), stop capturing");
+                                lastocclusionwarningts = GetMilliTime();
+                            }
+                            if (binpickingstateTimestamp > _lastocclusionTimestamp) {
+                                _lastocclusionTimestamp = binpickingstateTimestamp;
+                            }
+                            _pImagesubscriberManager->StopCaptureThread();
+                            continue;
+                        } else { // detect when robot is not occluding camera
+                            std::stringstream ss;
+                            ss << "need to detect for this picking attempt, starting image capturing... " << numPickAttempt << " " << lastPickedId << " " << int(forceRequestDetectionResults) << " " << lastDetectedId << std::endl;
+                            VISIONMANAGER_LOG_INFO(ss.str());
+                            _pImagesubscriberManager->StartCaptureThread();
+                        }
+                    } else { // do not detect if binpicking status message is old (controller in bad state)
+                        if (GetMilliTime() - lastbinpickingstatewarningts > 1000.0) {
+                            std::stringstream ss;
+                            ss << "binpickingstateTimestamp (" << binpickingstateTimestamp << ") is > " << maxage << "ms older than current time (" << GetMilliTime() << ") 1" << std::endl;
+                            VISIONMANAGER_LOG_WARN(ss.str());
+                            lastbinpickingstatewarningts = GetMilliTime();
+                        }
+                        continue;
+                    }
+                } else { // if robot has not picked
+                    std::stringstream ss;
+                    if (GetMilliTime() - binpickingstateTimestamp < maxage) { // only do the following if the binpicking state message is up-to-date
+                        if (!isRobotOccludingSourceContainer && GetMilliTime() - lastattemptts <= 10000.0) { // skip detection if robot does not occlude camera up to 10.0 seconds from last picking attempt
+                            if (GetMilliTime() - lastwaitforocclusionwarningts > 1000.0) {
+                                VISIONMANAGER_LOG_INFO("wait until robot picks (occludes camera)...");
+                                lastwaitforocclusionwarningts = GetMilliTime();
+                            }
+                            boost::this_thread::sleep(boost::posix_time::milliseconds(50));
+                            continue;
+                        } else {
+                            lastPickedId = numPickAttempt;
+                            VISIONMANAGER_LOG_INFO("robot has picked");
+                            continue;
+                        }
+                    } else { // do not detect if binpicking status message is old (controller in bad state)
+                        if (GetMilliTime() - lastbinpickingstatewarningts > 1000.0) {
+                            ss << "binpickingstateTimestamp (" << binpickingstateTimestamp << ") is > " << maxage << "ms older than current time (" << GetMilliTime() << ")" << std::endl;
+                            VISIONMANAGER_LOG_WARN(ss.str());
+                            lastbinpickingstatewarningts = GetMilliTime();
+                        }
+                        continue;
+                    }
+                }
+            }
+
+            if (_bStopDetectionThread) {
+                break;
+            }
             if (numfastdetection > 0) {
                 while (detectedobjects.size() == 0 && numfastdetection > 0) {
                     VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode");
@@ -1369,130 +1310,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
         {
             boost::mutex::scoped_lock lock(_mutexDetectedInfo);
-            if (_pVisionServerParameters->numDetectionsToKeep>0) {
-                for (unsigned int i=0; i<detectedobjects.size(); i++) {
-                    unsigned long long timestamp = detectedobjects[i]->timestamp;
-                    std::string confidence = detectedobjects[i]->confidence;
-                    Transform transform = detectedobjects[i]->transform;
-                    TransformMatrix mat(transform);
-                    Vector position = transform.trans;
-                    Vector rotation = transform.rot;
-                    double minDist = 999;
-                    int minIndex = -1;
-                    if (_pVisionServerParameters->numDetectionsToKeep>0) {
-                        // make sure the z-axis of the detected rotation's origin is pointing up in the world frame, so that upside-down flipping is considered the same
-                        double dotproductX = mat.m[0]+mat.m[4]+mat.m[8];
-                        double dotproductY = mat.m[1]+mat.m[5]+mat.m[9];
-                        double dotproductZ = mat.m[2]+mat.m[6]+mat.m[10];
-                        if (dotproductZ<0  // if z pointing down
-                            || (dotproductZ == 0 && dotproductX <0) // or if z pointing flat, but x pointing down
-                            || (dotproductZ == 0 && dotproductX == 0 && dotproductY<0) // or both z and x pointing flat, but y pointing down
-                            ) {
-                            std::stringstream ss;
-                            ss << "Upside-down detection (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << "), flip rotation.";
-                            VISIONMANAGER_LOG_DEBUG(ss.str());
-                            // rotate around x axis by 180
-                            rotation[0] = -transform.rot[1];
-                            rotation[1] = transform.rot[0];
-                            rotation[2] = transform.rot[3];
-                            rotation[3] = -transform.rot[2];
-                        }
-                    }
-                    for (unsigned int j=0; j<_vDetectedInfo.size(); j++) {
-                        double dist = std::sqrt(((position-_vDetectedInfo[j].meanPosition)*weights).lengthsqr3());
-                        if (dist < minDist) {
-                            minDist = dist;
-                            minIndex = j;
-                        }
-                    }
-                    if (minDist < _pVisionServerParameters->maxPositionError && _pVisionServerParameters->numDetectionsToKeep>0) {
-                        _vDetectedInfo.at(minIndex).count++;
-                        unsigned int numDetections;
-                        // only keep track of the last n detection results
-                        if (_vDetectedInfo.at(minIndex).count <= _pVisionServerParameters->numDetectionsToKeep) {
-                            _vDetectedInfo.at(minIndex).positions.push_back(position);
-                            _vDetectedInfo.at(minIndex).rotations.push_back(rotation);
-                            _vDetectedInfo.at(minIndex).confidences.push_back(confidence);
-                            numDetections = _vDetectedInfo.at(minIndex).count;
-                        } else {
-                            numDetections = _pVisionServerParameters->numDetectionsToKeep;
-                            unsigned int newindex = _vDetectedInfo.at(minIndex).count% numDetections;
-                            _vDetectedInfo.at(minIndex).positions.at(newindex) = position;
-                            _vDetectedInfo.at(minIndex).rotations.at(newindex) = rotation;
-                            _vDetectedInfo.at(minIndex).confidences.at(newindex) = confidence;
-                        }
-                        std::stringstream ss;
-                        ss << "Part " << minIndex << " is known (minDist " << minDist << "), updating its mean position averaging " << numDetections << " detections.";
-                        VISIONMANAGER_LOG_DEBUG(ss.str());
-
-                        // update timestamp
-                        _vDetectedInfo.at(minIndex).timestamp = timestamp;
-                        // update means
-                        Vector sumPosition(0,0,0);
-                        for (unsigned int j=0; j<numDetections; j++) {
-                            sumPosition += _vDetectedInfo.at(minIndex).positions.at(j);
-                        }
-                        _vDetectedInfo.at(minIndex).meanPosition = sumPosition * (1.0f/numDetections);
-                        double minQuatDotProduct = 999;
-                        int minQuatIndex = -1;
-                        for (unsigned int j=0; j<numDetections; j++) {
-                            double sum = 0;
-                            for (unsigned int k=0; k<numDetections; k++) {
-                                sum += 1- _vDetectedInfo.at(minIndex).rotations.at(j).dot(_vDetectedInfo.at(minIndex).rotations.at(k));
-                            }
-                            double quatDotProduct = sum / numDetections;
-                            if (quatDotProduct < minQuatDotProduct) {
-                                minQuatDotProduct = quatDotProduct;
-                                minQuatIndex = j;
-                            }
-                        }
-                        _vDetectedInfo.at(minIndex).meanRotation = _vDetectedInfo.at(minIndex).rotations.at(minQuatIndex);
-                    } else { // new object is detected
-                        //std::cout << "New object is detected at (" << rotation[0] << ", " << rotation[1] << ", " << rotation[2] << ", " << rotation[3] << " ," <<  position[0] << ", " << position[1] << ", " << position[2] << ")" << std::endl;
-                        std::vector<Vector> positions;
-                        positions.push_back(position);
-                        std::vector<Vector> rotations;
-                        rotations.push_back(rotation);
-                        std::vector<std::string> confidences;
-                        confidences.push_back(confidence);
-                        DetectedInfo info;
-                        info.timestamp = timestamp;
-                        info.count = 1;
-                        info.meanPosition = position;
-                        info.meanRotation = rotation;
-                        info.positions = positions;
-                        info.rotations = rotations;
-                        info.confidences = confidences;
-                        _vDetectedInfo.push_back(info);
-                    }
-                }
-                if (_vDetectedInfo.size()>0 && _pVisionServerParameters->numDetectionsToKeep>0) {
-                    // remove old detection results
-                    for (int i=_vDetectedInfo.size()-1; i>=0; i--) {
-                        if (GetMilliTime() - _vDetectedInfo.at(i).timestamp > _pVisionServerParameters->timeToRemember) {
-                            std::stringstream ss;
-                            ss << "Part " << i << " has not been seen for " << _pVisionServerParameters->timeToRemember << " ms, removing its records.";
-                            VISIONMANAGER_LOG_DEBUG(ss.str());
-                            _vDetectedInfo.erase(_vDetectedInfo.begin()+i);
-                        }
-                    }
-                }
-
-                // create new results
-                if (detectedobjects.size()>0) {
-                    for (unsigned int i=0; i<_vDetectedInfo.size(); ++i) {
-                        Transform transform;
-                        transform.trans = _vDetectedInfo.at(i).meanPosition;
-                        transform.rot = _vDetectedInfo.at(i).meanRotation;
-                        DetectedObjectPtr obj(new DetectedObject(detectedobjects[0]->name, detectedobjects[0]->objecturi, transform, _vDetectedInfo.at(i).confidences.at(0), _vDetectedInfo.at(i).timestamp, detectedobjects[0]->extra));
-                        newdetectedobjects.push_back(obj);
-                        //obj->Print();
-                    }
-                }
-            } else {
-                newdetectedobjects = detectedobjects;
-                _vDetectedObject = detectedobjects;
-            }
+            newdetectedobjects = detectedobjects;
+            _vDetectedObject = detectedobjects;
             _resultState = resultstate;
             _resultTimestamp = GetMilliTime();
         }
@@ -1877,7 +1696,6 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     std::stringstream visionmanagerconfigss;
     visionmanagerconfigss << visionmanagerconfig;
     read_json(visionmanagerconfigss, pt);
-    _pVisionServerParameters.reset(new VisionServerParameters(pt.get_child("visionserver")));
     // set up regions
     std::vector<RegionParametersPtr > vRegionParameters;
     RegionParametersPtr pRegionParameters;

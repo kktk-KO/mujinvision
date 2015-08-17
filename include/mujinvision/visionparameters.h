@@ -475,6 +475,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
         ss << "], ";
         ss << "\"confidence\": " << confidence;
         ss << ",\"timestamp\": " << timestamp;
+        ss << "," << ParametersBase::GetJsonString("extra") << ": " << ParametersBase::GetJsonString(extra);
         ss << "}";
         return ss.str();
     }

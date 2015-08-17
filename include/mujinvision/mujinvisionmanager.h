@@ -63,58 +63,6 @@ public:
 
     virtual void Destroy();
 
-    /// \brief vision server parameters
-    struct MUJINVISION_API VisionServerParameters : public ParametersBase
-    {
-        VisionServerParameters(const ptree& pt)
-        {
-            _pt = pt;
-            maxPositionError = pt.get<double>("max_position_error");
-            clearRadius = pt.get<double>("clear_radius");
-            timeToRemember = pt.get<unsigned int>("time_to_remember");
-            timeToIgnore = pt.get<unsigned int>("time_to_ignore");
-            numDetectionsToKeep = pt.get<unsigned int>("num_detections_to_keep");
-        }
-
-        virtual ~VisionServerParameters() {
-        }
-
-
-        double maxPositionError; ///< in meter, max position error to consider detections the same
-        double clearRadius; ///< in meter, clear detection results within the radius of the last picked locations
-        unsigned int timeToRemember; ///< in millisecond, time to keep detection result before forgetting it
-        unsigned int timeToIgnore; ///< in millisecond, time to ignore detection result after picking in the region
-        unsigned int numDetectionsToKeep; ///< number of detection history to keep
-
-        std::string GetJsonString()
-        {
-            std::stringstream ss;
-            ss << "{";
-            ss << ParametersBase::GetJsonString("max_position_error") << ": " << maxPositionError << ",";
-            ss << ParametersBase::GetJsonString("clear_radius") << ": " << clearRadius << ",";
-            ss << ParametersBase::GetJsonString("time_to_remember") << ": " << timeToRemember << ",";
-            ss << ParametersBase::GetJsonString("time_to_ignore") << ": " << timeToIgnore << ",";
-            ss << ParametersBase::GetJsonString("num_detections_to_keep") << ": " << numDetectionsToKeep;
-            ss << "}";
-            return ss.str();
-        }
-
-        ptree GetPropertyTree()
-        {
-            if (_pt.empty()) {
-                _pt.put<double>("max_position_error", maxPositionError);
-                _pt.put<double>("clear_radius", clearRadius);
-                _pt.put<unsigned int>("time_to_remember", timeToRemember);
-                _pt.put<unsigned int>("time_to_ignore", timeToIgnore);
-                _pt.put<unsigned int>("num_detections_to_keep", numDetectionsToKeep);
-            }
-            return _pt;
-        }
-    };
-    typedef boost::shared_ptr<VisionServerParameters> VisionServerParametersPtr;
-    typedef boost::shared_ptr<VisionServerParameters const> VisionServerParametersConstPtr;
-    typedef boost::weak_ptr<VisionServerParameters> VisionServerParametersWeakPtr;
-
     class MUJINVISION_API StatusPublisher : public ZmqPublisher {
 public:
         StatusPublisher(boost::shared_ptr<zmq::context_t> context, const unsigned int port) : ZmqPublisher(port)
@@ -478,26 +426,6 @@ private:
     void _SyncCamera(const std::string& regionname, const std::string& cameraname);
     void _SyncCamera(const std::string& regionname, const std::string& cameraname, const mujinclient::Transform& t);
 
-    /** \brief Gets color images (uncropped) from image subscriber manager.
-        \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
-        \param fetchimagetimeout in milliseconds, if 0, block until the image is fetched
-        \param bool request, whether to request new images instead of getting them off the buffer
-        \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
-        \return number of images fetched
-     */
-    unsigned int _GetColorImages(ThreadType tt, const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50);
-
-    /** \brief Gets depth images (uncropped) from image subscriber manager.
-        \param maxage in milliseconds, if non-0, only images that are less than maxage ms will be returned
-        \param fetchimagetimeout in milliseconds, if 0, block until the image is fetched
-        \param bool request, whether to request new images instead of getting them off the buffer
-        \param waitinterval in milliseconds, if failed to get image, time to wait before the next try
-        \return number of images fetched
-     */
-    unsigned int _GetDepthImages(ThreadType tt, const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion=false, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50/*ms*/);
-
-    unsigned int _GetImages(ThreadType tt, const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<ImagePtr>& images, const bool ignoreocclusion, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const unsigned int waitinterval=50/*ms*/, const bool iscolor=true);
-
     void _GetImages(ThreadType tt, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50/*ms*/);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
@@ -559,7 +487,6 @@ private:
 
     ControllerClientPtr _pControllerClient;
     SceneResourcePtr _pSceneResource;
-    VisionServerParametersPtr _pVisionServerParameters;
     BinPickingTaskResourcePtr _pBinpickingTask;
 
     std::queue<ManagerStatus> _statusQueue;

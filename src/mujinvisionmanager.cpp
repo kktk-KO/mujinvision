@@ -1572,13 +1572,14 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
            !_bShutdown &&
            ((fetchimagetimeout == 0) ||
            (fetchimagetimeout > 0 && GetMilliTime() - start0 < fetchimagetimeout)) &&
-           colorimages.size() < colorcameranames.size() &&
-           depthimages.size() < depthcameranames.size()
+           (colorimages.size() < colorcameranames.size() || colorcameranames.size() == 0) &&
+           (depthimages.size() < depthcameranames.size() || depthcameranames.size() == 0)
            ) {
         if (usecache) {
             _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, starttime, endtime);
         } else {
-            throw MujinVisionException("snapping is not supported", MVE_NotImplemented);
+            VISIONMANAGER_LOG_WARN("snapping is not supported, using cache");
+            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, starttime, endtime);
         }
 
         if (_bStopDetectionThread) {
@@ -1587,11 +1588,14 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
 
         if (colorimages.size() < colorcameranames.size() || depthimages.size() < depthcameranames.size()) {
             std::stringstream msg_ss;
-            msg_ss << "Could not get all images, will try again"
+            msg_ss << "Could not get all images, ensure capturing thread, will try again"
                    << ": # color images = " << colorimages.size()
                    << ", # depth images = " << depthimages.size()
                    << ", use_cache = " << usecache;
             VISIONMANAGER_LOG_WARN(msg_ss.str());
+            if (!!_pImagesubscriberManager) {
+                _pImagesubscriberManager->StartCaptureThread();
+            }
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             colorimages.clear();
             depthimages.clear();

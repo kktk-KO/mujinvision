@@ -57,11 +57,11 @@ public:
     void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, unsigned long long& starttime, unsigned long long& endtime)
     {
     }
-    void StartCaptureThread(const int numimages=-1)
+    void StartCaptureThread(const double& timeout=5.0, const int numimages=-1)
     {
     }
 
-    void StopCaptureThread()
+    void StopCaptureThread(const double& timeout=5.0)
     {
     }
 

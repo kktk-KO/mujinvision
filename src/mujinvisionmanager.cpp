@@ -1566,6 +1566,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
     uint64_t lastimageagecheckfailurets = 0;
     uint64_t lastfirstimagecheckfailurewarnts = 0;
     uint64_t lastocclusioncheckfailurewarnts = 0;
+    uint64_t lastcouldnotcapturewarnts = 0;
     bool usecache = !request;
 
     while (!_bCancelCommand &&
@@ -1587,12 +1588,15 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
         }
 
         if (colorimages.size() < colorcameranames.size() || depthimages.size() < depthcameranames.size()) {
-            std::stringstream msg_ss;
-            msg_ss << "Could not get all images, ensure capturing thread, will try again"
-                   << ": # color images = " << colorimages.size()
-                   << ", # depth images = " << depthimages.size()
-                   << ", use_cache = " << usecache;
-            VISIONMANAGER_LOG_WARN(msg_ss.str());
+            if (GetMilliTime() - lastcouldnotcapturewarnts > 1000.0) {
+                std::stringstream msg_ss;
+                msg_ss << "Could not get all images, ensure capturing thread, will try again"
+                       << ": # color images = " << colorimages.size()
+                       << ", # depth images = " << depthimages.size()
+                       << ", use_cache = " << usecache;
+                VISIONMANAGER_LOG_WARN(msg_ss.str());
+                lastcouldnotcapturewarnts = GetMilliTime();
+            }
             if (!!_pImagesubscriberManager) {
                 _pImagesubscriberManager->StartCaptureThread();
             }

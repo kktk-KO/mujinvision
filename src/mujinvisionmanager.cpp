@@ -1050,6 +1050,14 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                     result_ss << "{" << ParametersBase::GetJsonString(e) << "}";
                     _SetStatus(TT_Command, MS_Aborted, "", e.message(), false);
                 }
+                catch (const zmq::error_t& e) {
+                    std::stringstream ss;
+                    ss << "caught zmq exception errornum=" << e.num();
+                    std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), ss.str());
+                    result_ss << "{" << errstr << "}";
+                    VISIONMANAGER_LOG_ERROR(ss.str());
+                    _SetStatus(TT_Command, MS_Aborted, "", errstr, false);
+                }
                 catch (std::exception& e) {
                     std::string whatstr = e.what();
                     std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), whatstr);

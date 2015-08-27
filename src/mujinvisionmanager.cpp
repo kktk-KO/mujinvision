@@ -1568,15 +1568,17 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
     }
 }
 
-void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval)
+void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& resultcolorimages, std::vector<ImagePtr>& resultdepthimages, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval)
 {
-    // TODO use local images and swap
     if (useold && _lastcolorimages.size() == colorcameranames.size() && _lastdepthimages.size() == depthcameranames.size()) {
         VISIONMANAGER_LOG_INFO("using last images");
-        colorimages = _lastcolorimages;
-        depthimages = _lastdepthimages;
+        resultcolorimages = _lastcolorimages;
+        resultdepthimages = _lastdepthimages;
         return;
     }
+    // use local images so that we don't accidentally return images that are not verified
+    std::vector<ImagePtr> colorimages;
+    std::vector<ImagePtr> depthimages;
 
     uint64_t start0 = GetMilliTime();
     unsigned long long starttime = 0, endtime = 0;
@@ -1584,16 +1586,17 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
     uint64_t lastimageagecheckfailurets = 0;
     uint64_t lastfirstimagecheckfailurewarnts = 0;
     uint64_t lastocclusioncheckfailurewarnts = 0;
+    uint64_t lastocclusionwarnts = 0;
     uint64_t lastcouldnotcapturewarnts = 0;
     bool usecache = !request;
 
-    while (!_bCancelCommand &&
-           !_bShutdown &&
-           ((fetchimagetimeout == 0) ||
-           (fetchimagetimeout > 0 && GetMilliTime() - start0 < fetchimagetimeout)) &&
-           (colorimages.size() < colorcameranames.size() || colorcameranames.size() == 0) &&
-           (depthimages.size() < depthcameranames.size() || depthcameranames.size() == 0)
+    while (!_bCancelCommand && // command is not being canceled
+           !_bShutdown &&  // visionmanager is not being shutdown
+           ((fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime() - start0 < fetchimagetimeout)) && // not timed out yet
+           ((tt == TT_Detector) && !_bStopDetectionThread) // detection thread is not being stopped if called from it
            ) {
+
+        // get images from subscriber
         if (usecache) {
             _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, starttime, endtime);
         } else {
@@ -1601,12 +1604,12 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
             _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, starttime, endtime);
         }
 
-        if (_bStopDetectionThread) {
-            colorimages.clear();
-            depthimages.clear();
+        // if called by detection thread, break if it is being stopped
+        if (tt == TT_Detector && _bStopDetectionThread) {
             break;
         }
 
+        // ensure streamer and try to get images again if got fewer than expected images
         if (colorimages.size() < colorcameranames.size() || depthimages.size() < depthcameranames.size()) {
             if (GetMilliTime() - lastcouldnotcapturewarnts > 1000.0) {
                 std::stringstream msg_ss;
@@ -1626,16 +1629,17 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
             continue;
         }
 
-        if (GetMilliTime()  < starttime - 100) {
+        // throw exception if acquired images are from the future
+        if (GetMilliTime()  < starttime || GetMilliTime() < endtime) {
             std::stringstream msg_ss;
-            msg_ss << "Image timestamp is more than 100ms in the future, please ensure that clocks are synchronized"
-                   << ", use_cache = " << usecache;
+            msg_ss << "Image is acquired from the future, please ensure that clocks are synchronized, starttime=" << starttime << " endtime=" << endtime << ", use_cache = " << usecache;
             VISIONMANAGER_LOG_ERROR(msg_ss.str());
             colorimages.clear();
             depthimages.clear();
             throw MujinVisionException(msg_ss.str(), MVE_ImageAcquisitionError);
         }
 
+        // ensure streamer and try to get images again if images are too old
         if (maxage>0 && GetMilliTime()-starttime>maxage) {
             if (GetMilliTime() - lastimageagecheckfailurets > 1000.0) {
                 std::stringstream msg_ss;
@@ -1653,6 +1657,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
             continue;
         }
 
+        // skip images and try to get images again if images are taken before detection loop started
         if (!request && _tsStartDetection > 0 && starttime < _tsStartDetection) {
             if (lastfirstimagecheckfailurewarnts != starttime) {
                 lastfirstimagecheckfailurewarnts = starttime;
@@ -1666,6 +1671,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
             continue;
         }
 
+        // skip images and try to get them again if failed to check for occlusion
         bool isoccluding = false;
         if (!ignoreocclusion) {
             try {
@@ -1678,20 +1684,23 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
                 }
                 // skip checking for depth camera, assuming depth image is derived from color
             } catch (...) {
-                std::stringstream ss;
-                ss << "Failed to check for occluded, will try again";
-                VISIONMANAGER_LOG_WARN(ss.str());
+                if (GetMilliTime() - lastocclusioncheckfailurewarnts > 1000.0) {
+                    lastocclusioncheckfailurewarnts = GetMilliTime();
+                    std::stringstream ss;
+                    ss << "Failed to check for occluded, will try again";
+                    VISIONMANAGER_LOG_WARN(ss.str());
+                    _SetStatusMessage(tt, "", ss.str());
+                }
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 colorimages.clear();
                 depthimages.clear();
-                _SetStatusMessage(tt, "", ss.str());
                 continue;
             }
         }
-
+        // skip images if there was occlusion
         if (isoccluding) {
-            if (GetMilliTime() - lastocclusioncheckfailurewarnts > 1000.0) {
-                lastocclusioncheckfailurewarnts = GetMilliTime();
+            if (GetMilliTime() - lastocclusionwarnts > 1000.0) {
+                lastocclusionwarnts = GetMilliTime();
                 std::stringstream msg_ss;
                 msg_ss << "Region is occluded in the view of camera, will try again"
                        << " starttime " << starttime
@@ -1704,21 +1713,27 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
             continue;
         } else {
             std::stringstream ss;
-            ss << "imagepack starttime " << starttime << " endtime " << endtime;
+            ss << "got good imagepack. starttime=" << starttime << " endtime=" << endtime;
             VISIONMANAGER_LOG_DEBUG(ss.str());
-            _lastcolorimages = colorimages;
-            _lastdepthimages = depthimages;
+            break;
         }
     }
-    if (!(!_bCancelCommand &&
-           !_bShutdown &&
-           ((fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime() - start0 < fetchimagetimeout))
+    if (!(!_bCancelCommand && // canceled?
+          !_bShutdown &&  // shutdown?
+          ((fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime() - start0 < fetchimagetimeout)) && // timeed out?
+          (tt == TT_Detector && !_bStopDetectionThread) // canceled detection loop?
          )) {
         std::stringstream ss;
-        ss << "need to clear results because got out of while loop unexpectedly _bCancelCommand=" << _bCancelCommand << " _bShutdown=" << _bShutdown << " " << GetMilliTime() - start0 << ">" << fetchimagetimeout;
+        ss << "do not use images because we got out of while loop unexpectedly: " << " _bCancelCommand=" << _bCancelCommand << " _bShutdown=" << _bShutdown << " " << GetMilliTime() - start0 << ">" << fetchimagetimeout;
+        if (tt == TT_Detector) {
+            ss << " _bStopDetectionThread=" << _bStopDetectionThread;
+        }
         VISIONMANAGER_LOG_DEBUG(ss.str());
-        colorimages.clear();
-        depthimages.clear();
+    } else {
+        resultcolorimages = colorimages;
+        resultdepthimages = depthimages;
+        _lastcolorimages = colorimages;
+        _lastdepthimages = depthimages;
     }
 }
 

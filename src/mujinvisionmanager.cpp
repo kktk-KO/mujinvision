@@ -519,9 +519,6 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 }
             }
             result_ss << "], ";
-            if (resultstate == "") {
-                resultstate = "null";
-            }
             result_ss << ParametersBase::GetJsonString("state") << ": " << resultstate << ", ";
             if (returnpoints) {
                 result_ss << ParametersBase::GetJsonString("points") << ": " << ParametersBase::GetJsonString(points) << ", ";
@@ -1957,6 +1954,9 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, const std::string& region
         }
         // detect objects
         _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, resultstate, fastdetection, bindetection);
+        if (resultstate == "") {
+            resultstate = "null";
+        }
         std::stringstream msgss;
         msgss << "Detected " << detectedobjects.size() << " objects, state: " << resultstate <<". Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
         _SetStatusMessage(tt, msgss.str());

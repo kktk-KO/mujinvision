@@ -1286,6 +1286,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             } else {
                 _DetectObjects(TT_Detector, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, 0, false, false);
             }
+            if (_bStopDetectionThread) {
+                break;
+            }
             _vDetectedObject = detectedobjects;
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
             for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
@@ -1339,7 +1342,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             _resultState = resultstate;
             _resultTimestamp = GetMilliTime();
         }
-        // send results to mujin controller
         if (_bStopDetectionThread) {
             break;
         }
@@ -1568,6 +1570,7 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
 
 void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval)
 {
+    // TODO use local images and swap
     if (useold && _lastcolorimages.size() == colorcameranames.size() && _lastdepthimages.size() == depthcameranames.size()) {
         VISIONMANAGER_LOG_INFO("using last images");
         colorimages = _lastcolorimages;
@@ -1599,6 +1602,8 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
         }
 
         if (_bStopDetectionThread) {
+            colorimages.clear();
+            depthimages.clear();
             break;
         }
 
@@ -1704,6 +1709,16 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
             _lastcolorimages = colorimages;
             _lastdepthimages = depthimages;
         }
+    }
+    if (!(!_bCancelCommand &&
+           !_bShutdown &&
+           ((fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime() - start0 < fetchimagetimeout))
+         )) {
+        std::stringstream ss;
+        ss << "need to clear results because got out of while loop unexpectedly _bCancelCommand=" << _bCancelCommand << " _bShutdown=" << _bShutdown << " " << GetMilliTime() - start0 << ">" << fetchimagetimeout;
+        VISIONMANAGER_LOG_DEBUG(ss.str());
+        colorimages.clear();
+        depthimages.clear();
     }
 }
 

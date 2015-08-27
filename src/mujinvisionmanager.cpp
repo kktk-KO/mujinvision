@@ -1590,7 +1590,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
     while (!_bCancelCommand && // command is not being canceled
            !_bShutdown &&  // visionmanager is not being shutdown
            ((fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime() - start0 < fetchimagetimeout)) && // not timed out yet
-           ((tt == TT_Detector) && !_bStopDetectionThread) // detection thread is not being stopped if called from it
+           ((tt != TT_Detector) || (tt == TT_Detector && !_bStopDetectionThread)) // detection thread is not being stopped if called from it
            ) {
 
         // get images from subscriber
@@ -1718,7 +1718,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, const std::string& regionname
     if (!(!_bCancelCommand && // canceled?
           !_bShutdown &&  // shutdown?
           ((fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime() - start0 < fetchimagetimeout)) && // timeed out?
-          (tt == TT_Detector && !_bStopDetectionThread) // canceled detection loop?
+          (tt != TT_Detector || (tt == TT_Detector && !_bStopDetectionThread)) // canceled detection loop?
          )) {
         std::stringstream ss;
         ss << "do not use images because we got out of while loop unexpectedly: " << " _bCancelCommand=" << _bCancelCommand << " _bShutdown=" << _bShutdown << " " << GetMilliTime() - start0 << ">" << fetchimagetimeout;

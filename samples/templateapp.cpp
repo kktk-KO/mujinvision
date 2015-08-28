@@ -71,6 +71,8 @@ public:
     void WriteDepthImage(const std::string& cameraname, const std::string& filename) {
     }
 
+    void GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize, const double stddev, const size_t numnn) {
+    }
 };
 
 typedef boost::shared_ptr<UserImageSubscriberManager> UserImageSubscriberManagerPtr;

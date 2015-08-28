@@ -1358,8 +1358,39 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
     VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in UpdateEnvironmentThread with userinfo " + userinfo_json);
     pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json);
     uint64_t starttime;
-    uint64_t lastwarnedtimestamp = 0;
+    uint64_t lastwarnedtimestamp0 = 0;
+    uint64_t lastwarnedtimestamp1 = 0;
+    uint64_t lastsentcloudtime = 0;
     while (!_bStopUpdateEnvironmentThread) {
+
+        // send latest pointcloud for execution verification
+        for(unsigned int i=0; i<cameranamestobeused.size(); i++) {
+            std::vector<double> points;
+            std::string cameraname = cameranamestobeused[i];
+            if (_mNameCameraParameters[cameraname]->executionverification) {
+                unsigned long long cloudstarttime, cloudendtime;
+                _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _mNameCameraParameters[cameraname]->filteringvoxelsize, _mNameCameraParameters[cameraname]->filteringstddev, _mNameCameraParameters[cameraname]->filteringnumnn);
+                if (cloudstarttime > lastsentcloudtime) {
+                    lastsentcloudtime = cloudstarttime;
+                    try {
+                        uint64_t starttime = GetMilliTime();
+                        _pBinpickingTask->AddPointCloudObstacle(points, pointsize, "latestobstacle_"+cameraname, true);
+                        std::stringstream ss;
+                        ss << "Sent latest pointcloud of " << cameraname << " with " << (points.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
+                        VISIONMANAGER_LOG_DEBUG(ss.str());
+                    } catch(const std::exception& ex) {
+                        if (GetMilliTime() - lastwarnedtimestamp0 > 1000.0) {
+                            lastwarnedtimestamp0 = GetMilliTime();
+                            std::stringstream ss;
+                            ss << "Failed to send latest pointcloud of " << cameraname << " ex.what()=" << ex.what() << ".";
+                            _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
+                            VISIONMANAGER_LOG_WARN(ss.str());
+                        }
+                    }
+                }
+            }
+        }
+
         bool update = false;
 
         {
@@ -1415,8 +1446,8 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                     ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                     _SetStatusMessage(TT_UpdateEnvironment, ss.str());
                 } catch(const std::exception& ex) {
-                    if (GetMilliTime() - lastwarnedtimestamp > 1000.0) {
-                        lastwarnedtimestamp = GetMilliTime();
+                    if (GetMilliTime() - lastwarnedtimestamp1 > 1000.0) {
+                        lastwarnedtimestamp1 = GetMilliTime();
                         std::stringstream ss;
                         ss << "Failed to update environment state: " << ex.what() << ".";
                         //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_ControllerError), ss.str());

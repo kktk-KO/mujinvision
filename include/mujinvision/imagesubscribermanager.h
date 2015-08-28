@@ -64,6 +64,10 @@ public:
 
     virtual void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, unsigned long long& starttime, unsigned long long& endtime) = 0;
 
+    /** \brief prune and subsample pointcloud
+     */
+    virtual void GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize=0.01, const double stddev=0.01, const size_t numnn=80) = 0;
+
     /** \brief Gets the depth image from the latest n images with depth data, and the min/max timestamps of the images used.
         \param cameraname name of the camera
         \param starttime timestamp of the earliest image

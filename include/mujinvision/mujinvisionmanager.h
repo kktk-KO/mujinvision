@@ -359,6 +359,7 @@ private:
     void _PublishStopStatus();
 
     void _DetectObjects(ThreadType tt,
+                        BinPickingTaskResourcePtr pBinpickingTask,
                         const std::string& regionname,
                         const std::vector<std::string>& cameranames,
                         std::vector<DetectedObjectPtr>& detectedobjectsworld,
@@ -389,19 +390,6 @@ private:
     void _StartControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StopControllerMonitorThread();
 
-    void _SendPointCloudObstacleToController(ThreadType tt,
-                                             const std::string& regionname,
-                                             const std::vector<std::string>& cameranames,
-                                             const std::vector<DetectedObjectPtr>& detectedobjectsworld,
-                                             const unsigned int maxage=0,
-                                             const unsigned int fetchimagetimeout=0,
-                                             const double voxelsize=0.01,
-                                             const double pointsize=0.005,
-                                             const std::string& obstaclename="__dynamicobstacle__",
-                                             const bool fast=false,
-                                             const bool request=true,
-                                             const bool async=false,
-                                             const std::string& locale="en_US");
     void _SendPointCloudObstacleToControllerThread(const std::string& regionname,
                                                    const std::vector<std::string>& cameranames,
                                                    const std::vector<DetectedObjectPtr>& detectedobjectsworld,
@@ -426,7 +414,7 @@ private:
     void _SyncCamera(const std::string& regionname, const std::string& cameraname);
     void _SyncCamera(const std::string& regionname, const std::string& cameraname, const mujinclient::Transform& t);
 
-    void _GetImages(ThreadType tt, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50/*ms*/);
+    void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50/*ms*/);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -443,11 +431,6 @@ private:
     /** \brief This function wraps _GetCameraNames so that it returns only depth cameras.
      */
     std::vector<std::string> _GetDepthCameraNames(const std::string& regionname, const std::vector<std::string>& cameranames);
-
-    /** \brief Sends detected object list to mujin controller.
-        \param detectobjectsworld detected objects in world frame
-     */
-    void _SendDetectedObjectsToController(const std::vector<DetectedObjectPtr>& detectedobjectsworld, const std::string& resultstate);
 
     /** \brief Converts mujinclient::Transform to Transform.
      */

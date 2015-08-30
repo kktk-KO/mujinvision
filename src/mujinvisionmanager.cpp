@@ -1446,7 +1446,11 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
             if (totalpoints.size()>0) {
                 try {
                     starttime = GetMilliTime();
-                    pBinpickingTask->UpdateEnvironmentState(_targetname, "mujin:/" + _targetname + ".mujin.dae", detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
+                    if (_targetname == "randombox") {
+                        pBinpickingTask->UpdateEnvironmentState(_targetname, "", detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
+                    } else {
+                        pBinpickingTask->UpdateEnvironmentState(_targetname, "mujin:/" + _targetname + ".mujin.dae", detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
+                    }
                     std::stringstream ss;
                     ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                     _SetStatusMessage(TT_UpdateEnvironment, ss.str());

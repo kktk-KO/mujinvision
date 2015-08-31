@@ -605,7 +605,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<unsigned int>("streamerPort"),
                        command_pt.get<std::string>("tasktype","binpicking"),
                        command_pt.get<unsigned int>("controllertimeout", 10),
-                       command_pt.get<std::string>("locale", "en_US")
+                       command_pt.get<std::string>("locale", "en_US"),
+                       command_pt.get<std::string>("targeturi", "")
                        );
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -1446,11 +1447,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
             if (totalpoints.size()>0) {
                 try {
                     starttime = GetMilliTime();
-                    if (_targetname == "randombox") {
-                        pBinpickingTask->UpdateEnvironmentState(_targetname, "", detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
-                    } else {
-                        pBinpickingTask->UpdateEnvironmentState(_targetname, "mujin:/" + _targetname + ".mujin.dae", detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
-                    }
+                    pBinpickingTask->UpdateEnvironmentState(_targetname, _targeturi, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
                     std::stringstream ss;
                     ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                     _SetStatusMessage(TT_UpdateEnvironment, ss.str());
@@ -1774,7 +1771,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     }
 }
 
-void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const std::string& robotDeviceIOUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const std::string& robotDeviceIOUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi)
 {
     uint64_t time0 = GetMilliTime();
     uint64_t starttime = GetMilliTime();
@@ -1933,8 +1930,13 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     std::stringstream detectorconfigss;
     detectorconfigss << detectorconfig;
     read_json(detectorconfigss, pt);
-    _pDetector = _pDetectorManager->CreateObjectDetector(pt.get_child("object"),pt.get_child("detection"), _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
+    _pDetector = _pDetectorManager->CreateObjectDetector(pt.get_child("object"), pt.get_child("detection"), _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
     _targetname = targetname;
+    if (targeturi == "") {
+        _targeturi = "mujin:/" + _targetname + ".mujin.dae";
+    } else {
+        _targeturi = targeturi;
+    }
     VISIONMANAGER_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG(" ------------------------");

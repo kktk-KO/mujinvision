@@ -120,7 +120,8 @@ public:
                             const unsigned int streamerPort,
                             const std::string& tasktype="binpicking",
                             const double controllertimeout=10.0, /*seconds*/
-                            const std::string& locale="en_US"
+                            const std::string& locale="en_US",
+                            const std::string& targeturi=""
                             );
 
     /** \brief Detects objects in specified region with specified cameras
@@ -492,6 +493,7 @@ private:
     StatusPublisherPtr _pStatusPublisher;
 
     std::string _targetname; ///< name of the target object
+    std::string _targeturi; ///< uri of the target
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
     std::map<std::string, CameraParametersPtr> _mNameCameraParameters; ///< name->camera param
     std::map<std::string, CameraPtr > _mNameCamera; ///< name->camera

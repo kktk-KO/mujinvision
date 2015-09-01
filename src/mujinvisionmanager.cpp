@@ -1932,11 +1932,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     read_json(detectorconfigss, pt);
     _pDetector = _pDetectorManager->CreateObjectDetector(pt.get_child("object"), pt.get_child("detection"), _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
     _targetname = targetname;
-    if (targeturi == "") {
-        _targeturi = "mujin:/" + _targetname + ".mujin.dae";
-    } else {
-        _targeturi = targeturi;
-    }
+    _targeturi = targeturi;
     VISIONMANAGER_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG(" ------------------------");

@@ -527,6 +527,7 @@ private:
     std::string _resultState; ///< additional information about the detection result
     double _controllerCommandTimeout; ///< controller command timeout in seconds
     std::string _userinfo_json; ///< userinfo json
+    std::string _slaverequestid; ///< slaverequestid to ensure that binpicking task uses the same slave
 
     bool _bIsControllerPickPlaceRunning; ///< whether pick and place thread is running on the controller
     bool _bIsRobotOccludingSourceContainer; ///< whether robot is occluding the source container

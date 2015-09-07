@@ -62,9 +62,12 @@ struct MUJINVISION_API ParametersBase
     static std::string GetJsonString(const std::string& str)
     {
         std::string newstr = str;
-        boost::replace_all(newstr, "\"", "\\\"");
-        boost::replace_all(newstr, "\n", "\\n");
-
+        if (newstr.find("\\\"") == std::string::npos) {
+            boost::replace_all(newstr, "\"", "\\\"");
+        }
+        if (newstr.find("\\n") == std::string::npos) {
+            boost::replace_all(newstr, "\n", "\\n");
+        }
         return "\""+newstr+"\"";
     }
 

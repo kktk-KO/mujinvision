@@ -1077,7 +1077,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                     std::string whatstr = e.what();
                     std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), whatstr);
                     result_ss << "{" << errstr << "}";
-                    VISIONMANAGER_LOG_ERROR("unhandled exception, " + whatstr);
+                    VISIONMANAGER_LOG_ERROR("unhandled std exception, " + whatstr);
                     _SetStatus(TT_Command, MS_Aborted, "", errstr, false);
                 }
                 catch (...) {

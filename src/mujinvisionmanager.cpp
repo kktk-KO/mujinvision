@@ -184,6 +184,9 @@ void MujinVisionManager::Destroy()
 {
     VISIONMANAGER_LOG_DEBUG("Destroying MujinVisionManager");
     _StopStatusThread();
+    _StopDetectionThread();
+    _StopUpdateEnvironmentThread();
+    _StopControllerMonitorThread();
     _StopCommandThread(_commandport);
     _StopCommandThread(_configport);
 }
@@ -1041,7 +1044,6 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 catch (const UserInterruptException& ex) { // need to catch it here, otherwise zmq will be in bad state
                     if (port == _configport) {
                         VISIONMANAGER_LOG_WARN("User requested program exit.");
-                        throw;
                     } else {
                         _SetStatus(TT_Command, MS_Preempted, "", "", false);
                         VISIONMANAGER_LOG_WARN("User interruped command execution.");
@@ -1098,7 +1100,6 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                     throw;
                 }
                 _mPortCommandServer[port]->Send(result_ss.str());
-
             }
         }
         catch (const UserInterruptException& ex) {

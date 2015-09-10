@@ -347,7 +347,6 @@ private:
      */
     void _CommandThread(const unsigned int port);
     void _StartCommandServer(const unsigned int port);
-    void _StopCommandServer(const unsigned int port);
     void _StartCommandThread(const unsigned int port);
     void _StopCommandThread(const unsigned int port);
 
@@ -357,7 +356,6 @@ private:
     void _StartStatusThread(const unsigned int port, const unsigned int ms=100);
     void _StopStatusThread();
     void _StartStatusPublisher(const unsigned int port);
-    void _PublishStopStatus();
 
     void _DetectObjects(ThreadType tt,
                         BinPickingTaskResourcePtr pBinpickingTask,

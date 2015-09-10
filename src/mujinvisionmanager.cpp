@@ -211,17 +211,17 @@ MujinVisionManager::~MujinVisionManager()
 void MujinVisionManager::Destroy()
 {
     VISIONMANAGER_LOG_DEBUG("Destroying MujinVisionManager");
-    _StopStatusThread();
-    _StopDetectionThread();
-    _StopUpdateEnvironmentThread();
-    _StopControllerMonitorThread();
-    _StopCommandThread(_commandport);
-    _StopCommandThread(_configport);
+    Shutdown();
 }
 
 void MujinVisionManager::Shutdown()
 {
     _bShutdown=true;
+    _StopStatusThread();
+    _StopDetectionThread();
+    _StopUpdateEnvironmentThread();
+    _StopControllerMonitorThread();
+    _StopCommandThread(_commandport);
 }
 
 bool MujinVisionManager::IsShutdown()
@@ -395,15 +395,6 @@ void MujinVisionManager::_StartStatusPublisher(const unsigned int port)
     _SetStatus(TT_Command, MS_Pending);
 }
 
-void MujinVisionManager::_PublishStopStatus()
-{
-    StatusPublisherPtr pStatusPublisher = _pStatusPublisher;
-    if( !!pStatusPublisher ) {
-        pStatusPublisher->Publish(_GetStatusJsonString(GetMilliTime(), _GetManagerStatusString(MS_Lost), ""));
-        VISIONMANAGER_LOG_DEBUG("Stopped status publisher");
-    }
-}
-
 void MujinVisionManager::_StartStatusThread(const unsigned int port, const unsigned int ms)
 {
     _bStopStatusThread = false;
@@ -431,9 +422,13 @@ void MujinVisionManager::_StartCommandThread(const unsigned int port)
 
 void MujinVisionManager::_StopCommandThread(const unsigned int port)
 {
-    if (!!_mPortStopCommandThread[port]) {
+    if (_mPortStopCommandThread[port] == false) {
+        std::stringstream ss;
+        ss << "stopping command thread (port: " << port << ").";
+        VISIONMANAGER_LOG_DEBUG(ss.str());
         _mPortStopCommandThread[port] = true;
         _mPortCommandThread[port]->join();
+        _mPortCommandThread[port].reset();
     }
     std::stringstream ss;
     ss << "Stopped command thread (port: " << port << ").";
@@ -451,13 +446,6 @@ void MujinVisionManager::_StartCommandServer(const unsigned int port)
         ss << "Failed to start command server at port " << port << "!";
         throw MujinVisionException(ss.str(), MVE_Failed);
     }
-}
-
-void MujinVisionManager::_StopCommandServer(const unsigned int port)
-{
-    std::stringstream ss;
-    ss << "Stopped command server (port: " << port << ").";
-    VISIONMANAGER_LOG_DEBUG(ss.str());
 }
 
 void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, std::stringstream& result_ss)
@@ -480,10 +468,12 @@ void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, s
         result_ss << "}";
     } else if (command == "Quit") {
         // throw exception, shutdown gracefully
-        _bShutdown=true;
-        _StopStatusThread();
-        _StopCommandThread(_commandport);
+        Shutdown();
         throw UserInterruptException("User requested exit.");
+    } else {
+        std::string errstr = "received unknown config command " + command;
+        VISIONMANAGER_LOG_ERROR(errstr);
+        throw MujinVisionException(errstr, MVE_CommandNotSupported);
     }
 }
 
@@ -904,7 +894,6 @@ void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned i
     std::vector<std::string> vcfgmsg, vcmdmsg, vdetectormsg, vupdateenvmsg, vcontrollermonmsg, vsendpclmsg;
     std::vector<std::string> vcfgerr, vcmderr, vdetectorerr, vupdateenverr, vcontrollermonerr, vsendpclerr;
     std::vector<unsigned long long> vtimestamp;
-    boost::shared_ptr<void> onexit = boost::shared_ptr<void>((void*)0, boost::bind(&MujinVisionManager::_PublishStopStatus, this));
     while (!_bStopStatusThread) {
         {
             boost::mutex::scoped_lock lock(_mutexStatusQueue);
@@ -999,6 +988,8 @@ void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned i
         }
         boost::this_thread::sleep(boost::posix_time::milliseconds(ms));
     }
+    _pStatusPublisher->Publish(_GetStatusJsonString(GetMilliTime(), _GetManagerStatusString(MS_Lost), ""));
+    VISIONMANAGER_LOG_DEBUG("Stopped status publisher");
 }
 
 std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& cmdmsg, const std::string& cmderr, const std::string& cfgmsg, const std::string& cfgerr, const std::string& detectormsg, const std::string& detectorerr, const std::string& updateenvmsg, const std::string& updateenverr, const std::string& controllermonmsg, const std::string& controllermonerr, const std::string& sendpclmsg, const std::string& sendpclerr)
@@ -1053,7 +1044,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
     while (!_mPortStopCommandThread[port]) {
         try {
             // receive message
-            if( _mPortCommandServer[port]->Recv(incomingmessage, 100) > 0 ) {
+            if (_mPortCommandServer[port]->Recv(incomingmessage, 100) > 0) {
                 VISIONMANAGER_LOG_DEBUG("Received command message: " + incomingmessage + ".");
                 // execute command
                 command_ss.str("");
@@ -1072,6 +1063,8 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 catch (const UserInterruptException& ex) { // need to catch it here, otherwise zmq will be in bad state
                     if (port == _configport) {
                         VISIONMANAGER_LOG_WARN("User requested program exit.");
+                        result_ss << "{}";
+                        _mPortStopCommandThread[_configport] = true;
                     } else {
                         _SetStatus(TT_Command, MS_Preempted, "", "", false);
                         VISIONMANAGER_LOG_WARN("User interruped command execution.");
@@ -1130,12 +1123,27 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 _mPortCommandServer[port]->Send(result_ss.str());
             }
         }
+        catch (const zmq::error_t& e) {
+            if (!_mPortStopCommandThread[port]) {
+                std::string errstr = "Failed to receive command";
+                _SetStatus(TT_Command, MS_Aborted, errstr, "", false);
+                VISIONMANAGER_LOG_WARN(errstr);
+            }
+        }
         catch (const UserInterruptException& ex) {
-            _SetStatus(TT_Command, MS_Aborted, "User requested program exit", "", false);
-            VISIONMANAGER_LOG_WARN("User requested program exit.");
+            std::string errstr = "User requested program exit";
+            _SetStatus(TT_Command, MS_Aborted, errstr, "", false);
+            VISIONMANAGER_LOG_WARN(errstr);
+        }
+        catch (...) {
+            if (!_bShutdown) {
+                std::stringstream errss;
+                errss << "caught unhandled exception in command thread port=" << port;
+                _SetStatus(TT_Command, MS_Aborted, errss.str(), "", false);
+                VISIONMANAGER_LOG_WARN(errss.str());
+            }
         }
     }
-    _StopCommandServer(port);
 }
 
 void MujinVisionManager::_StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename, const unsigned long long& starttime)
@@ -1185,6 +1193,7 @@ void MujinVisionManager::_StopDetectionThread()
         }
         _bStopDetectionThread = false; // reset so that _GetImage works properly afterwards
     }
+    VISIONMANAGER_LOG_DEBUG("stopped detection thread");
 }
 
 void MujinVisionManager::_StopUpdateEnvironmentThread()
@@ -1199,6 +1208,7 @@ void MujinVisionManager::_StopUpdateEnvironmentThread()
         }
         _bStopUpdateEnvironmentThread = false; // reset so that _GetImage works properly afterwards
     }
+    VISIONMANAGER_LOG_DEBUG("stopped updateenvironment thread");
 }
 
 void MujinVisionManager::_StopControllerMonitorThread()
@@ -1213,6 +1223,7 @@ void MujinVisionManager::_StopControllerMonitorThread()
         }
         _bStopControllerMonitorThread = false;
     }
+    VISIONMANAGER_LOG_DEBUG("stopped controllermonitor thread");
 }
 
 void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename)

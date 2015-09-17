@@ -1361,11 +1361,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
 
             lastDetectedId = numPickAttempt;
-            if (detectedobjects.size() > 0) {
+            if (isControllerPickPlaceRunning && !forceRequestDetectionResults && detectedobjects.size() > 0) {
                 VISIONMANAGER_LOG_INFO("detected at least 1 object, stop image capturing...");
                 _pImagesubscriberManager->StopCaptureThread();
             } else {
-                VISIONMANAGER_LOG_INFO("detected no object, do not stop image capturing...");
+                //VISIONMANAGER_LOG_INFO("detected no object, do not stop image capturing...");
             }
         }
         catch(const std::exception& ex) {

@@ -1868,6 +1868,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
         vRegionParameters.push_back(pregionparameters);
         _mNameRegion[pregionparameters->instobjectname] = RegionPtr(new Region(pregionparameters));
     }
+
     // set up camera parameters
     FOREACH(v, pt.get_child("cameras")) {
         _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
@@ -1884,6 +1885,12 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     SceneResourcePtr scene(new SceneResource(controller,binpickingTaskScenePk));
     _pSceneResource = scene;
     _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8(tasktype+std::string("task1"), tasktype, TRO_EnableZMQ);
+    
+    boost::property_tree::ptree sensormapping;
+    scene->GetSensorMapping(sensormapping);
+    int x;
+    std::cin >> x;
+    
     VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in Initialize() with userinfo " + _userinfo_json);
 
     try {

@@ -1868,12 +1868,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
         vRegionParameters.push_back(pregionparameters);
         _mNameRegion[pregionparameters->instobjectname] = RegionPtr(new Region(pregionparameters));
     }
-
-    // set up camera parameters
-    FOREACH(v, pt.get_child("cameras")) {
-        _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
-    }
-
+    
     // connect to mujin controller
     std::stringstream url_ss;
     url_ss << "http://" << controllerIp << ":" << controllerPort;
@@ -1888,8 +1883,9 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     
     boost::property_tree::ptree sensormapping;
     scene->GetSensorMapping(sensormapping);
-    int x;
-    std::cin >> x;
+    FOREACH(v, sensormapping) {
+        _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
+    }
     
     VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in Initialize() with userinfo " + _userinfo_json);
 

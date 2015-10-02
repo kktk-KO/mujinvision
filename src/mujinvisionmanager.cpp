@@ -1880,8 +1880,8 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     SceneResourcePtr scene(new SceneResource(controller,binpickingTaskScenePk));
     _pSceneResource = scene;
     _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8(tasktype+std::string("task1"), tasktype, TRO_EnableZMQ);
-    
-    boost::property_tree::ptree sensormapping;
+
+    std::map<std::string, std::string> sensormapping; ///< name-> hardware_id
     scene->GetSensorMapping(sensormapping);
     FOREACH(v, sensormapping) {
         _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));

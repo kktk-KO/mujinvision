@@ -229,6 +229,17 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
     CameraParameters() {
     }
 
+    CameraParameters(const std::string cameraid)
+    {
+        id = cameraid;
+        isColorCamera = true;
+        isDepthCamera = true;
+        executionverification = false;
+        filteringvoxelsize = 0.01;
+        filteringstddev = 0.01;
+        filteringnumnn = 80;
+    }
+
     CameraParameters(const ptree& pt)
     {
         _pt = pt;

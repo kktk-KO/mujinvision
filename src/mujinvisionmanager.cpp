@@ -18,6 +18,7 @@
 #include <time.h>
 
 #ifndef _WIN32
+#include <unistd.h>
 #if !(defined(CLOCK_GETTIME_FOUND) && (POSIX_TIMERS > 0 || _POSIX_TIMERS > 0))
 #include <sys/time.h>
 #endif
@@ -28,6 +29,7 @@
 inline void usleep(unsigned long microseconds) {
     Sleep((microseconds+999)/1000);
 }
+#include <tchar.h>
 #endif
 
 #ifdef _WIN32
@@ -120,6 +122,29 @@ inline static uint64_t GetNanoPerformanceTime()
 #endif
 #endif
 
+// http://stackoverflow.com/questions/504810/how-do-i-find-the-current-machines-full-hostname-in-c-hostname-and-domain-info
+void __GetMachineName(char* machineName)
+{
+    char Name[150];
+
+    #ifdef WIN32
+        TCHAR infoBuf[150];
+        DWORD bufCharCount = 150;
+        memset(Name, 0, 150);
+        if( GetComputerName( infoBuf, &bufCharCount ) ) {
+            for(int i=0; i<150; i++) {
+                Name[i] = infoBuf[i];
+            }
+        } else {
+            strcpy(Name, "Unknown_Host_Name");
+        }
+    #else
+        memset(Name, 0, 150);
+        gethostname(Name, 150);
+    #endif
+    strncpy(machineName, Name, 150);
+}
+
 namespace mujinvision {
 
 void ParametersBase::Print()
@@ -158,6 +183,9 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _lastocclusionTimestamp = 0;
     _controllerCommandTimeout = 10.0;
     _locale = "en_US";
+    char hostname[150];
+    __GetMachineName(hostname);
+    _slaverequestid = std::string(hostname) + "_binpickingslave";
     _commandMessageQueue.push("");
     _commandErrorQueue.push("");
     _configMessageQueue.push("");
@@ -1214,7 +1242,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         throw;
     }
 
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json);
+    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 
     uint64_t time0;
     int numfastdetection = 1; // max num of times to run fast detection
@@ -1419,7 +1447,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
         throw;
     }
 
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json);
+    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
     uint64_t starttime;
     uint64_t lastwarnedtimestamp0 = 0;
     uint64_t lastwarnedtimestamp1 = 0;
@@ -1539,7 +1567,7 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
         throw;
     }
 
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json);
+    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 
     BinPickingTaskResource::ResultGetBinpickingState binpickingstate;
     uint64_t lastwarnedtimestamp = 0;
@@ -1899,7 +1927,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
         throw;
     }
 
-    _pBinpickingTask->Initialize(robotControllerUri, robotDeviceIOUri, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json);
+    _pBinpickingTask->Initialize(robotControllerUri, robotDeviceIOUri, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json, _slaverequestid);
 
     // sync regions and cameras
     _SetStatusMessage(TT_Command, "Syncing regions and cameras");
@@ -2183,7 +2211,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(const std::st
         throw;
     }
 
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json);
+    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 
     std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
     // set up images

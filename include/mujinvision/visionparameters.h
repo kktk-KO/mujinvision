@@ -63,10 +63,10 @@ struct MUJINVISION_API ParametersBase
     {
         std::string newstr = str;
         if (newstr.find("\\\"") == std::string::npos) {
-        boost::replace_all(newstr, "\"", "\\\"");
+            boost::replace_all(newstr, "\"", "\\\"");
         }
         if (newstr.find("\\n") == std::string::npos) {
-        boost::replace_all(newstr, "\n", "\\n");
+            boost::replace_all(newstr, "\n", "\\n");
         }
         return "\""+newstr+"\"";
     }

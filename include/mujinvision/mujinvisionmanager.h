@@ -57,7 +57,7 @@ class MUJINVISION_API MujinVisionManager
 {
 public:
     /** \brief sets up vision manager
-     */    
+     */
     MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned int configport, const std::string& configdir);
     virtual ~MujinVisionManager();
 
@@ -121,7 +121,8 @@ public:
                             const std::string& tasktype="binpicking",
                             const double controllertimeout=10.0, /*seconds*/
                             const std::string& locale="en_US",
-                            const std::string& targeturi=""
+                            const std::string& targeturi="",
+                            const std::string& slaverequestid=""
                             );
 
     /** \brief Detects objects in specified region with specified cameras
@@ -233,7 +234,7 @@ public:
         - updates positions of the cameras
      */
     virtual void SyncCameras(const std::string& regionname,
-                              const std::vector<std::string>& cameranames);
+                             const std::vector<std::string>& cameranames);
 
     /** \brief Gets id of the camera from name
      */
@@ -279,7 +280,7 @@ public:
     /** \brief Registers a command and its help string. <b>[multi-thread safe]</b>
         \param cmdname - command name, converted to lower case
         \param fncmd function to execute for the command
-    */
+     */
     virtual void RegisterCustomCommand(const std::string& cmdname, CustomCommandFn fncmd);
 
     /** \brief Unregisters the command. <b>[multi-thread safe]</b>
@@ -324,7 +325,7 @@ private:
     };
 
     void _DeInitialize();
-    
+
     enum ThreadType {
         TT_Command=0,
         TT_Config=1,
@@ -413,7 +414,7 @@ private:
     void _SyncCamera(const std::string& regionname, const std::string& cameraname);
     void _SyncCamera(const std::string& regionname, const std::string& cameraname, const mujinclient::Transform& t);
 
-    void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage=0/*ms*/, const unsigned int fetchimagetimeout=0/*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50/*ms*/);
+    void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -456,7 +457,7 @@ private:
     unsigned int _statusport, _commandport, _configport;
     std::string _configdir;
     std::string _detectorconfig, _imagesubscriberconfig;
-    
+
     unsigned int _binpickingTaskZmqPort;
     unsigned int _binpickingTaskHeartbeatPort;
     double _binpickingTaskHeartbeatTimeout;
@@ -530,7 +531,7 @@ private:
     bool _bIsControllerPickPlaceRunning; ///< whether pick and place thread is running on the controller
     bool _bIsRobotOccludingSourceContainer; ///< whether robot is occluding the source container
     bool _bForceRequestDetectionResults; ///< whether to run detection ignoring _numPickAttempt
-    
+
     bool _bInitialized; ///< whether visionmanager is initialized
     bool _bShutdown; ///< whether the visionmanager is shut down
     bool _bStopStatusThread; ///< whether to stop status thread

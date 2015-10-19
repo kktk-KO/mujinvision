@@ -54,6 +54,8 @@ public:
      */
     virtual void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false) = 0;
 
+    virtual void DetectObjects(const std::string& regionname, ImagePtr resultimage, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false) = 0;
+
     /** \brief Gets point cloud obstacle from depth data and detection result.
         \param regionname
         \param depthcameraname name of the depth camera
@@ -63,7 +65,7 @@ public:
         \param fast whether to prioritize speed
         \param whether to get python gil
      */
-    virtual void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsworld, std::vector<double>& points, const double voxelsize=0.01, const bool fast=false, const bool getgil=false) = 0;
+    virtual void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsworld, std::vector<double>& points, const double voxelsize=0.01, const bool fast=false, const bool getgil=false, const double stddev=0.01, const size_t numnn=80) = 0;
 
     /** \brief Gets point cloud in world frame from depth image.
         \param regionname

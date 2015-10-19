@@ -54,7 +54,7 @@ public:
      */
     virtual void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false) = 0;
 
-    virtual void DetectObjects(const std::string& regionname, ImagePtr resultimage, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false) = 0;
+    virtual void DetectObjects(const std::string& regionname, const std::vector<ImagePtr>& resultimages, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false) = 0;
 
     /** \brief Gets point cloud obstacle from depth data and detection result.
         \param regionname

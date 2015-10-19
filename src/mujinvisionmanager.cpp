@@ -1742,12 +1742,12 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         }
 
         // ensure streamer and try to get images again if got fewer than expected images
-        if (resultimages.size() == 0 && (colorimages.size() < colorcameranames.size() || depthimages.size() < depthcameranames.size())) {
+        if (colorimages.size() < colorcameranames.size() || depthimages.size() < depthcameranames.size()) {
             if (GetMilliTime() - lastcouldnotcapturewarnts > 1000.0) {
                 std::stringstream msg_ss;
                 msg_ss << "Could not get all images, ensure capturing thread, will try again"
-                       << ": # color images = " << colorimages.size()
-                       << ", # depth images = " << depthimages.size()
+                       << ": # color " << colorimages.size() << "," << colorcameranames.size()
+                       << ", # depth " << depthimages.size() << "," << depthcameranames.size()
                        << ", # result images = " << resultimages.size()
                        << ", use_cache = " << usecache;
                 VISIONMANAGER_LOG_WARN(msg_ss.str());
@@ -1900,12 +1900,18 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     visionmanagerconfigss << visionmanagerconfig;
     read_json(visionmanagerconfigss, pt);
     // set up regions
+    std::vector<std::string> regionnames;
     std::vector<RegionParametersPtr > vRegionParameters;
     RegionParametersPtr pRegionParameters;
     FOREACH(v, pt.get_child("regions")) {
         RegionParametersPtr pregionparameters(new RegionParameters(v->second));
         vRegionParameters.push_back(pregionparameters);
         _mNameRegion[pregionparameters->instobjectname] = RegionPtr(new Region(pregionparameters));
+        regionnames.push_back(pregionparameters->instobjectname);
+    }
+    // set up cameras
+    FOREACH(v, pt.get_child("cameras")) {
+        _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
     }
     
     // connect to mujin controller
@@ -1920,12 +1926,6 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     _pSceneResource = scene;
     _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8(tasktype+std::string("task1"), tasktype, TRO_EnableZMQ);
 
-    std::map<std::string, std::string> sensormapping; ///< name-> hardware_id
-    scene->GetSensorMapping(sensormapping);
-    FOREACH(v, sensormapping) {
-        _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
-    }
-    
     VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in Initialize() with userinfo " + _userinfo_json);
 
     try {
@@ -1941,13 +1941,18 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     _pBinpickingTask->Initialize(robotControllerUri, robotDeviceIOUri, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json, slaverequestid);
 
     // sync regions and cameras
+    std::vector<std::string> cameranames;
     _SetStatusMessage(TT_Command, "Syncing regions and cameras");
-    std::vector<std::string> regionnames, cameranames;
-    FOREACH(it, _mNameRegion) {
-        regionnames.push_back(it->first);
-    }
-    FOREACH(it, _mNameCameraParameters) {
-        cameranames.push_back(it->first);
+    std::map<std::string, std::string> sensormapping; ///< name-> hardware_id
+    scene->GetSensorMapping(sensormapping);
+    FOREACH(v, sensormapping) {
+        if (_mNameCameraParameters.find(v->first) != _mNameCameraParameters.end()) {
+            _mNameCameraParameters[v->first]->id = v->second;
+        } else {
+            VISIONMANAGER_LOG_WARN(v->first + " is not found in visionmanager conf, use default values");
+            _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
+        }
+        cameranames.push_back(v->first);
     }
     BinPickingTaskResource::ResultGetInstObjectAndSensorInfo resultgetinstobjectandsensorinfo;
     starttime = GetMilliTime();
@@ -2112,9 +2117,11 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
             _pDetector->SetDepthImage(cameraname, depthimages.at(i));
         }
         // detect objects
-        _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, resultstate, fastdetection, bindetection);
-    } else if (resultimages.size() > 0) {
-        _pDetector->DetectObjects(regionname, resultimages, detectedobjects, resultstate, fastdetection, bindetection);
+        if (resultimages.size() > 0) {
+            _pDetector->DetectObjects(regionname, resultimages, detectedobjects, resultstate, fastdetection, bindetection);
+        } else {
+            _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, resultstate, fastdetection, bindetection);
+        }
     }
     if (resultstate == "") {
         resultstate = "null";

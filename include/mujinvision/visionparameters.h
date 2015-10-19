@@ -243,7 +243,7 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
     CameraParameters(const ptree& pt)
     {
         _pt = pt;
-        id = pt.get<std::string>("id");
+        id = pt.get<std::string>("id", "");
         isColorCamera = pt.get<bool>("is_color_camera", true);
         isDepthCamera = pt.get<bool>("is_depth_camera", true);
         executionverification = pt.get<bool>("executionverification", false);

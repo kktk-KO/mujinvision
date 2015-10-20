@@ -1544,24 +1544,22 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                 }
                 resultstate = _resultState;
             }
-            if (totalpoints.size()>0) {
-                try {
-                    starttime = GetMilliTime();
-                    pBinpickingTask->UpdateEnvironmentState(_targetname, _targeturi, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
+            try {
+                starttime = GetMilliTime();
+                pBinpickingTask->UpdateEnvironmentState(_targetname, _targeturi, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
+                std::stringstream ss;
+                ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
+                _SetStatusMessage(TT_UpdateEnvironment, ss.str());
+            } catch(const std::exception& ex) {
+                if (GetMilliTime() - lastwarnedtimestamp1 > 1000.0) {
+		    lastwarnedtimestamp1 = GetMilliTime();
                     std::stringstream ss;
-                    ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
-                    _SetStatusMessage(TT_UpdateEnvironment, ss.str());
-                } catch(const std::exception& ex) {
-                    if (GetMilliTime() - lastwarnedtimestamp1 > 1000.0) {
-                        lastwarnedtimestamp1 = GetMilliTime();
-                        std::stringstream ss;
-                        ss << "Failed to update environment state: " << ex.what() << ".";
-                        //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_ControllerError), ss.str());
-                        _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
-                        VISIONMANAGER_LOG_WARN(ss.str());
-                    }
-                    boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                    ss << "Failed to update environment state: " << ex.what() << ".";
+                    //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_ControllerError), ss.str());
+                    _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
+                    VISIONMANAGER_LOG_WARN(ss.str());
                 }
+                boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             }
         }
     }
@@ -1944,6 +1942,11 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     scene->GetSensorMapping(sensormapping);
     FOREACH(v, sensormapping) {
         _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
+	// TODO add as visionmanager params
+	_mNameCameraParameters[v->first]->executionverification = true;
+	_mNameCameraParameters[v->first]->filteringvoxelsize = 0.01;
+	_mNameCameraParameters[v->first]->filteringstddev = 0.01;
+	_mNameCameraParameters[v->first]->filteringnumnn = 80;
     }
     
     VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in Initialize() with userinfo " + _userinfo_json);

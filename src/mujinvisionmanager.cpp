@@ -1461,21 +1461,36 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
             if (_mNameCameraParameters[cameraname]->executionverification) {
                 unsigned long long cloudstarttime, cloudendtime;
                 _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _mNameCameraParameters[cameraname]->filteringvoxelsize, _mNameCameraParameters[cameraname]->filteringstddev, _mNameCameraParameters[cameraname]->filteringnumnn);
-                if (cloudstarttime > lastsentcloudtime) {
-                    lastsentcloudtime = cloudstarttime;
-                    try {
-                        uint64_t starttime = GetMilliTime();
-                        pBinpickingTask->AddPointCloudObstacle(points, pointsize, "latestobstacle_"+cameraname, true);
-                        std::stringstream ss;
-                        ss << "Sent latest pointcloud of " << cameraname << " with " << (points.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
-                        VISIONMANAGER_LOG_DEBUG(ss.str());
-                    } catch(const std::exception& ex) {
-                        if (GetMilliTime() - lastwarnedtimestamp0 > 1000.0) {
-                            lastwarnedtimestamp0 = GetMilliTime();
+
+                // Check for occlusion, TODO: move to beofre point cloud filtering to save processing time
+                bool isoccluding = false;
+                try {
+                    pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, cloudstarttime, cloudendtime, isoccluding);
+                } catch (...) {
+                    std::stringstream ss;
+                    ss << "Failed to check for occluded during environment update, will try again";
+                    VISIONMANAGER_LOG_WARN(ss.str());
+                    _SetStatusMessage(TT_UpdateEnvironment, "", ss.str());
+                    isoccluding = true;
+                }
+
+                if (!isoccluding){
+                    if (cloudstarttime > lastsentcloudtime) {
+                        lastsentcloudtime = cloudstarttime;
+                        try {
+                            uint64_t starttime = GetMilliTime();
+                            pBinpickingTask->AddPointCloudObstacle(points, pointsize, "latestobstacle_"+cameraname, true);
                             std::stringstream ss;
-                            ss << "Failed to send latest pointcloud of " << cameraname << " ex.what()=" << ex.what() << ".";
-                            _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
-                            VISIONMANAGER_LOG_WARN(ss.str());
+                            ss << "Sent latest pointcloud of " << cameraname << " with " << (points.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
+                            VISIONMANAGER_LOG_DEBUG(ss.str());
+                        } catch(const std::exception& ex) {
+                            if (GetMilliTime() - lastwarnedtimestamp0 > 1000.0) {
+                                lastwarnedtimestamp0 = GetMilliTime();
+                                std::stringstream ss;
+                                ss << "Failed to send latest pointcloud of " << cameraname << " ex.what()=" << ex.what() << ".";
+                                _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
+                                VISIONMANAGER_LOG_WARN(ss.str());
+                            }
                         }
                     }
                 }

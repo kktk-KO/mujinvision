@@ -1904,6 +1904,21 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     std::stringstream visionmanagerconfigss;
     visionmanagerconfigss << visionmanagerconfig;
     read_json(visionmanagerconfigss, pt);
+
+    // read execution verification configuration
+    ptree pt_visionserver;
+    pt_visionserver = pt.get_child("visionserver");
+    std::vector<std::string> executionverificationcameranames;
+    double filteringvoxelsize;
+    double filteringstddev;
+    int filteringnumnn;
+    FOREACH(it, pt_visionserver.get_child("executionverificationcameras")) {
+        executionverificationcameranames.push_back(it->second.data());
+    }
+    filteringvoxelsize = pt_visionserver.get<double>("filteringvoxelsize");
+    filteringstddev = pt_visionserver.get<double>("filteringstddev");
+    filteringnumnn = pt_visionserver.get<int>("filteringnumnn");
+    
     // set up regions
     std::vector<RegionParametersPtr > vRegionParameters;
     RegionParametersPtr pRegionParameters;

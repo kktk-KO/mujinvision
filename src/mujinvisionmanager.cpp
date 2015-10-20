@@ -1942,11 +1942,14 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     scene->GetSensorMapping(sensormapping);
     FOREACH(v, sensormapping) {
         _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
-	// TODO add as visionmanager params
-	_mNameCameraParameters[v->first]->executionverification = true;
-	_mNameCameraParameters[v->first]->filteringvoxelsize = 0.01;
-	_mNameCameraParameters[v->first]->filteringstddev = 0.01;
-	_mNameCameraParameters[v->first]->filteringnumnn = 80;
+        if (std::find(executionverificationcameranames.begin(), executionverificationcameranames.end(), v->first) == executionverificationcameranames.end()) {
+            _mNameCameraParameters[v->first]->executionverification = false;
+        } else {
+            _mNameCameraParameters[v->first]->executionverification = true;
+        }
+        _mNameCameraParameters[v->first]->filteringvoxelsize = filteringvoxelsize;
+        _mNameCameraParameters[v->first]->filteringstddev = filteringstddev;
+        _mNameCameraParameters[v->first]->filteringnumnn = filteringnumnn;
     }
     
     VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in Initialize() with userinfo " + _userinfo_json);

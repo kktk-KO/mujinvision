@@ -276,7 +276,7 @@ void MujinVisionManager::SaveConfig(const std::string& type, const std::string& 
             tmpss.str(config);
             read_json(tmpss, tmppt); // validate
         } catch (...) {
-            VISIONMANAGER_LOG_ERROR("failed to parse json: " + config);
+            VISIONMANAGER_LOG_ERROR("SaveConfig failed to parse json: " + config);
             throw;
         }
         content = config;
@@ -1024,7 +1024,7 @@ std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long ti
         ptree tmppt;
         read_json(ss, tmppt); // validate
     } catch (...) {
-        VISIONMANAGER_LOG_ERROR("failed to parse json: " + ss.str());
+        VISIONMANAGER_LOG_ERROR("_GetStatusJsonString failed to parse json: " + ss.str());
         throw;
     }
 
@@ -1117,7 +1117,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                     ptree tmppt;
                     read_json(result_ss, tmppt); // validate
                 } catch (...) {
-                    VISIONMANAGER_LOG_ERROR("failed to parse json: " + result_ss.str());
+                    VISIONMANAGER_LOG_ERROR("_CommandThread failed to parse json: " + result_ss.str());
                     throw;
                 }
                 _mPortCommandServer[port]->Send(result_ss.str());
@@ -1238,7 +1238,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         tmpss.str(userinfo_json);
         read_json(tmpss, tmppt); // validate
     } catch (...) {
-        VISIONMANAGER_LOG_ERROR("failed to parse json: " + userinfo_json);
+        VISIONMANAGER_LOG_ERROR("_DetectionThread failed to parse json: " + userinfo_json);
         throw;
     }
 
@@ -1443,7 +1443,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
         tmpss.str(userinfo_json);
         read_json(tmpss, tmppt); // validate
     } catch (...) {
-        VISIONMANAGER_LOG_ERROR("failed to parse json: " + userinfo_json);
+        VISIONMANAGER_LOG_ERROR("_UpdateEnvironmentThread failed to parse json: " + userinfo_json);
         throw;
     }
 
@@ -1563,7 +1563,7 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
         tmpss.str(userinfo_json);
         read_json(tmpss, tmppt); // validate
     } catch (...) {
-        VISIONMANAGER_LOG_ERROR("failed to parse json: " + userinfo_json);
+        VISIONMANAGER_LOG_ERROR("_ControllerMonitorThread failed to parse json: " + userinfo_json);
         throw;
     }
 
@@ -1934,7 +1934,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         tmpss.str(_userinfo_json);
         read_json(tmpss, tmppt); // validate
     } catch (...) {
-        VISIONMANAGER_LOG_ERROR("failed to parse json: " + _userinfo_json);
+        VISIONMANAGER_LOG_ERROR("Initialize failed to parse json: " + _userinfo_json);
         throw;
     }
 
@@ -2226,7 +2226,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(const std::st
         tmpss.str(userinfo_json);
         read_json(tmpss, tmppt); // validate
     } catch (...) {
-        VISIONMANAGER_LOG_ERROR("failed to parse json: " + userinfo_json);
+        VISIONMANAGER_LOG_ERROR("_SendPointCloudObstacleToControllerThread failed to parse json: " + userinfo_json);
         throw;
     }
 

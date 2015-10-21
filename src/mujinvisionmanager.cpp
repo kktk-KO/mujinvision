@@ -1479,10 +1479,12 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                         lastsentcloudtime = cloudstarttime;
                         try {
                             uint64_t starttime = GetMilliTime();
-                            pBinpickingTask->AddPointCloudObstacle(points, pointsize, "latestobstacle_"+cameraname, true);
+                            pBinpickingTask->AddPointCloudObstacle(points, pointsize, "latestobstacle_"+cameraname, cloudendtime, true);
+			    
                             std::stringstream ss;
-                            ss << "Sent latest pointcloud of " << cameraname << " with " << (points.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
-                            VISIONMANAGER_LOG_DEBUG(ss.str());
+			    
+                            ss << "Sent latest pointcloud of " << cameraname << " with " << (points.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs" << cloudendtime;
+                            VISIONMANAGER_LOG_INFO(ss.str());
                         } catch(const std::exception& ex) {
                             if (GetMilliTime() - lastwarnedtimestamp0 > 1000.0) {
                                 lastwarnedtimestamp0 = GetMilliTime();

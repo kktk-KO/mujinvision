@@ -1183,17 +1183,21 @@ void MujinVisionManager::_StartControllerMonitorThread(const unsigned int waitin
 
 void MujinVisionManager::_StopDetectionThread()
 {
+    std::stringstream ss;
     _SetStatusMessage(TT_Command, "Stopping detectoin thread.");
     if (!_bStopDetectionThread) {
         _bStopDetectionThread = true;
         if (!!_pDetectionThread) {
             _pDetectionThread->join();
             _pDetectionThread.reset();
-            _SetStatusMessage(TT_Command, "Stopped detection thread.");
+            ss << "Stopped detection thread. " << (GetMilliTime() - _tsStartDetection ) / 1000.0f << " secs since start";
+            _SetStatusMessage(TT_Command, ss.str());
         }
         _bStopDetectionThread = false; // reset so that _GetImage works properly afterwards
+    } else {
+        ss << "Stopped detection thread.";
     }
-    VISIONMANAGER_LOG_DEBUG("stopped detection thread");
+    VISIONMANAGER_LOG_DEBUG(ss.str());
 }
 
 void MujinVisionManager::_StopUpdateEnvironmentThread()
@@ -1267,7 +1271,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
                 if (binpickingstateTimestamp != _binpickingstateTimestamp) {
                     std::stringstream ss;
-                    ss << _binpickingstateTimestamp << " " << _numPickAttempt << " " << _bIsControllerPickPlaceRunning << " " << _bIsRobotOccludingSourceContainer << " " << forceRequestDetectionResults;
+                    ss << "DetectionThread binpickingstate: ts=" << _binpickingstateTimestamp << " numPickAttempt=" << _numPickAttempt << " isControllerPickPlaceRunning=" << _bIsControllerPickPlaceRunning << " isRobotOccludingContainer=" << _bIsRobotOccludingSourceContainer << " forceRequestDetectionResults=" << forceRequestDetectionResults;
                     VISIONMANAGER_LOG_DEBUG(ss.str());
                 }
                 binpickingstateTimestamp = _binpickingstateTimestamp;
@@ -1400,8 +1404,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             std::stringstream ss;
             ss << "Caught exception in the detection loop: " << ex.what();
             //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_RecognitionError), ss.str());
-            VISIONMANAGER_LOG_ERROR(ss.str());
-            _SetDetectorStatusMessage(ss.str(), GetErrorCodeString(MVE_RecognitionError));
+            std::string errstr = ss.str();
+            boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
+            VISIONMANAGER_LOG_ERROR(errstr);
+            _SetDetectorStatusMessage(errstr, GetErrorCodeString(MVE_RecognitionError));
             continue;
         }
 
@@ -1474,8 +1480,10 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                             lastwarnedtimestamp0 = GetMilliTime();
                             std::stringstream ss;
                             ss << "Failed to send latest pointcloud of " << cameraname << " ex.what()=" << ex.what() << ".";
-                            _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
-                            VISIONMANAGER_LOG_WARN(ss.str());
+                            std::string errstr = ss.str();
+                            boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
+                            _SetStatusMessage(TT_UpdateEnvironment, errstr, GetErrorCodeString(MVE_ControllerError));
+                            VISIONMANAGER_LOG_WARN(errstr);
                         }
                     }
                 }
@@ -1542,8 +1550,10 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                         std::stringstream ss;
                         ss << "Failed to update environment state: " << ex.what() << ".";
                         //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_ControllerError), ss.str());
-                        _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
-                        VISIONMANAGER_LOG_WARN(ss.str());
+                        std::string errstr = ss.str();
+                        boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
+                        _SetStatusMessage(TT_UpdateEnvironment, errstr, GetErrorCodeString(MVE_ControllerError));
+                        VISIONMANAGER_LOG_WARN(errstr);
                     }
                     boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 }
@@ -1583,8 +1593,10 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
                     lastwarnedtimestamp = GetMilliTime();
                     std::stringstream ss;
                     ss << "Failed to get published task state from mujin controller: " << ex.what() << ".";
-                    _SetStatusMessage(TT_ControllerMonitor, ss.str(), GetErrorCodeString(MVE_ControllerError));
-                    VISIONMANAGER_LOG_WARN(ss.str());
+                    std::string errstr = ss.str();
+                    boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
+                    _SetStatusMessage(TT_ControllerMonitor, errstr, GetErrorCodeString(MVE_ControllerError));
+                    VISIONMANAGER_LOG_WARN(errstr);
                 }
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
@@ -1811,14 +1823,23 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         bool isoccluding = false;
         if (!ignoreocclusion) {
             try {
+                std::vector<std::string> checkedcameranames;
                 for (size_t i=0; i<colorcameranames.size() && !isoccluding; ++i) {
+                    std::string cameraname = colorcameranames.at(i);
                     //uint64_t time0 = GetMilliTime();
                     //std::stringstream ss;
-                    pBinpickingTask->IsRobotOccludingBody(regionname, colorcameranames.at(i), starttime, endtime, isoccluding);
+                    pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+                    checkedcameranames.push_back(cameraname);
                     //ss << "_pBinpickingTask->IsRobotOccludingBody() took " << (GetMilliTime() - time0) / 1000.0f << " secs";
                     //VISIONMANAGER_LOG_DEBUG(ss.str());
                 }
-                // skip checking for depth camera, assuming depth image is derived from color
+                for (size_t i=0; i < depthcameranames.size() && !isoccluding; ++i) {
+                    std::string cameraname = depthcameranames.at(i);
+                    if (std::find(checkedcameranames.begin(), checkedcameranames.end(), cameraname) == checkedcameranames.end()) {
+                        pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, starttime, endtime, isoccluding);
+                        checkedcameranames.push_back(cameraname);
+                    }
+                }
             } catch (...) {
                 if (GetMilliTime() - lastocclusioncheckfailurewarnts > 1000.0) {
                     lastocclusioncheckfailurewarnts = GetMilliTime();
@@ -1851,7 +1872,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             continue;
         } else {
             std::stringstream ss;
-            ss << "got good imagepack. starttime=" << starttime << " endtime=" << endtime;
+            ss << "got good imagepack. starttime=" << starttime << " endtime=" << endtime << " total=" << (endtime-starttime)/1000.0f << " " << (GetMilliTime()-starttime) / 1000.0f << " secs old" ;
             VISIONMANAGER_LOG_DEBUG(ss.str());
             break;
         }

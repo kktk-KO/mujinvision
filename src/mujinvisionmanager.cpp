@@ -1099,6 +1099,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 }
                 catch (std::exception& e) {
                     std::string whatstr = e.what();
+                    boost::replace_all(whatstr, "\"", ""); // need to remove " in the message so that json parser works
                     std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), whatstr);
                     result_ss << "{" << errstr << "}";
                     VISIONMANAGER_LOG_ERROR("unhandled std exception, " + whatstr);

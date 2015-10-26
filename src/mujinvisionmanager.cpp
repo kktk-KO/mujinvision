@@ -1420,12 +1420,14 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
         std::vector<DetectedObjectPtr> newdetectedobjects;
 
-        {
+        if (resultstate != "null") {
             boost::mutex::scoped_lock lock(_mutexDetectedInfo);
             newdetectedobjects = detectedobjects;
             _vDetectedObject = detectedobjects;
             _resultState = resultstate;
             _resultTimestamp = GetMilliTime();
+        } else {
+            VISIONMANAGER_LOG_INFO("resultstate is null, do not update result");
         }
         if (_bStopDetectionThread) {
             break;

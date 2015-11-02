@@ -1945,8 +1945,11 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         regionnames.push_back(pregionparameters->instobjectname);
     }
     // set up cameras
-    FOREACH(v, pt.get_child("cameras")) {
-        _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
+    boost::optional<const ptree&> cameras_pt(pt.get_child_optional("cameras"));
+    if (!!cameras_pt) {
+        FOREACH(v, pt.get_child("cameras")) {
+            _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
+        }
     }
     
     // connect to mujin controller
@@ -1965,7 +1968,12 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     std::map<std::string, std::string> sensormapping; ///< name-> hardware_id
     scene->GetSensorMapping(sensormapping);
     FOREACH(v, sensormapping) {
-        _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
+        if (_mNameCameraParameters.find(v->first) != _mNameCameraParameters.end()){
+            _mNameCameraParameters[v->first]->id = v->second;
+        } else {
+            _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
+        }
+        
         if (std::find(executionverificationcameranames.begin(), executionverificationcameranames.end(), v->first) == executionverificationcameranames.end()) {
             _mNameCameraParameters[v->first]->executionverification = false;
         } else {

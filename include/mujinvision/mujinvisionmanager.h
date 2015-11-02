@@ -158,6 +158,7 @@ public:
                                     const double pointsize=0.005,
                                     const bool ignoreocclusion=false,
                                     const unsigned int maxage=0,
+                                    const unsigned int fetchimagetimeout=0,
                                     const std::string& obstaclename="__dynamicobstacle__",
                                     const unsigned long long& starttime=0 /*ms*/,
                                     const std::string& locale="en_US");
@@ -371,8 +372,8 @@ private:
                         const bool bindetection=false,
                         const bool request=false,
                         const bool useold=false);
-    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const std::string& obstaclename, const unsigned long long& starttime);
+    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime);
     void _StopDetectionThread();
 
     /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
@@ -414,7 +415,7 @@ private:
     void _SyncCamera(const std::string& regionname, const std::string& cameraname);
     void _SyncCamera(const std::string& regionname, const std::string& cameraname, const mujinclient::Transform& t);
 
-    void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const bool ignoreocclusion, const unsigned int maxage=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
+    void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const bool ignoreocclusion, const unsigned int maxage=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -519,6 +520,7 @@ private:
     unsigned long long _lastocclusionTimestamp;
     std::vector<ImagePtr> _lastcolorimages; ///< last color images used for detection
     std::vector<ImagePtr> _lastdepthimages; ///< last depth images used for detection
+    std::vector<ImagePtr> _lastresultimages; ///< last result image used for detection
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
     boost::mutex _mutexDetector; ///< lock for detector
 

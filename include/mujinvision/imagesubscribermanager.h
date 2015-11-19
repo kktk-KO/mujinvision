@@ -31,6 +31,10 @@ public:
     virtual ~ImageSubscriberManager() {
     }
 
+    virtual void SetPreemptFn(const boost::function<bool()>& preemptfn) {
+        _preemptfn = preemptfn;
+    }
+
     /** \brief Initializes the image subscriber manager.
         \param mNameCamera map to cameras the subscribers subscribe to
         \params_pt boost property tree defining the image subscriber parameters
@@ -90,6 +94,7 @@ public:
 protected:
 
     std::map<std::string, CameraPtr> _mNameCamera; ///< name -> camera
+    boost::function<bool()> _preemptfn;
 };
 
 typedef boost::shared_ptr<ImageSubscriberManager> ImageSubscriberManagerPtr;

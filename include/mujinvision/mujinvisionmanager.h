@@ -455,6 +455,8 @@ private:
     std::string _GetConfigFileName(const std::string& type, const std::string& configname);
     void _LoadConfig(const std::string& filename, std::string& content);
 
+    bool _PreemptSubscriber();
+
     unsigned int _statusport, _commandport, _configport;
     std::string _configdir;
     std::string _detectorconfig, _imagesubscriberconfig;

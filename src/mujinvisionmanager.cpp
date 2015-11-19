@@ -152,6 +152,16 @@ void ParametersBase::Print()
     VISIONMANAGER_LOG_INFO(GetJsonString());
 }
 
+bool MujinVisionManager::_PreemptSubscriber()
+{
+    if (_bShutdown || _bCancelCommand || _bStopDetectionThread) {
+        std::stringstream ss;
+        ss << "preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread;
+        VISIONMANAGER_LOG_DEBUG(ss.str())
+    }
+    return _bShutdown || _bCancelCommand || _bStopDetectionThread;
+}
+
 MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir)
 {
     _bInitialized = false;
@@ -170,6 +180,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _resultTimestamp = 0;
     _resultState = "{}";
     _pImagesubscriberManager = imagesubscribermanager;
+    _pImagesubscriberManager->SetPreemptFn(boost::bind(&MujinVisionManager::_PreemptSubscriber, this));
     _pDetectorManager = detectormanager;
     _zmqcontext.reset(new zmq::context_t(8));
     _statusport = statusport;

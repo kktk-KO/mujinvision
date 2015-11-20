@@ -2179,7 +2179,7 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
         }
         // detect objects
         if (resultimages.size() > 0) {
-            _pDetector->DetectObjects(regionname, resultimages, detectedobjects, resultstate, fastdetection, bindetection);
+            _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, resultimages, detectedobjects, resultstate, fastdetection, bindetection);
         } else {
             _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, resultstate, fastdetection, bindetection);
         }

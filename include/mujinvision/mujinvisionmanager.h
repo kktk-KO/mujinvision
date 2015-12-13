@@ -316,7 +316,7 @@ private:
         }
         return "";
     };
-    
+
     struct DetectionThreadParams {
         double voxelsize;
         double pointsize;
@@ -526,6 +526,10 @@ private:
     std::vector<ImagePtr> _lastresultimages; ///< last result image used for detection
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
     boost::mutex _mutexDetector; ///< lock for detector
+    std::vector<std::string> _vExecutionVerificationCameraNames; ///< names of cameras for exec verification
+    double _filteringvoxelsize;
+    double _filteringstddev;
+    int _filteringnumnn;
 
     std::string _locale; ///< controller locale
     std::string _resultState; ///< additional information about the detection result

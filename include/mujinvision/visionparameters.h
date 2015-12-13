@@ -234,10 +234,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
         id = cameraid;
         isColorCamera = true;
         isDepthCamera = true;
-        executionverification = false;
-        filteringvoxelsize = 0.01;
-        filteringstddev = 0.01;
-        filteringnumnn = 80;
     }
 
     CameraParameters(const ptree& pt)
@@ -246,10 +242,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
         id = pt.get<std::string>("id", "");
         isColorCamera = pt.get<bool>("is_color_camera", true);
         isDepthCamera = pt.get<bool>("is_depth_camera", true);
-        executionverification = pt.get<bool>("executionverification", false);
-        filteringvoxelsize = pt.get<double>("filteringvoxelsize", 0.01);
-        filteringstddev = pt.get<double>("filteringstddev", 0.01);
-        filteringnumnn = pt.get<unsigned int>("filteringnumnn", 80);
     }
 
     virtual ~CameraParameters() {
@@ -258,10 +250,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
     std::string id;
     bool isColorCamera;
     bool isDepthCamera;
-    bool executionverification;
-    double filteringvoxelsize;
-    double filteringstddev;
-    unsigned int filteringnumnn;
 
     std::string GetJsonString()
     {
@@ -278,10 +266,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
         } else {
             ss << ", \"is_depth_camera\": true";
         }
-        ss << ", \"executionverification\": " << executionverification;
-        ss << ", \"filteringvoxelsize\": " << filteringvoxelsize;
-        ss << ", \"filteringstddev\": " << filteringstddev;
-        ss << ", \"filteringnumnn\": " << filteringnumnn;
         ss << "}";
         return ss.str();
     }
@@ -292,10 +276,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
             _pt.put<std::string>("id", id);
             _pt.put<bool>("isColorCamera", isColorCamera);
             _pt.put<bool>("isDepthCamera", isDepthCamera);
-            _pt.put<bool>("executionverification", executionverification);
-            _pt.put<double>("filteringvoxelsize", filteringvoxelsize);
-            _pt.put<double>("filteringstddev", filteringstddev);
-            _pt.put<unsigned int>("filteringnumnn", filteringnumnn);
         }
         return _pt;
     }

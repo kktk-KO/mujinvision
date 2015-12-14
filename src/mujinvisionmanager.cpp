@@ -629,7 +629,21 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 _bInitialized = true;
             }
             std::string locale = command_pt.get<std::string>("locale", "en_US");
-            _locale = locale;
+            boost::optional< const boost::property_tree::ptree& > optchild;
+            optchild = command_pt.get_child_optional("worldresultoffsettransform");
+            Transform tworldresultoffset;
+            if (!!optchild) {
+                ptree worldresultoffsetpt = command_pt.get_child("worldresultoffsettransform");
+                tworldresultoffset = GetTransform(worldresultoffsetpt);
+            } else {
+                tworldresultoffset.trans[0] = 0;
+                tworldresultoffset.trans[1] = 0;
+                tworldresultoffset.trans[2] = 0;
+                tworldresultoffset.rot[0] = 1;
+                tworldresultoffset.rot[1] = 0;
+                tworldresultoffset.rot[2] = 0;
+                tworldresultoffset.rot[3] = 0;
+            }
             Initialize(command_pt.get<std::string>("visionmanagerconfigname"),
                        command_pt.get<std::string>("detectorconfigname"),
                        command_pt.get<std::string>("imagesubscriberconfigname"),
@@ -646,6 +660,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<std::string>("targetname"),
                        command_pt.get<std::string>("streamerIp"),
                        command_pt.get<unsigned int>("streamerPort"),
+                       tworldresultoffset,
                        command_pt.get<std::string>("tasktype","binpicking"),
                        command_pt.get<unsigned int>("controllertimeout", 10),
                        command_pt.get<std::string>("locale", "en_US"),
@@ -1265,7 +1280,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     unsigned int maxnumdetection = params.maxnumdetection;
     BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
     std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(_locale) + "}";
-    VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in UpdateEnvironmentThread with userinfo " + userinfo_json);
+    VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in DetectionThread with userinfo " + userinfo_json);
 
     try {
         ptree tmppt;
@@ -1540,13 +1555,14 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                 boost::mutex::scoped_lock lock(_mutexDetectedInfo);
                 for (unsigned int i=0; i<_vDetectedObject.size(); i++) {
                     mujinclient::Transform transform;
-                    transform.quaternion[0] = _vDetectedObject[i]->transform.rot[0];
-                    transform.quaternion[1] = _vDetectedObject[i]->transform.rot[1];
-                    transform.quaternion[2] = _vDetectedObject[i]->transform.rot[2];
-                    transform.quaternion[3] = _vDetectedObject[i]->transform.rot[3];
-                    transform.translate[0] = _vDetectedObject[i]->transform.trans[0];
-                    transform.translate[1] = _vDetectedObject[i]->transform.trans[1];
-                    transform.translate[2] = _vDetectedObject[i]->transform.trans[2];
+                    Transform newtransform = _tWorldResultOffset * _vDetectedObject[i]->transform; // apply offset to result transform
+                    transform.quaternion[0] = newtransform.rot[0];
+                    transform.quaternion[1] = newtransform.rot[1];
+                    transform.quaternion[2] = newtransform.rot[2];
+                    transform.quaternion[3] = newtransform.rot[3];
+                    transform.translate[0] = newtransform.trans[0];
+                    transform.translate[1] = newtransform.trans[1];
+                    transform.translate[2] = newtransform.trans[2];
 
                     BinPickingTaskResource::DetectedObject detectedobject;
                     std::stringstream name_ss;
@@ -1924,8 +1940,10 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     }
 }
 
-void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const std::string& robotDeviceIOUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const std::string& robotDeviceIOUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const Transform& worldresultoffsettransform, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid)
 {
+    _locale = locale;
+    _tWorldResultOffset = worldresultoffsettransform;
     uint64_t time0 = GetMilliTime();
     uint64_t starttime = GetMilliTime();
     _binpickingTaskZmqPort = binpickingTaskZmqPort;

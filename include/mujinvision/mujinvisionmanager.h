@@ -118,6 +118,7 @@ public:
                             const std::string& targetname,
                             const std::string& streamerIp,
                             const unsigned int streamerPort,
+                            const Transform& worldresultoffsettransform,
                             const std::string& tasktype="binpicking",
                             const double controllertimeout=10.0, /*seconds*/
                             const std::string& locale="en_US",
@@ -527,9 +528,10 @@ private:
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
     boost::mutex _mutexDetector; ///< lock for detector
     std::vector<std::string> _vExecutionVerificationCameraNames; ///< names of cameras for exec verification
-    double _filteringvoxelsize;
-    double _filteringstddev;
-    int _filteringnumnn;
+    double _filteringvoxelsize;  ///< point cloud filting param for exec verification
+    double _filteringstddev;  ///< point cloud filting param for exec verification
+    int _filteringnumnn;  ///< point cloud filting param for exec verification
+    Transform _tWorldResultOffset; ///< transform to be applied to detection result in world frame
 
     std::string _locale; ///< controller locale
     std::string _resultState; ///< additional information about the detection result

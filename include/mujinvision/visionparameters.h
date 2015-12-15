@@ -398,7 +398,7 @@ typedef boost::shared_ptr<CalibrationData const> CalibrationDataConstPtr;
 typedef boost::weak_ptr<CalibrationData> CalibrationDataWeakPtr;
 
 /// \brief converts ptree to Transform in meters
-Transform MUJINVISION_API GetTransform(const ptree& pt) {
+inline Transform GetTransform(const ptree& pt) {
     Transform transform;
     std::string unit = pt.get<std::string>("unit", "m");
     double scale = 1.0;

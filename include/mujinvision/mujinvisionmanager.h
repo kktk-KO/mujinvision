@@ -415,8 +415,8 @@ private:
 
     /** \brief Updates the world transform of camera from the mujin controller.
      */
-    void _SyncCamera(const std::string& regionname, const std::string& cameraname);
-    void _SyncCamera(const std::string& regionname, const std::string& cameraname, const mujinclient::Transform& t);
+    void _SyncCamera(const std::string& cameraname);
+    void _SyncCamera(const std::string& cameraname, const mujinclient::Transform& t);
 
     void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const bool ignoreocclusion, const unsigned int maxage=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
 

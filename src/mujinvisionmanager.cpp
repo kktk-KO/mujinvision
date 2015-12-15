@@ -736,13 +736,10 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "VisualizePointCloudOnController") {
-            if (command_pt.count("regionname") == 0) {
-                throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
-            }
-            std::string regionname = command_pt.get<std::string>("regionname");
             if (!_pDetector || !_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
+            std::string regionname = command_pt.get<std::string>("regionname", "");
             std::vector<std::string> cameranames;
             boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
             if (!!cameranames_pt) {
@@ -837,11 +834,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "SyncCameras") {
-            if (command_pt.count("regionname") == 0) {
-                throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
-            }
-            std::string regionname = command_pt.get<std::string>("regionname");
-            if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
+            std::string regionname = command_pt.get<std::string>("regionname", "");
+            if (!_pBinpickingTask || !_pImagesubscriberManager) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
 
@@ -1666,7 +1660,7 @@ mujinvision::Transform MujinVisionManager::_GetTransform(const std::string& inst
     return _GetTransform(t);
 }
 
-void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::string& cameraname)
+void MujinVisionManager::_SyncCamera(const std::string& cameraname)
 {
     if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
         throw MujinVisionException("Camera "+cameraname+ " is unknown!", MVE_InvalidArgument);
@@ -1684,7 +1678,7 @@ void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::s
     VISIONMANAGER_LOG_DEBUG("setting camera transform to:\n" + _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
 }
 
-void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::string& cameraname, const mujinclient::Transform& t)
+void MujinVisionManager::_SyncCamera(const std::string& cameraname, const mujinclient::Transform& t)
 {
     if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
         throw MujinVisionException("Camera "+cameraname+ " is unknown!", MVE_InvalidArgument);
@@ -1863,7 +1857,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // skip images and try to get them again if failed to check for occlusion
         bool isoccluding = false;
-        if (!ignoreocclusion) {
+        if (!ignoreocclusion && regionname != "") {
             try {
                 std::vector<std::string> checkedcameranames;
                 for (size_t i=0; i<colorcameranames.size() && !isoccluding; ++i) {
@@ -2097,7 +2091,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
             cameraname = region->pRegionParameters->cameranames.at(i);
             pcameraparameters = _mNameCamera[cameraname]->pCameraParameters;
             if (std::find(syncedcamera.begin(), syncedcamera.end(), cameraname) == syncedcamera.end()) {
-                _SyncCamera(regionname, cameraname, resultgetinstobjectandsensorinfo.msensortransform[cameraname]);
+                _SyncCamera(cameraname, resultgetinstobjectandsensorinfo.msensortransform[cameraname]);
                 syncedcamera.push_back(cameraname);
             } else {
                 throw MujinVisionException("does not support same camera mapped to more than one region.", MVE_CommandNotSupported);
@@ -2138,10 +2132,10 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     _detectorconfig = detectorconfig;
     std::stringstream detectorconfigss;
     detectorconfigss << detectorconfig;
-    read_json(detectorconfigss, pt);
+    read_json(detectorconfigss, _ptDetectorConfig);
     _targetname = targetname;
     _targeturi = targeturi;
-    _pDetector = _pDetectorManager->CreateObjectDetector(pt.get_child("object"), pt.get_child("detection"), _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
+    _pDetector = _pDetectorManager->CreateObjectDetector(_ptDetectorConfig.get_child("object"), _ptDetectorConfig.get_child("detection"), _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
     VISIONMANAGER_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG(" ------------------------");
@@ -2402,7 +2396,14 @@ void MujinVisionManager::DetectRegionTransform(const std::string& regionname, co
 
 void MujinVisionManager::VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>&cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request)
 {
-    std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
+    std::vector<std::string> cameranamestobeused;
+    if (regionname != "") {
+        cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
+    } else if (cameranames.size() > 0) {
+        cameranamestobeused = cameranames;
+    } else {
+        throw MujinVisionException("neither region name nor camera names is specified, cannot sync cameras", MVE_InvalidArgument);
+    }
     std::vector<std::vector<Real> > pointslist;
     std::vector<std::string> names;
     std::vector<double> points;
@@ -2415,8 +2416,7 @@ void MujinVisionManager::VisualizePointCloudOnController(const std::string& regi
         std::vector<ImagePtr> depthimages;
         std::vector<std::string> dcamnames;
         dcamnames.push_back(cameraname);
-        //_GetDepthImages(TT_Command, regionname, dcamnames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, request);
-        _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, request, false);
+        _GetImages(TT_Command, _pBinpickingTask, "", dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, request, false);
         {
             boost::mutex::scoped_lock lock(_mutexDetector);
             _pDetector->GetCameraPointCloud(regionname, cameranamestobeused[i], depthimages.at(0), points);
@@ -2503,12 +2503,24 @@ void MujinVisionManager::SyncRegion(const std::string& regionname)
 
 void MujinVisionManager::SyncCameras(const std::string& regionname, const std::vector<std::string>&cameranames)
 {
-    std::vector<std::string> cameranamestobeused = _GetCameraNames(regionname, cameranames);
+    std::vector<std::string> cameranamestobeused;
+    if (regionname != "") {
+        cameranamestobeused = _GetCameraNames(regionname, cameranames);
+    } else if (cameranames.size() > 0) {
+        cameranamestobeused = cameranames;
+    } else {
+        throw MujinVisionException("neither region name nor camera names is specified, cannot sync cameras", MVE_InvalidArgument);
+    }
     for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
         VISIONMANAGER_LOG_DEBUG("updating " + boost::lexical_cast<std::string>(cameranamestobeused[i]));
-        _SyncCamera(regionname, cameranamestobeused[i]);
+        _SyncCamera(cameranamestobeused[i]);
     }
-    // TODO: update cameras in detector
+    // update cameras in detector
+    if (!!_pDetector) {
+        _pDetector.reset();
+        VISIONMANAGER_LOG_DEBUG("reset detector");
+        _pDetector = _pDetectorManager->CreateObjectDetector(_ptDetectorConfig.get_child("object"), _ptDetectorConfig.get_child("detection"), _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
+    }
     _SetStatus(TT_Command, MS_Succeeded);
 }
 

@@ -1300,7 +1300,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     bool forceRequestDetectionResults = false;
     unsigned long long binpickingstateTimestamp = 0;
     unsigned int numdetection = 0;
-    while (!_bStopDetectionThread && (maxnumdetection > 0 && numdetection < maxnumdetection)) {
+    while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection)) {
         time0 = GetMilliTime();
         std::vector<DetectedObjectPtr> detectedobjects;
         std::string resultstate;

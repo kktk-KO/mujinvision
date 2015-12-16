@@ -101,6 +101,8 @@ public:
         - subscribe to image streams
         - connect to the mujin controller
         - initialize detection
+
+        /param defaultTaskParameters a JSON string with the default task parameters that should be included in every command call to the controller. If empty, then insert nothing
      */
     virtual void Initialize(const std::string& visionmanagerconfigname,
                             const std::string& detectorconfigname,
@@ -108,13 +110,11 @@ public:
                             const std::string& controllerIp,
                             const unsigned int controllerPort,
                             const std::string& controllerUsernamePass,
-                            const std::string& robotControllerUri,
-                            const std::string& robotDeviceIOUri,
+                            const std::string& defaultTaskParameters,
                             const unsigned int binpickingTaskZmqPort,
                             const unsigned int binpickingTaskHeartbeatPort,
                             const double binpickingTaskHeartbeatTimeout,
                             const std::string& binpickingTaskScenePk,
-                            const std::string& robotname,
                             const std::string& targetname,
                             const std::string& streamerIp,
                             const unsigned int streamerPort,
@@ -468,8 +468,7 @@ private:
     unsigned int _binpickingTaskHeartbeatPort;
     double _binpickingTaskHeartbeatTimeout;
     std::string _binpickingTaskScenePk;
-    std::string _robotControllerUri;
-    std::string _robotDeviceIOUri;
+    std::string _defaultTaskParameters; ///< a JSON string with the default task parameters that should be included in every command call to the controller. If empty, then insert nothing
     std::string _tasktype;
 
     boost::shared_ptr<zmq::context_t> _zmqcontext;

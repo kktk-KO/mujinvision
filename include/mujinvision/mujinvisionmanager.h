@@ -499,6 +499,7 @@ private:
     std::string _targetname; ///< name of the target object
     std::string _targeturi; ///< uri of the target
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
+    std::map<std::string, std::string> _mCameranameRegionname; ///< cameraname -> regionname
     std::map<std::string, CameraParametersPtr> _mNameCameraParameters; ///< name->camera param
     std::map<std::string, CameraPtr > _mNameCamera; ///< name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera

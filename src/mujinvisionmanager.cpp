@@ -2101,6 +2101,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
                 _SetStatusMessage(TT_Command, "Loading parameters for depth camera " + cameraname +" for region " + regionname +".");
                 mNameDepthCamera[cameraname] = _mNameCamera[cameraname];
             }
+            _mCameranameRegionname[cameraname] = regionname;
         }
         _mRegionColorCameraMap[regionname] = mNameColorCamera;
         _mRegionDepthCameraMap[regionname] = mNameDepthCamera;
@@ -2416,7 +2417,11 @@ void MujinVisionManager::VisualizePointCloudOnController(const std::string& regi
         _GetImages(TT_Command, _pBinpickingTask, "", dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, request, false);
         {
             boost::mutex::scoped_lock lock(_mutexDetector);
-            _pDetector->GetCameraPointCloud(regionname, cameranamestobeused[i], depthimages.at(0), points);
+            if (regionname == "") {
+                _pDetector->GetCameraPointCloud(_mCameranameRegionname[cameranamestobeused[i]], cameranamestobeused[i], depthimages.at(0), points);
+            } else {
+                _pDetector->GetCameraPointCloud(regionname, cameranamestobeused[i], depthimages.at(0), points);
+            }
         }
         if (points.size()>0) {
             pointslist.push_back(points);

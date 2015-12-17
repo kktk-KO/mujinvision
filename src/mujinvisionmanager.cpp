@@ -2415,6 +2415,9 @@ void MujinVisionManager::VisualizePointCloudOnController(const std::string& regi
         std::vector<std::string> dcamnames;
         dcamnames.push_back(cameraname);
         _GetImages(TT_Command, _pBinpickingTask, "", dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, request, false);
+        if (depthimages.size() == 0) {
+            throw MujinVisionException("failed to get depth image for " + cameraname + ", cannot visualize point cloud", MVE_Failed);
+        }
         {
             boost::mutex::scoped_lock lock(_mutexDetector);
             if (regionname == "") {

@@ -118,7 +118,6 @@ public:
                             const std::string& targetname,
                             const std::string& streamerIp,
                             const unsigned int streamerPort,
-                            const Transform& worldresultoffsettransform,
                             const std::string& tasktype="binpicking",
                             const double controllertimeout=10.0, /*seconds*/
                             const std::string& locale="en_US",
@@ -155,6 +154,7 @@ public:
      */
     virtual void StartDetectionLoop(const std::string& regionname,
                                     const std::vector<std::string>& cameranames,
+                                    const Transform& worldresultoffsettransform,
                                     const double voxelsize=0.01,
                                     const double pointsize=0.005,
                                     const bool ignoreocclusion=false,

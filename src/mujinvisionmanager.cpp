@@ -1500,7 +1500,6 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
     uint64_t lastwarnedtimestamp1 = 0;
     uint64_t lastsentcloudtime = 0;
     while (!_bStopUpdateEnvironmentThread) {
-        VISIONMANAGER_LOG_ERROR("Update cycle!");
         // send latest pointcloud for execution verification
         for (unsigned int i=0; i<_vExecutionVerificationCameraNames.size(); ++i) {
             std::vector<double> points;
@@ -1535,7 +1534,6 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
         }
         
         if (!update) {
-            VISIONMANAGER_LOG_ERROR("Not trying to update!");
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             continue;
         } else {

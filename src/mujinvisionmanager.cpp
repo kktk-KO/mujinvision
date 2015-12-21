@@ -1328,7 +1328,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 std::stringstream ss;
                 ss << "force detection, start capturing..." << (int)isControllerPickPlaceRunning << " " << (int)forceRequestDetectionResults << " " << _vDetectedObject.size();
                 VISIONMANAGER_LOG_INFO(ss.str());
-                _pImagesubscriberManager->StartCaptureThread();
+                _pImagesubscriberManager->StartCaptureThread(cameranames);
             } else {  // do the following only if pick and place thread is running and detection is not forced
                 if (numPickAttempt <= lastPickedId) { // if robot has picked
                     if (GetMilliTime() - binpickingstateTimestamp < maxage) { // only do the following if the binpicking state message is up-to-date
@@ -1346,7 +1346,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             std::stringstream ss;
                             ss << "need to detect for this picking attempt, starting image capturing... " << numPickAttempt << " " << lastPickedId << " " << int(forceRequestDetectionResults) << " " << lastDetectedId << std::endl;
                             VISIONMANAGER_LOG_INFO(ss.str());
-                            _pImagesubscriberManager->StartCaptureThread();
+                            _pImagesubscriberManager->StartCaptureThread(cameranames);
                         }
                     } else { // do not detect if binpicking status message is old (controller in bad state)
                         if (GetMilliTime() - lastbinpickingstatewarningts > 1000.0) {
@@ -1757,6 +1757,16 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         }
         return;
     }
+    std::vector<std::string> cameranames;
+    for (size_t i=0; i<colorcameranames.size(); ++i) {
+        cameranames.push_back(colorcameranames.at(i));
+    }
+    for (size_t i=0; i<depthcameranames.size(); ++i) {
+        std::string cameraname = depthcameranames.at(i);
+        if (std::find(cameranames.begin(), cameranames.end(), cameraname) == cameranames.end()) {
+            cameranames.push_back(cameraname);
+        }
+    }
     // use local images so that we don't accidentally return images that are not verified
     std::vector<ImagePtr> colorimages, depthimages, resultimages;
 
@@ -1802,7 +1812,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 lastcouldnotcapturewarnts = GetMilliTime();
             }
             if (!!_pImagesubscriberManager) {
-                _pImagesubscriberManager->StartCaptureThread();
+                _pImagesubscriberManager->StartCaptureThread(cameranames);
             }
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             colorimages.clear();
@@ -1832,7 +1842,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 VISIONMANAGER_LOG_DEBUG("start image capturing, in case streamer was reset");
             }
             if (!!_pImagesubscriberManager) {
-                _pImagesubscriberManager->StartCaptureThread();
+                _pImagesubscriberManager->StartCaptureThread(cameranames);
             }
             colorimages.clear();
             depthimages.clear();
@@ -2208,22 +2218,11 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
     _SetStatus(tt, MS_Succeeded);
 }
 
-void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>&cameranames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection)
+void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>& cameranames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection)
 {
-    // New code: reinitialize subscriber manager
-    std::map<std::string, CameraPtr> currentNameCamera;
-    for (size_t i=0; i<cameranames.size(); ++i){
-        std::string cameraname = cameranames.at(i);
-        if (_mNameCamera.find(cameraname) != _mNameCamera.end()) {
-            currentNameCamera[cameraname]= _mNameCamera[cameraname];
-        }
-    }
-    _pImagesubscriberManager->ReInitialize(currentNameCamera);
-
     _tWorldResultOffset = worldresultoffsettransform;
-
     if (!!_pImagesubscriberManager) {
-        _pImagesubscriberManager->StartCaptureThread();
+        _pImagesubscriberManager->StartCaptureThread(cameranames);
     } else {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
     }

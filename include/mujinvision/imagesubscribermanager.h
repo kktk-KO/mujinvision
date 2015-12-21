@@ -36,6 +36,8 @@ public:
         \params_pt boost property tree defining the image subscriber parameters
      */
     virtual void Initialize(const std::map<std::string, CameraPtr >&mNameCamera, const std::string& streamerIp, const unsigned int streamerPort, const ptree& params_pt, boost::shared_ptr<zmq::context_t> context) = 0;
+    
+    virtual void ReInitialize(const std::map<std::string, CameraPtr>&mNameCamera){};
 
     virtual void DeInitialize() = 0;
 

@@ -1251,7 +1251,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 
     uint64_t time0;
-    int numfastdetection = 1; // max num of times to run fast detection
+    int numfastdetection = 0; // max num of times to run fast detection
     int lastDetectedId = 0;
     int lastPickedId = -1;
     uint64_t lastocclusionwarningts = 0;
@@ -1398,6 +1398,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             if (isControllerPickPlaceRunning && !forceRequestDetectionResults && detectedobjects.size() > 0) {
                 VISIONMANAGER_LOG_INFO("detected at least 1 object, stop image capturing...");
                 _pImagesubscriberManager->StopCaptureThread();
+                VISIONMANAGER_LOG_INFO("capturing stopped");
             } else {
                 //VISIONMANAGER_LOG_INFO("detected no object, do not stop image capturing...");
             }
@@ -1463,7 +1464,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
     uint64_t lastwarnedtimestamp1 = 0;
     uint64_t lastsentcloudtime = 0;
     while (!_bStopUpdateEnvironmentThread) {
-
+        VISIONMANAGER_LOG_ERROR("Update cycle!");
         // send latest pointcloud for execution verification
         for(unsigned int i=0; i<cameranamestobeused.size(); i++) {
             std::vector<double> points;
@@ -1499,11 +1500,13 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
             boost::mutex::scoped_lock lock(_mutexDetectedInfo);
             update = _resultTimestamp != 0 && _resultTimestamp > lastUpdateTimestamp;
         }
-
+        
         if (!update) {
+            VISIONMANAGER_LOG_ERROR("Not trying to update!");
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             continue;
         } else {
+            VISIONMANAGER_LOG_ERROR("Trying to update!");
             lastUpdateTimestamp = _resultTimestamp;
             std::vector<BinPickingTaskResource::DetectedObject> detectedobjects;
             std::vector<Real> totalpoints;
@@ -2184,6 +2187,16 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
 
 void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>&cameranames,const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale)
 {
+    // New code: reinitialize subscriber manager
+    std::map<std::string, CameraPtr> currentNameCamera;
+    for (size_t i=0; i<cameranames.size(); ++i){
+        std::string cameraname = cameranames.at(i);
+        if (_mNameCamera.find(cameraname) != _mNameCamera.end()) {
+            currentNameCamera[cameraname]= _mNameCamera[cameraname];
+        }
+    }
+    _pImagesubscriberManager->ReInitialize(currentNameCamera);
+
     if (!!_pImagesubscriberManager) {
         _pImagesubscriberManager->StartCaptureThread();
     } else {

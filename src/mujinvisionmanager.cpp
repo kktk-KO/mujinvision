@@ -531,7 +531,22 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             unsigned int maxnumfastdetection = command_pt.get<unsigned int>("maxnumfastdetection", 1);
             unsigned int maxnumdetection = command_pt.get<unsigned int>("maxnumdetection", 0);
             _locale = locale;
-            StartDetectionLoop(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, obstaclename, starttime, locale, maxnumfastdetection, maxnumdetection);
+            boost::optional< const boost::property_tree::ptree& > optchild;
+            optchild = command_pt.get_child_optional("worldresultoffsettransform");
+            Transform tworldresultoffset;
+            if (!!optchild) {
+                ptree worldresultoffsetpt = command_pt.get_child("worldresultoffsettransform");
+                tworldresultoffset = GetTransform(worldresultoffsetpt);
+            } else {
+                tworldresultoffset.trans[0] = 0;
+                tworldresultoffset.trans[1] = 0;
+                tworldresultoffset.trans[2] = 0;
+                tworldresultoffset.rot[0] = 1;
+                tworldresultoffset.rot[1] = 0;
+                tworldresultoffset.rot[2] = 0;
+                tworldresultoffset.rot[3] = 0;
+            }
+            StartDetectionLoop(regionname, cameranames, tworldresultoffset, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, obstaclename, starttime, locale, maxnumfastdetection, maxnumdetection);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -629,21 +644,6 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 _bInitialized = true;
             }
             std::string locale = command_pt.get<std::string>("locale", "en_US");
-            boost::optional< const boost::property_tree::ptree& > optchild;
-            optchild = command_pt.get_child_optional("worldresultoffsettransform");
-            Transform tworldresultoffset;
-            if (!!optchild) {
-                ptree worldresultoffsetpt = command_pt.get_child("worldresultoffsettransform");
-                tworldresultoffset = GetTransform(worldresultoffsetpt);
-            } else {
-                tworldresultoffset.trans[0] = 0;
-                tworldresultoffset.trans[1] = 0;
-                tworldresultoffset.trans[2] = 0;
-                tworldresultoffset.rot[0] = 1;
-                tworldresultoffset.rot[1] = 0;
-                tworldresultoffset.rot[2] = 0;
-                tworldresultoffset.rot[3] = 0;
-            }
             Initialize(command_pt.get<std::string>("visionmanagerconfigname"),
                        command_pt.get<std::string>("detectorconfigname"),
                        command_pt.get<std::string>("imagesubscriberconfigname"),
@@ -658,7 +658,6 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<std::string>("targetname"),
                        command_pt.get<std::string>("streamerIp"),
                        command_pt.get<unsigned int>("streamerPort"),
-                       tworldresultoffset,
                        command_pt.get<std::string>("tasktype","binpicking"),
                        command_pt.get<unsigned int>("controllertimeout", 10),
                        command_pt.get<std::string>("locale", "en_US"),
@@ -1935,10 +1934,9 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     }
 }
 
-void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const Transform& worldresultoffsettransform, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid)
 {
     _locale = locale;
-    _tWorldResultOffset = worldresultoffsettransform;
     uint64_t time0 = GetMilliTime();
     uint64_t starttime = GetMilliTime();
     _binpickingTaskZmqPort = binpickingTaskZmqPort;
@@ -2210,7 +2208,7 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
     _SetStatus(tt, MS_Succeeded);
 }
 
-void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>&cameranames,const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection)
+void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>&cameranames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection)
 {
     // New code: reinitialize subscriber manager
     std::map<std::string, CameraPtr> currentNameCamera;
@@ -2221,6 +2219,8 @@ void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const
         }
     }
     _pImagesubscriberManager->ReInitialize(currentNameCamera);
+
+    _tWorldResultOffset = worldresultoffsettransform;
 
     if (!!_pImagesubscriberManager) {
         _pImagesubscriberManager->StartCaptureThread();

@@ -152,6 +152,16 @@ void ParametersBase::Print()
     VISIONMANAGER_LOG_INFO(GetJsonString());
 }
 
+bool MujinVisionManager::_PreemptSubscriber()
+{
+    if (_bShutdown || _bCancelCommand || _bStopDetectionThread) {
+        std::stringstream ss;
+        ss << "preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread;
+        VISIONMANAGER_LOG_DEBUG(ss.str())
+    }
+    return _bShutdown || _bCancelCommand || _bStopDetectionThread;
+}
+
 MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir)
 {
     _bInitialized = false;
@@ -170,6 +180,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _resultTimestamp = 0;
     _resultState = "{}";
     _pImagesubscriberManager = imagesubscribermanager;
+    _pImagesubscriberManager->SetPreemptFn(boost::bind(&MujinVisionManager::_PreemptSubscriber, this));
     _pDetectorManager = detectormanager;
     _zmqcontext.reset(new zmq::context_t(8));
     _statusport = statusport;
@@ -517,8 +528,10 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             std::string obstaclename = command_pt.get<std::string>("obstaclename", "__dynamicobstacle__");
             unsigned long long starttime = command_pt.get<unsigned long long>("starttime", 0);
             std::string locale = command_pt.get<std::string>("locale", "en_US");
+            unsigned int maxnumfastdetection = command_pt.get<unsigned int>("maxnumfastdetection", 1);
+            unsigned int maxnumdetection = command_pt.get<unsigned int>("maxnumdetection", 0);
             _locale = locale;
-            StartDetectionLoop(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, obstaclename, starttime);
+            StartDetectionLoop(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, obstaclename, starttime, locale, maxnumfastdetection, maxnumdetection);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -616,23 +629,36 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 _bInitialized = true;
             }
             std::string locale = command_pt.get<std::string>("locale", "en_US");
-            _locale = locale;
+            boost::optional< const boost::property_tree::ptree& > optchild;
+            optchild = command_pt.get_child_optional("worldresultoffsettransform");
+            Transform tworldresultoffset;
+            if (!!optchild) {
+                ptree worldresultoffsetpt = command_pt.get_child("worldresultoffsettransform");
+                tworldresultoffset = GetTransform(worldresultoffsetpt);
+            } else {
+                tworldresultoffset.trans[0] = 0;
+                tworldresultoffset.trans[1] = 0;
+                tworldresultoffset.trans[2] = 0;
+                tworldresultoffset.rot[0] = 1;
+                tworldresultoffset.rot[1] = 0;
+                tworldresultoffset.rot[2] = 0;
+                tworldresultoffset.rot[3] = 0;
+            }
             Initialize(command_pt.get<std::string>("visionmanagerconfigname"),
                        command_pt.get<std::string>("detectorconfigname"),
                        command_pt.get<std::string>("imagesubscriberconfigname"),
                        command_pt.get<std::string>("mujinControllerIp", ""),
                        command_pt.get<unsigned int>("mujinControllerPort", 0),
                        command_pt.get<std::string>("mujinControllerUsernamePass"),
-                       command_pt.get<std::string>("robotControllerUri"),
-                       command_pt.get<std::string>("robotDeviceIOUri"),
+                       command_pt.get<std::string>("defaultTaskParameters"),
                        command_pt.get<unsigned int>("binpickingTaskZmqPort"),
                        command_pt.get<unsigned int>("binpickingTaskHeartbeatPort"),
                        command_pt.get<double>("binpickingTaskHeartbeatTimeout"),
                        command_pt.get<std::string>("binpickingTaskScenePk"),
-                       command_pt.get<std::string>("robotname", ""),
                        command_pt.get<std::string>("targetname"),
                        command_pt.get<std::string>("streamerIp"),
                        command_pt.get<unsigned int>("streamerPort"),
+                       tworldresultoffset,
                        command_pt.get<std::string>("tasktype","binpicking"),
                        command_pt.get<unsigned int>("controllertimeout", 10),
                        command_pt.get<std::string>("locale", "en_US"),
@@ -708,13 +734,10 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "VisualizePointCloudOnController") {
-            if (command_pt.count("regionname") == 0) {
-                throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
-            }
-            std::string regionname = command_pt.get<std::string>("regionname");
             if (!_pDetector || !_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
+            std::string regionname = command_pt.get<std::string>("regionname", "");
             std::vector<std::string> cameranames;
             boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
             if (!!cameranames_pt) {
@@ -809,11 +832,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "SyncCameras") {
-            if (command_pt.count("regionname") == 0) {
-                throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
-            }
-            std::string regionname = command_pt.get<std::string>("regionname");
-            if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
+            std::string regionname = command_pt.get<std::string>("regionname", "");
+            if (!_pBinpickingTask || !_pImagesubscriberManager) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
 
@@ -1148,7 +1168,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
     }
 }
 
-void MujinVisionManager::_StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime)
+void MujinVisionManager::_StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection)
 {
     if (starttime > 0) {
         _tsStartDetection = starttime;
@@ -1159,7 +1179,16 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
         _SetStatusMessage(TT_Command, "Detection thread is already running, do nothing.");
     } else {
         _bStopDetectionThread = false;
-        _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, obstaclename)));
+        DetectionThreadParams params;
+        params.voxelsize = voxelsize;
+        params.pointsize = pointsize;
+        params.ignoreocclusion = ignoreocclusion;
+        params.maxage = maxage;
+        params.fetchimagetimeout = fetchimagetimeout;
+        params.maxnumfastdetection = maxnumfastdetection;
+        params.maxnumdetection = maxnumdetection;
+
+        _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, params)));
     }
 }
 
@@ -1232,11 +1261,18 @@ void MujinVisionManager::_StopControllerMonitorThread()
     VISIONMANAGER_LOG_DEBUG("stopped controllermonitor thread");
 }
 
-void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename)
+void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params)
 {
+    double voxelsize = params.voxelsize;
+    //double pointsize = params.pointsize;
+    bool ignoreocclusion = params.ignoreocclusion;
+    unsigned int maxage = params.maxage;
+    unsigned int fetchimagetimeout = params.fetchimagetimeout;
+    unsigned int maxnumfastdetection = params.maxnumfastdetection;
+    unsigned int maxnumdetection = params.maxnumdetection;
     BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
     std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(_locale) + "}";
-    VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in UpdateEnvironmentThread with userinfo " + userinfo_json);
+    VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in DetectionThread with userinfo " + userinfo_json);
 
     try {
         ptree tmppt;
@@ -1248,10 +1284,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         throw;
     }
 
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+    pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 
     uint64_t time0;
-    int numfastdetection = 0; // max num of times to run fast detection
+    int numfastdetection = maxnumfastdetection; // max num of times to run fast detection
     int lastDetectedId = 0;
     int lastPickedId = -1;
     uint64_t lastocclusionwarningts = 0;
@@ -1263,8 +1299,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     bool isRobotOccludingSourceContainer = false;
     bool forceRequestDetectionResults = false;
     unsigned long long binpickingstateTimestamp = 0;
-
-    while (!_bStopDetectionThread) {
+    unsigned int numdetection = 0;
+    while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection)) {
         time0 = GetMilliTime();
         std::vector<DetectedObjectPtr> detectedobjects;
         std::string resultstate;
@@ -1381,7 +1417,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 uint64_t starttime = GetMilliTime();
                 {
                     boost::mutex::scoped_lock lock(_mutexDetector);
-                    _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false, false, _mNameCameraParameters[cameraname]->filteringstddev, _mNameCameraParameters[cameraname]->filteringnumnn);
+                    _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false, false, _filteringstddev, _filteringnumnn);
                 }
                 ss << "GetPointCloudObstacle() took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                 VISIONMANAGER_LOG_INFO(ss.str());
@@ -1436,6 +1472,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
         VISIONMANAGER_LOG_INFO("Cycle time: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
         VISIONMANAGER_LOG_INFO(" ------------------------");
+        numdetection += 1;
     }
 }
 
@@ -1458,7 +1495,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
         throw;
     }
 
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+    pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
     uint64_t starttime;
     uint64_t lastwarnedtimestamp0 = 0;
     uint64_t lastwarnedtimestamp1 = 0;
@@ -1466,29 +1503,26 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
     while (!_bStopUpdateEnvironmentThread) {
         VISIONMANAGER_LOG_ERROR("Update cycle!");
         // send latest pointcloud for execution verification
-        for(unsigned int i=0; i<cameranamestobeused.size(); i++) {
+        for (unsigned int i=0; i<_vExecutionVerificationCameraNames.size(); ++i) {
             std::vector<double> points;
-            std::string cameraname = cameranamestobeused[i];
-            if (_mNameCameraParameters[cameraname]->executionverification) {
-                unsigned long long cloudstarttime, cloudendtime;
-                _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _mNameCameraParameters[cameraname]->filteringvoxelsize, _mNameCameraParameters[cameraname]->filteringstddev, _mNameCameraParameters[cameraname]->filteringnumnn);
-
-                if (cloudstarttime > lastsentcloudtime) {
-                    lastsentcloudtime = cloudstarttime;
-                    try {
-                        uint64_t starttime = GetMilliTime();
-                        pBinpickingTask->AddPointCloudObstacle(points, pointsize, "latestobstacle_"+cameraname, cloudstarttime, cloudendtime, true);
+            std::string cameraname = _vExecutionVerificationCameraNames.at(i);
+            unsigned long long cloudstarttime, cloudendtime;
+            _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn);
+            if (cloudstarttime > lastsentcloudtime) {
+                lastsentcloudtime = cloudstarttime;
+                try {
+                    uint64_t starttime = GetMilliTime();
+                    pBinpickingTask->AddPointCloudObstacle(points, pointsize, "latestobstacle_"+cameraname, cloudstarttime, cloudendtime, true);
+                    std::stringstream ss;
+                    ss << "Sent latest pointcloud of " << cameraname << " with " << (points.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
+                    VISIONMANAGER_LOG_DEBUG(ss.str());
+                } catch(const std::exception& ex) {
+                    if (GetMilliTime() - lastwarnedtimestamp0 > 1000.0) {
+                        lastwarnedtimestamp0 = GetMilliTime();
                         std::stringstream ss;
-                        ss << "Sent latest pointcloud of " << cameraname << " with " << (points.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
-                        VISIONMANAGER_LOG_DEBUG(ss.str());
-                    } catch(const std::exception& ex) {
-                        if (GetMilliTime() - lastwarnedtimestamp0 > 1000.0) {
-                            lastwarnedtimestamp0 = GetMilliTime();
-                            std::stringstream ss;
-                            ss << "Failed to send latest pointcloud of " << cameraname << " ex.what()=" << ex.what() << ".";
-                            _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
-                            VISIONMANAGER_LOG_WARN(ss.str());
-                        }
+                        ss << "Failed to send latest pointcloud of " << cameraname << " ex.what()=" << ex.what() << ".";
+                        _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
+                        VISIONMANAGER_LOG_WARN(ss.str());
                     }
                 }
             }
@@ -1516,13 +1550,14 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                 boost::mutex::scoped_lock lock(_mutexDetectedInfo);
                 for (unsigned int i=0; i<_vDetectedObject.size(); i++) {
                     mujinclient::Transform transform;
-                    transform.quaternion[0] = _vDetectedObject[i]->transform.rot[0];
-                    transform.quaternion[1] = _vDetectedObject[i]->transform.rot[1];
-                    transform.quaternion[2] = _vDetectedObject[i]->transform.rot[2];
-                    transform.quaternion[3] = _vDetectedObject[i]->transform.rot[3];
-                    transform.translate[0] = _vDetectedObject[i]->transform.trans[0];
-                    transform.translate[1] = _vDetectedObject[i]->transform.trans[1];
-                    transform.translate[2] = _vDetectedObject[i]->transform.trans[2];
+                    Transform newtransform = _tWorldResultOffset * _vDetectedObject[i]->transform; // apply offset to result transform
+                    transform.quaternion[0] = newtransform.rot[0];
+                    transform.quaternion[1] = newtransform.rot[1];
+                    transform.quaternion[2] = newtransform.rot[2];
+                    transform.quaternion[3] = newtransform.rot[3];
+                    transform.translate[0] = newtransform.trans[0];
+                    transform.translate[1] = newtransform.trans[1];
+                    transform.translate[2] = newtransform.trans[2];
 
                     BinPickingTaskResource::DetectedObject detectedobject;
                     std::stringstream name_ss;
@@ -1579,7 +1614,7 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
         throw;
     }
 
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+    pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 
     BinPickingTaskResource::ResultGetBinpickingState binpickingstate;
     uint64_t lastwarnedtimestamp = 0;
@@ -1626,7 +1661,7 @@ mujinvision::Transform MujinVisionManager::_GetTransform(const std::string& inst
     return _GetTransform(t);
 }
 
-void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::string& cameraname)
+void MujinVisionManager::_SyncCamera(const std::string& cameraname)
 {
     if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
         throw MujinVisionException("Camera "+cameraname+ " is unknown!", MVE_InvalidArgument);
@@ -1644,7 +1679,7 @@ void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::s
     VISIONMANAGER_LOG_DEBUG("setting camera transform to:\n" + _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
 }
 
-void MujinVisionManager::_SyncCamera(const std::string& regionname, const std::string& cameraname, const mujinclient::Transform& t)
+void MujinVisionManager::_SyncCamera(const std::string& cameraname, const mujinclient::Transform& t)
 {
     if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
         throw MujinVisionException("Camera "+cameraname+ " is unknown!", MVE_InvalidArgument);
@@ -1823,7 +1858,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // skip images and try to get them again if failed to check for occlusion
         bool isoccluding = false;
-        if (!ignoreocclusion) {
+        if (!ignoreocclusion && regionname != "") {
             try {
                 std::vector<std::string> checkedcameranames;
                 for (size_t i=0; i<colorcameranames.size() && !isoccluding; ++i) {
@@ -1900,8 +1935,10 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     }
 }
 
-    void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& robotControllerUri, const std::string& robotDeviceIOUri, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& robotname, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const Transform& worldresultoffsettransform, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid)
 {
+    _locale = locale;
+    _tWorldResultOffset = worldresultoffsettransform;
     uint64_t time0 = GetMilliTime();
     uint64_t starttime = GetMilliTime();
     _binpickingTaskZmqPort = binpickingTaskZmqPort;
@@ -1909,8 +1946,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     _binpickingTaskHeartbeatTimeout = binpickingTaskHeartbeatTimeout;
     _binpickingTaskScenePk = binpickingTaskScenePk;
     _controllerCommandTimeout = controllertimeout;
-    _robotControllerUri = robotControllerUri;
-    _robotDeviceIOUri = robotDeviceIOUri;
+    _defaultTaskParameters = defaultTaskParameters;
     _tasktype = tasktype;
     _slaverequestid = slaverequestid;
     
@@ -1924,18 +1960,15 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     read_json(visionmanagerconfigss, pt);
 
     // read execution verification configuration
-    ptree pt_visionserver;
-    pt_visionserver = pt.get_child("visionserver");
-    std::vector<std::string> executionverificationcameranames;
-    double filteringvoxelsize;
-    double filteringstddev;
-    int filteringnumnn;
-    FOREACH(it, pt_visionserver.get_child("executionverificationcameras")) {
-        executionverificationcameranames.push_back(it->second.data());
+    ptree visionserverpt;
+    visionserverpt = pt.get_child("visionserver");
+    _vExecutionVerificationCameraNames.clear();
+    FOREACH(it, visionserverpt.get_child("executionverificationcameras")) {
+        _vExecutionVerificationCameraNames.push_back(it->second.data());
     }
-    filteringvoxelsize = pt_visionserver.get<double>("filteringvoxelsize");
-    filteringstddev = pt_visionserver.get<double>("filteringstddev");
-    filteringnumnn = pt_visionserver.get<int>("filteringnumnn");
+    _filteringvoxelsize = visionserverpt.get<double>("filteringvoxelsize");
+    _filteringstddev = visionserverpt.get<double>("filteringstddev");
+    _filteringnumnn = visionserverpt.get<int>("filteringnumnn");
     
     // set up regions
     std::vector<std::string> regionnames;
@@ -1976,15 +2009,6 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         } else {
             _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
         }
-        
-        if (std::find(executionverificationcameranames.begin(), executionverificationcameranames.end(), v->first) == executionverificationcameranames.end()) {
-            _mNameCameraParameters[v->first]->executionverification = false;
-        } else {
-            _mNameCameraParameters[v->first]->executionverification = true;
-        }
-        _mNameCameraParameters[v->first]->filteringvoxelsize = filteringvoxelsize;
-        _mNameCameraParameters[v->first]->filteringstddev = filteringstddev;
-        _mNameCameraParameters[v->first]->filteringnumnn = filteringnumnn;
     }
 
     VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in Initialize() with userinfo " + _userinfo_json);
@@ -1999,7 +2023,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         throw;
     }
 
-    _pBinpickingTask->Initialize(robotControllerUri, robotDeviceIOUri, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json, slaverequestid);
+    _pBinpickingTask->Initialize(defaultTaskParameters, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json, slaverequestid);
 
     _SetStatusMessage(TT_Command, "Syncing regions");
     std::vector<std::string> cameranames;
@@ -2067,7 +2091,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             cameraname = region->pRegionParameters->cameranames.at(i);
             pcameraparameters = _mNameCamera[cameraname]->pCameraParameters;
             if (std::find(syncedcamera.begin(), syncedcamera.end(), cameraname) == syncedcamera.end()) {
-                _SyncCamera(regionname, cameraname, resultgetinstobjectandsensorinfo.msensortransform[cameraname]);
+                _SyncCamera(cameraname, resultgetinstobjectandsensorinfo.msensortransform[cameraname]);
                 syncedcamera.push_back(cameraname);
             } else {
                 throw MujinVisionException("does not support same camera mapped to more than one region.", MVE_CommandNotSupported);
@@ -2080,6 +2104,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 _SetStatusMessage(TT_Command, "Loading parameters for depth camera " + cameraname +" for region " + regionname +".");
                 mNameDepthCamera[cameraname] = _mNameCamera[cameraname];
             }
+            _mCameranameRegionname[cameraname] = regionname;
         }
         _mRegionColorCameraMap[regionname] = mNameColorCamera;
         _mRegionDepthCameraMap[regionname] = mNameDepthCamera;
@@ -2108,10 +2133,10 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     _detectorconfig = detectorconfig;
     std::stringstream detectorconfigss;
     detectorconfigss << detectorconfig;
-    read_json(detectorconfigss, pt);
+    read_json(detectorconfigss, _ptDetectorConfig);
     _targetname = targetname;
     _targeturi = targeturi;
-    _pDetector = _pDetectorManager->CreateObjectDetector(pt.get_child("object"), pt.get_child("detection"), _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
+    _pDetector = _pDetectorManager->CreateObjectDetector(_ptDetectorConfig.get_child("object"), _ptDetectorConfig.get_child("detection"), _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
     VISIONMANAGER_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG(" ------------------------");
@@ -2171,7 +2196,7 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
         }
         // detect objects
         if (resultimages.size() > 0) {
-            _pDetector->DetectObjects(regionname, resultimages, detectedobjects, resultstate, fastdetection, bindetection);
+            _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, resultimages, detectedobjects, resultstate, fastdetection, bindetection);
         } else {
             _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, resultstate, fastdetection, bindetection);
         }
@@ -2185,7 +2210,7 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
     _SetStatus(tt, MS_Succeeded);
 }
 
-void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>&cameranames,const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale)
+void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>&cameranames,const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection)
 {
     // New code: reinitialize subscriber manager
     std::map<std::string, CameraPtr> currentNameCamera;
@@ -2202,7 +2227,7 @@ void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const
     } else {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
     }
-    _StartDetectionThread(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, obstaclename, starttime);
+    _StartDetectionThread(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, starttime, maxnumfastdetection, maxnumdetection);
     _StartUpdateEnvironmentThread(regionname, cameranames, voxelsize, pointsize, obstaclename, 50, locale);
     _StartControllerMonitorThread(50, locale);
     _SetStatus(TT_Command, MS_Succeeded);
@@ -2239,7 +2264,7 @@ void MujinVisionManager::SendPointCloudObstacleToController(const std::string& r
                 {
                     boost::mutex::scoped_lock lock(_mutexDetector);
                     _pDetector->SetDepthImage(cameraname, depthimages.at(i));
-                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _mNameCameraParameters[cameraname]->filteringstddev, _mNameCameraParameters[cameraname]->filteringnumnn);
+                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn);
                 }
                 if (points.size() / 3 == 0) {
                     _SetStatusMessage(TT_Command, "got 0 point from GetPointCloudObstacle()");
@@ -2254,7 +2279,7 @@ void MujinVisionManager::SendPointCloudObstacleToController(const std::string& r
                         {
                             boost::mutex::scoped_lock lock(_mutexDetector);
                             _pDetector->SetDepthImage(cameraname, depthimages1.at(0));
-                            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _mNameCameraParameters[cameraname]->filteringstddev, _mNameCameraParameters[cameraname]->filteringnumnn);
+                            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn);
                         }
                         numretries--;
                     }
@@ -2293,7 +2318,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(const std::st
         throw;
     }
 
-    pBinpickingTask->Initialize(_robotControllerUri, _robotDeviceIOUri, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+    pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 
     std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
     // set up images
@@ -2312,7 +2337,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(const std::st
             {
                 boost::mutex::scoped_lock lock(_mutexDetector);
                 _pDetector->SetDepthImage(cameraname, depthimages.at(i));
-                _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _mNameCameraParameters[cameraname]->filteringstddev, _mNameCameraParameters[cameraname]->filteringnumnn);
+                _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
             }
             if (points.size() / 3 == 0) {
                 _SetStatusMessage(TT_SendPointcloudObstacle, "got 0 point from GetPointCloudObstacle()");
@@ -2328,7 +2353,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(const std::st
                     {
                         boost::mutex::scoped_lock lock(_mutexDetector);
                         _pDetector->SetDepthImage(cameraname, depthimages1.at(0));
-                        _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _mNameCameraParameters[cameraname]->filteringstddev, _mNameCameraParameters[cameraname]->filteringnumnn);
+                        _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
                     }
                     numretries--;
                 }
@@ -2382,7 +2407,14 @@ void MujinVisionManager::DetectRegionTransform(const std::string& regionname, co
 
 void MujinVisionManager::VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>&cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request)
 {
-    std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
+    std::vector<std::string> cameranamestobeused;
+    if (regionname != "") {
+        cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
+    } else if (cameranames.size() > 0) {
+        cameranamestobeused = cameranames;
+    } else {
+        throw MujinVisionException("neither region name nor camera names is specified, cannot sync cameras", MVE_InvalidArgument);
+    }
     std::vector<std::vector<Real> > pointslist;
     std::vector<std::string> names;
     std::vector<double> points;
@@ -2395,11 +2427,17 @@ void MujinVisionManager::VisualizePointCloudOnController(const std::string& regi
         std::vector<ImagePtr> depthimages;
         std::vector<std::string> dcamnames;
         dcamnames.push_back(cameraname);
-        //_GetDepthImages(TT_Command, regionname, dcamnames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, request);
-        _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, request, false);
+        _GetImages(TT_Command, _pBinpickingTask, "", dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, request, false);
+        if (depthimages.size() == 0) {
+            throw MujinVisionException("failed to get depth image for " + cameraname + ", cannot visualize point cloud", MVE_Failed);
+        }
         {
             boost::mutex::scoped_lock lock(_mutexDetector);
-            _pDetector->GetCameraPointCloud(regionname, cameranamestobeused[i], depthimages.at(0), points);
+            if (regionname == "") {
+                _pDetector->GetCameraPointCloud(_mCameranameRegionname[cameranamestobeused[i]], cameranamestobeused[i], depthimages.at(0), points);
+            } else {
+                _pDetector->GetCameraPointCloud(regionname, cameranamestobeused[i], depthimages.at(0), points);
+            }
         }
         if (points.size()>0) {
             pointslist.push_back(points);
@@ -2483,12 +2521,24 @@ void MujinVisionManager::SyncRegion(const std::string& regionname)
 
 void MujinVisionManager::SyncCameras(const std::string& regionname, const std::vector<std::string>&cameranames)
 {
-    std::vector<std::string> cameranamestobeused = _GetCameraNames(regionname, cameranames);
+    std::vector<std::string> cameranamestobeused;
+    if (regionname != "") {
+        cameranamestobeused = _GetCameraNames(regionname, cameranames);
+    } else if (cameranames.size() > 0) {
+        cameranamestobeused = cameranames;
+    } else {
+        throw MujinVisionException("neither region name nor camera names is specified, cannot sync cameras", MVE_InvalidArgument);
+    }
     for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
         VISIONMANAGER_LOG_DEBUG("updating " + boost::lexical_cast<std::string>(cameranamestobeused[i]));
-        _SyncCamera(regionname, cameranamestobeused[i]);
+        _SyncCamera(cameranamestobeused[i]);
     }
-    // TODO: update cameras in detector
+    // update cameras in detector
+    if (!!_pDetector) {
+        _pDetector.reset();
+        VISIONMANAGER_LOG_DEBUG("reset detector");
+        _pDetector = _pDetectorManager->CreateObjectDetector(_ptDetectorConfig.get_child("object"), _ptDetectorConfig.get_child("detection"), _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
+    }
     _SetStatus(TT_Command, MS_Succeeded);
 }
 

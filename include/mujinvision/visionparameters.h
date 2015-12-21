@@ -234,10 +234,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
         id = cameraid;
         isColorCamera = true;
         isDepthCamera = true;
-        executionverification = false;
-        filteringvoxelsize = 0.01;
-        filteringstddev = 0.01;
-        filteringnumnn = 80;
     }
 
     CameraParameters(const ptree& pt)
@@ -246,10 +242,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
         id = pt.get<std::string>("id", "");
         isColorCamera = pt.get<bool>("is_color_camera", true);
         isDepthCamera = pt.get<bool>("is_depth_camera", true);
-        executionverification = pt.get<bool>("executionverification", false);
-        filteringvoxelsize = pt.get<double>("filteringvoxelsize", 0.01);
-        filteringstddev = pt.get<double>("filteringstddev", 0.01);
-        filteringnumnn = pt.get<unsigned int>("filteringnumnn", 80);
     }
 
     virtual ~CameraParameters() {
@@ -258,10 +250,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
     std::string id;
     bool isColorCamera;
     bool isDepthCamera;
-    bool executionverification;
-    double filteringvoxelsize;
-    double filteringstddev;
-    unsigned int filteringnumnn;
 
     std::string GetJsonString()
     {
@@ -278,10 +266,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
         } else {
             ss << ", \"is_depth_camera\": true";
         }
-        ss << ", \"executionverification\": " << executionverification;
-        ss << ", \"filteringvoxelsize\": " << filteringvoxelsize;
-        ss << ", \"filteringstddev\": " << filteringstddev;
-        ss << ", \"filteringnumnn\": " << filteringnumnn;
         ss << "}";
         return ss.str();
     }
@@ -292,10 +276,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
             _pt.put<std::string>("id", id);
             _pt.put<bool>("isColorCamera", isColorCamera);
             _pt.put<bool>("isDepthCamera", isDepthCamera);
-            _pt.put<bool>("executionverification", executionverification);
-            _pt.put<double>("filteringvoxelsize", filteringvoxelsize);
-            _pt.put<double>("filteringstddev", filteringstddev);
-            _pt.put<unsigned int>("filteringnumnn", filteringnumnn);
         }
         return _pt;
     }
@@ -416,6 +396,35 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
 typedef boost::shared_ptr<CalibrationData> CalibrationDataPtr;
 typedef boost::shared_ptr<CalibrationData const> CalibrationDataConstPtr;
 typedef boost::weak_ptr<CalibrationData> CalibrationDataWeakPtr;
+
+/// \brief converts ptree to Transform in meters
+inline Transform GetTransform(const ptree& pt) {
+    Transform transform;
+    std::string unit = pt.get<std::string>("unit", "m");
+    double scale = 1.0;
+    if (unit == "mm") {
+        scale = 0.001;
+    } else if (unit == "m") {
+        scale = 1.0;
+    } else {
+        throw MujinVisionException("got unsupported unit " + unit, MVE_Failed);
+    }
+    unsigned int i=0;
+    FOREACH(v, pt.get_child("translation_")) {
+        transform.trans[i] = boost::lexical_cast<double>(v->second.data()) * scale;
+        i++;
+    }
+    i=0;
+    boost::optional< const boost::property_tree::ptree& > optchild;
+    optchild = pt.get_child_optional( "quat_" );
+    if (!!optchild) {
+        FOREACH(v, pt.get_child("quat_")) {
+            transform.rot[i] = boost::lexical_cast<double>(v->second.data());
+            i++;
+        }
+    }
+    return transform;
+}
 
 /// \brief information about the detected object
 struct MUJINVISION_API DetectedObject : public ParametersBase

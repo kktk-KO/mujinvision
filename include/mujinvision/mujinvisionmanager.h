@@ -101,6 +101,8 @@ public:
         - subscribe to image streams
         - connect to the mujin controller
         - initialize detection
+
+        /param defaultTaskParameters a JSON string with the default task parameters that should be included in every command call to the controller. If empty, then insert nothing
      */
     virtual void Initialize(const std::string& visionmanagerconfigname,
                             const std::string& detectorconfigname,
@@ -108,16 +110,15 @@ public:
                             const std::string& controllerIp,
                             const unsigned int controllerPort,
                             const std::string& controllerUsernamePass,
-                            const std::string& robotControllerUri,
-                            const std::string& robotDeviceIOUri,
+                            const std::string& defaultTaskParameters,
                             const unsigned int binpickingTaskZmqPort,
                             const unsigned int binpickingTaskHeartbeatPort,
                             const double binpickingTaskHeartbeatTimeout,
                             const std::string& binpickingTaskScenePk,
-                            const std::string& robotname,
                             const std::string& targetname,
                             const std::string& streamerIp,
                             const unsigned int streamerPort,
+                            const Transform& worldresultoffsettransform,
                             const std::string& tasktype="binpicking",
                             const double controllertimeout=10.0, /*seconds*/
                             const std::string& locale="en_US",
@@ -161,7 +162,9 @@ public:
                                     const unsigned int fetchimagetimeout=0,
                                     const std::string& obstaclename="__dynamicobstacle__",
                                     const unsigned long long& starttime=0 /*ms*/,
-                                    const std::string& locale="en_US");
+                                    const std::string& locale="en_US",
+                                    const unsigned int maxnumfastdetection=1,
+                                    const unsigned int maxnumdetection=0);
 
     virtual void StopDetectionLoop();
 
@@ -315,14 +318,14 @@ private:
         return "";
     };
 
-    struct DetectedInfo {
-        unsigned long long timestamp; ///< timestamp of part's last detection.
-        unsigned int count; ///< count is the number of detections of part.
-        Vector meanPosition; ///< meanPosition is the mean position of part's history of detected positions.
-        Vector meanRotation; ///< meanRotation is the mean rotation of part's history of detected rotations.
-        std::vector<Vector> positions; ///< positions is part's history of detected positions. positions[i] is the i'th history of part's XYZ position.
-        std::vector<Vector> rotations; ///< rotations is part's history of detected rotations. rotation[i] is the i'th history of part's rotation.
-        std::vector<std::string> confidences; ///< confidences is part's history of detection confidence. confidences[i] is the i'th history of part's confidence.
+    struct DetectionThreadParams {
+        double voxelsize;
+        double pointsize;
+        bool ignoreocclusion;
+        unsigned int maxage;
+        unsigned int fetchimagetimeout;
+        unsigned int maxnumfastdetection;
+        unsigned int maxnumdetection;
     };
 
     void _DeInitialize();
@@ -372,8 +375,8 @@ private:
                         const bool bindetection=false,
                         const bool request=false,
                         const bool useold=false);
-    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime);
+    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection);
     void _StopDetectionThread();
 
     /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
@@ -412,8 +415,8 @@ private:
 
     /** \brief Updates the world transform of camera from the mujin controller.
      */
-    void _SyncCamera(const std::string& regionname, const std::string& cameraname);
-    void _SyncCamera(const std::string& regionname, const std::string& cameraname, const mujinclient::Transform& t);
+    void _SyncCamera(const std::string& cameraname);
+    void _SyncCamera(const std::string& cameraname, const mujinclient::Transform& t);
 
     void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const bool ignoreocclusion, const unsigned int maxage=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
 
@@ -455,6 +458,8 @@ private:
     std::string _GetConfigFileName(const std::string& type, const std::string& configname);
     void _LoadConfig(const std::string& filename, std::string& content);
 
+    bool _PreemptSubscriber();
+
     unsigned int _statusport, _commandport, _configport;
     std::string _configdir;
     std::string _detectorconfig, _imagesubscriberconfig;
@@ -463,8 +468,7 @@ private:
     unsigned int _binpickingTaskHeartbeatPort;
     double _binpickingTaskHeartbeatTimeout;
     std::string _binpickingTaskScenePk;
-    std::string _robotControllerUri;
-    std::string _robotDeviceIOUri;
+    std::string _defaultTaskParameters; ///< a JSON string with the default task parameters that should be included in every command call to the controller. If empty, then insert nothing
     std::string _tasktype;
 
     boost::shared_ptr<zmq::context_t> _zmqcontext;
@@ -495,6 +499,7 @@ private:
     std::string _targetname; ///< name of the target object
     std::string _targeturi; ///< uri of the target
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
+    std::map<std::string, std::string> _mCameranameRegionname; ///< cameraname -> regionname
     std::map<std::string, CameraParametersPtr> _mNameCameraParameters; ///< name->camera param
     std::map<std::string, CameraPtr > _mNameCamera; ///< name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
@@ -510,7 +515,6 @@ private:
     unsigned long long _tsStartDetection; ///< timestamp when start detection loop was first called
     std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
     boost::mutex _mutexDetectedInfo; ///< lock for detection result
-    std::vector<DetectedInfo> _vDetectedInfo; ///< latest detection result
     std::vector<DetectedObjectPtr> _vDetectedObject; ///< latest detection result
     unsigned long long _resultTimestamp; ///< timestamp of latest detection result
     std::map<std::string, std::vector<Real> > _mResultPoints; ///< result pointcloud obstacle, cameraname -> points
@@ -523,6 +527,11 @@ private:
     std::vector<ImagePtr> _lastresultimages; ///< last result image used for detection
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
     boost::mutex _mutexDetector; ///< lock for detector
+    std::vector<std::string> _vExecutionVerificationCameraNames; ///< names of cameras for exec verification
+    double _filteringvoxelsize;  ///< point cloud filting param for exec verification
+    double _filteringstddev;  ///< point cloud filting param for exec verification
+    int _filteringnumnn;  ///< point cloud filting param for exec verification
+    Transform _tWorldResultOffset; ///< transform to be applied to detection result in world frame
 
     std::string _locale; ///< controller locale
     std::string _resultState; ///< additional information about the detection result

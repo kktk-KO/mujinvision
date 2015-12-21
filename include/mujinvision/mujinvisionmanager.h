@@ -551,6 +551,7 @@ private:
     bool _bStopControllerMonitorThread; ///< whether to stop controller monitor
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
+    bool _bIsDetectionRunning; ///< true if detection thread is running
     std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether to stop the command thread of specified port
 
 };

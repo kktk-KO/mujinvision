@@ -175,6 +175,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bIsControllerPickPlaceRunning = false;
     _bIsRobotOccludingSourceContainer = false;
     _bForceRequestDetectionResults = false;
+    _bIsDetectionRunning = false;
     _numPickAttempt = 0;
     _tsStartDetection = 0;
     _resultTimestamp = 0;
@@ -901,7 +902,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
 
 bool MujinVisionManager::IsDetectionRunning()
 {
-    return !!_pDetectionThread;
+    return !!_pDetectionThread && _bIsDetectionRunning;
 }
 
 void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned int ms)
@@ -1187,6 +1188,7 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
         params.maxnumfastdetection = maxnumfastdetection;
         params.maxnumdetection = maxnumdetection;
 
+        _bIsDetectionRunning = true;
         _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, params)));
     }
 }
@@ -1260,8 +1262,20 @@ void MujinVisionManager::_StopControllerMonitorThread()
     VISIONMANAGER_LOG_DEBUG("stopped controllermonitor thread");
 }
 
+class FalseSetter
+{
+public:
+    FalseSetter(bool& value) : _value(value) {
+    }
+    ~FalseSetter() {
+        _value = false;
+    }
+    bool& _value;
+};
+
 void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params)
 {
+    FalseSetter turnOffDetection(_bIsDetectionRunning);
     double voxelsize = params.voxelsize;
     //double pointsize = params.pointsize;
     bool ignoreocclusion = params.ignoreocclusion;
@@ -1473,6 +1487,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         VISIONMANAGER_LOG_INFO(" ------------------------");
         numdetection += 1;
     }
+    VISIONMANAGER_LOG_INFO("ending detection thread. numdetection=" + boost::lexical_cast<std::string>(numdetection));
 }
 
 void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval, const std::string& locale)

@@ -1537,7 +1537,6 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             continue;
         } else {
-            VISIONMANAGER_LOG_ERROR("Trying to update!");
             lastUpdateTimestamp = _resultTimestamp;
             std::vector<BinPickingTaskResource::DetectedObject> detectedobjects;
             std::vector<Real> totalpoints;

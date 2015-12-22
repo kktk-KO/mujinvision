@@ -508,7 +508,6 @@ private:
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
     std::map<std::string, boost::shared_ptr<CustomCommand> > _mNameCommand; ///< all registered commands, command name -> custom command
     std::map<std::string, std::string> _mCameraNameHardwareId; ///< camera name -> camera hardware id
-
     ImageSubscriberManagerPtr _pImagesubscriberManager;
 
     boost::property_tree::ptree _ptDetectorConfig; ///< pt of detector config

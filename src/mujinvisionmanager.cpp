@@ -196,6 +196,18 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _lastocclusionTimestamp = 0;
     _controllerCommandTimeout = 10.0;
     _locale = "en_US";
+    _detectorconfig = "";
+    _imagesubscriberconfig = "";
+    _tasktype = "";
+    _targetname = "";
+    _targeturi = "";
+    _resultState = "";
+    _userinfo_json = "";
+    _slaverequestid = "";
+    _defaultTaskParameters = "";
+    _filteringvoxelsize = 0.001;
+    _filteringstddev = 0.01;
+    _filteringnumnn = 1;
     char hostname[150];
     __GetMachineName(hostname);
     _commandMessageQueue.push("");
@@ -2030,8 +2042,8 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8(tasktype+std::string("task1"), tasktype, TRO_EnableZMQ);
 
     _SetStatusMessage(TT_Command, "Syncing cameras");
-    scene->GetSensorMapping(_mCameraNameHardwareId);
     std::vector<std::string> cameranames;
+    scene->GetSensorMapping(_mCameraNameHardwareId);
     FOREACH(v, _mCameraNameHardwareId) {
         if (_mNameCameraParameters.find(v->first) != _mNameCameraParameters.end()){
             _mNameCameraParameters[v->first]->id = v->second;

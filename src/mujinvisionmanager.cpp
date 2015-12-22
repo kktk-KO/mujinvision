@@ -1586,7 +1586,15 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
                     std::string cameraname = cameranamestobeused[i];
                     // get point cloud obstacle
                     std::vector<Real> points = _mResultPoints[cameraname];
-                    totalpoints.insert(totalpoints.end(), points.begin(), points.end());
+                    std::vector<Real> newpoints;
+                    newpoints.resize(points.size());
+                    for (size_t j=0; j<points.size(); j+=3) {
+                        Vector newpoint = _tWorldResultOffset * Vector(points.at(j), points.at(j+1), points.at(j+2));
+                        newpoints[j] = newpoint.x;
+                        newpoints[j+1] = newpoint.y;
+                        newpoints[j+2] = newpoint.z;
+                    }
+                    totalpoints.insert(totalpoints.end(), newpoints.begin(), newpoints.end());
                 }
                 resultstate = _resultState;
             }

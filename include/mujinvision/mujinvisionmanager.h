@@ -549,6 +549,7 @@ private:
     bool _bStopDetectionThread; ///< whether to stop detection thread
     bool _bStopUpdateEnvironmentThread; ///< whether to stop update environment thread
     bool _bStopControllerMonitorThread; ///< whether to stop controller monitor
+    bool _bStopSendPointCloudObstacleToControllerThread; ///< whether to stop async send pointcloud obstacle to controller call
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
     bool _bIsDetectionRunning; ///< true if detection thread is running

@@ -170,6 +170,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bStopDetectionThread = false;
     _bStopUpdateEnvironmentThread = false;
     _bStopControllerMonitorThread = false;
+    _bStopSendPointCloudObstacleToControllerThread = false;
     _bCancelCommand = false;
     _bExecutingUserCommand = false;
     _bIsControllerPickPlaceRunning = false;
@@ -2166,6 +2167,12 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
 
 void MujinVisionManager::_DeInitialize()
 {
+    _bStopSendPointCloudObstacleToControllerThread = true;
+    if (!!_pSendPointCloudObstacleThread) {
+        _pSendPointCloudObstacleThread->join();
+        _pSendPointCloudObstacleThread.reset();
+        _SetStatusMessage(TT_Command, "Stopped sendpointcloudobstacle thread.");
+    }
     _StopDetectionThread();
 
     std::string regionname;
@@ -2305,6 +2312,7 @@ void MujinVisionManager::SendPointCloudObstacleToController(const std::string& r
             }
         }
     }  else {
+        _bStopSendPointCloudObstacleToControllerThread = false;
         _pSendPointCloudObstacleThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendPointCloudObstacleToControllerThread, this, regionname, cameranames, detectedobjectsworld, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename)));   
     }
     std::stringstream ss;
@@ -2341,14 +2349,21 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(const std::st
     _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, true, false);
     if (depthimages.size() == depthcameranames.size()) {
         for (size_t i=0; i<depthimages.size(); ++i) {
+            if (_bStopSendPointCloudObstacleToControllerThread) {
+                VISIONMANAGER_LOG_DEBUG("stop async SendPointCloudObstacleToController call");
+                return;
+            }
             std::string cameraname = depthcameranames.at(i);
             CameraPtr camera= _mNameCamera[cameraname];
             // get point cloud obstacle
             std::vector<Real> points;
-            {
+            if (!!_pDetector) {
                 boost::mutex::scoped_lock lock(_mutexDetector);
                 _pDetector->SetDepthImage(cameraname, depthimages.at(i));
                 _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
+            } else {
+                VISIONMANAGER_LOG_WARN("detector is reset, stop async SendPointCloudObstacleToController call");
+                return;
             }
             if (points.size() / 3 == 0) {
                 _SetStatusMessage(TT_SendPointcloudObstacle, "got 0 point from GetPointCloudObstacle()");
@@ -2361,10 +2376,13 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(const std::st
                     _SetStatusMessage(TT_SendPointcloudObstacle, "re-try getting depthimage and pointcloudobstacle");
                     //_GetDepthImages(TT_SendPointcloudObstacle, regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, true);
                     _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, true, false);
-                    {
+                    if (!!_pDetector) {
                         boost::mutex::scoped_lock lock(_mutexDetector);
                         _pDetector->SetDepthImage(cameraname, depthimages1.at(0));
                         _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
+                    } else {
+                        VISIONMANAGER_LOG_WARN("detector is reset, stop async SendPointCloudObstacleToController call");
+                        return;
                     }
                     numretries--;
                 }

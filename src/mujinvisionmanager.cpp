@@ -1354,7 +1354,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             if (!isControllerPickPlaceRunning || forceRequestDetectionResults || _vDetectedObject.size() == 0) { // detect if forced or no result
                 std::stringstream ss;
                 ss << "force detection, start capturing..." << (int)isControllerPickPlaceRunning << " " << (int)forceRequestDetectionResults << " " << _vDetectedObject.size();
-                VISIONMANAGER_LOG_INFO(ss.str());
                 _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames));
             } else {  // do the following only if pick and place thread is running and detection is not forced
                 if (numPickAttempt <= lastPickedId) { // if robot has picked
@@ -1499,6 +1498,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         VISIONMANAGER_LOG_INFO("Cycle time: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
         VISIONMANAGER_LOG_INFO(" ------------------------");
         numdetection += 1;
+    }
+    if (numdetection >= maxnumdetection && maxnumdetection!=0) {
+        VISIONMANAGER_LOG_INFO("reached max num detection, stop capturing");
+        _pImagesubscriberManager->StopCaptureThread();
+        VISIONMANAGER_LOG_INFO("capturing stopped");
     }
     VISIONMANAGER_LOG_INFO("ending detection thread. numdetection=" + boost::lexical_cast<std::string>(numdetection));
 }

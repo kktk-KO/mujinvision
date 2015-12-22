@@ -436,6 +436,8 @@ private:
      */
     std::vector<std::string> _GetDepthCameraNames(const std::string& regionname, const std::vector<std::string>& cameranames);
 
+    std::vector<std::string> _GetHardwareIds(const std::vector<std::string>& cameranames);
+
     /** \brief Converts mujinclient::Transform to Transform.
      */
     Transform _GetTransform(const mujinclient::Transform& t);
@@ -505,6 +507,7 @@ private:
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
     std::map<std::string, boost::shared_ptr<CustomCommand> > _mNameCommand; ///< all registered commands, command name -> custom command
+    std::map<std::string, std::string> _mCameraNameHardwareId; ///< camera name -> camera hardware id
 
     ImageSubscriberManagerPtr _pImagesubscriberManager;
 

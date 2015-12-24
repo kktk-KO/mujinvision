@@ -2254,9 +2254,17 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
 
 void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>& cameranames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection)
 {
+    std::vector<std::string> tempcameranames = cameranames;
+    for (unsigned int i=0; i<_vExecutionVerificationCameraNames.size(); ++i) {
+        std::string cameraname = _vExecutionVerificationCameraNames.at(i);
+        if (std::find(cameranames.begin(), cameranames.end(), cameraname) == cameranames.end()) {
+            tempcameranames.push_back(cameraname);
+        }
+    }
+    
     _tWorldResultOffset = worldresultoffsettransform;
     if (!!_pImagesubscriberManager) {
-        _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames));
+        _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(tempcameranames));
     } else {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
     }

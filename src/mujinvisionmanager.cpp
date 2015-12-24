@@ -1366,7 +1366,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             if (binpickingstateTimestamp > _lastocclusionTimestamp) {
                                 _lastocclusionTimestamp = binpickingstateTimestamp;
                             }
-                            _pImagesubscriberManager->StopCaptureThread();
+                            _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
                             continue;
                         } else { // detect when robot is not occluding camera
                             std::stringstream ss;
@@ -1458,7 +1458,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             lastDetectedId = numPickAttempt;
             if (isControllerPickPlaceRunning && !forceRequestDetectionResults && detectedobjects.size() > 0) {
                 VISIONMANAGER_LOG_INFO("detected at least 1 object, stop image capturing...");
-                _pImagesubscriberManager->StopCaptureThread();
+                _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
                 VISIONMANAGER_LOG_INFO("capturing stopped");
             } else {
                 //VISIONMANAGER_LOG_INFO("detected no object, do not stop image capturing...");
@@ -1501,7 +1501,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     }
     if (numdetection >= maxnumdetection && maxnumdetection!=0) {
         VISIONMANAGER_LOG_INFO("reached max num detection, stop capturing");
-        _pImagesubscriberManager->StopCaptureThread();
+        _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
         VISIONMANAGER_LOG_INFO("capturing stopped");
     }
     VISIONMANAGER_LOG_INFO("ending detection thread. numdetection=" + boost::lexical_cast<std::string>(numdetection));
@@ -2260,6 +2260,7 @@ void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const
     } else {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
     }
+    _vCameranames = cameranames;
     _StartDetectionThread(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, starttime, maxnumfastdetection, maxnumdetection);
     _StartUpdateEnvironmentThread(regionname, cameranames, voxelsize, pointsize, obstaclename, 50, locale);
     _StartControllerMonitorThread(50, locale);
@@ -2272,7 +2273,7 @@ void MujinVisionManager::StopDetectionLoop()
     _StopUpdateEnvironmentThread();
     _StopControllerMonitorThread();
     if (!!_pImagesubscriberManager) {
-        _pImagesubscriberManager->StopCaptureThread();
+        _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vCameranames));
     }
     _SetStatus(TT_Command, MS_Succeeded);
 }

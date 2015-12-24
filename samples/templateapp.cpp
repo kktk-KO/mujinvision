@@ -61,7 +61,7 @@ public:
     {
     }
 
-    void StopCaptureThread(const double& timeout=5.0)
+    void StopCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0)
     {
     }
 

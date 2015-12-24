@@ -151,6 +151,7 @@ public:
                                const bool useold=false);
 
     /** \brief starts detection thread to continuously detect objects and sends detection results to mujin controller
+        \param sendVerificationPointCloud whether send verification point cloud or not from current detection loop
      */
     virtual void StartDetectionLoop(const std::string& regionname,
                                     const std::vector<std::string>& cameranames,
@@ -164,7 +165,9 @@ public:
                                     const unsigned long long& starttime=0 /*ms*/,
                                     const std::string& locale="en_US",
                                     const unsigned int maxnumfastdetection=1,
-                                    const unsigned int maxnumdetection=0);
+                                    const unsigned int maxnumdetection=0,
+                                    const bool sendVerificationPointCloud=true);
+   
 
     virtual void StopDetectionLoop();
 
@@ -556,6 +559,7 @@ private:
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
     bool _bIsDetectionRunning; ///< true if detection thread is running
+    bool _bSendVerificationPointCloud; ///< whether send verification point cloud or not
     std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether to stop the command thread of specified port
 
 };

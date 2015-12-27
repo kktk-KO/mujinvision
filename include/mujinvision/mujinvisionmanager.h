@@ -118,7 +118,6 @@ public:
                             const std::string& targetname,
                             const std::string& streamerIp,
                             const unsigned int streamerPort,
-                            const Transform& worldresultoffsettransform,
                             const std::string& tasktype="binpicking",
                             const double controllertimeout=10.0, /*seconds*/
                             const std::string& locale="en_US",
@@ -152,9 +151,11 @@ public:
                                const bool useold=false);
 
     /** \brief starts detection thread to continuously detect objects and sends detection results to mujin controller
+        \param sendVerificationPointCloud whether send verification point cloud or not from current detection loop
      */
     virtual void StartDetectionLoop(const std::string& regionname,
                                     const std::vector<std::string>& cameranames,
+                                    const Transform& worldresultoffsettransform,
                                     const double voxelsize=0.01,
                                     const double pointsize=0.005,
                                     const bool ignoreocclusion=false,
@@ -164,7 +165,9 @@ public:
                                     const unsigned long long& starttime=0 /*ms*/,
                                     const std::string& locale="en_US",
                                     const unsigned int maxnumfastdetection=1,
-                                    const unsigned int maxnumdetection=0);
+                                    const unsigned int maxnumdetection=0,
+                                    const bool sendVerificationPointCloud=true);
+   
 
     virtual void StopDetectionLoop();
 
@@ -201,7 +204,8 @@ public:
                                                  const bool ignoreocclusion=false,
                                                  const unsigned int maxage=0,
                                                  const unsigned int fetchimagetimeout=0,
-                                                 const bool request=true);
+                                                 const bool request=true,
+                                                 const double voxelsize=0.005);
 
     /** \brief Clears visualization made by VisualizePointCloudOnController on mujin controller.
      */
@@ -436,6 +440,8 @@ private:
      */
     std::vector<std::string> _GetDepthCameraNames(const std::string& regionname, const std::vector<std::string>& cameranames);
 
+    std::vector<std::string> _GetHardwareIds(const std::vector<std::string>& cameranames);
+
     /** \brief Converts mujinclient::Transform to Transform.
      */
     Transform _GetTransform(const mujinclient::Transform& t);
@@ -505,7 +511,7 @@ private:
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
     std::map<std::string, boost::shared_ptr<CustomCommand> > _mNameCommand; ///< all registered commands, command name -> custom command
-
+    std::map<std::string, std::string> _mCameraNameHardwareId; ///< camera name -> camera hardware id
     ImageSubscriberManagerPtr _pImagesubscriberManager;
 
     boost::property_tree::ptree _ptDetectorConfig; ///< pt of detector config
@@ -527,6 +533,7 @@ private:
     std::vector<ImagePtr> _lastresultimages; ///< last result image used for detection
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
     boost::mutex _mutexDetector; ///< lock for detector
+    std::vector<std::string> _vCameranames; ///< cameranames passed in for start detection loop
     std::vector<std::string> _vExecutionVerificationCameraNames; ///< names of cameras for exec verification
     double _filteringvoxelsize;  ///< point cloud filting param for exec verification
     double _filteringstddev;  ///< point cloud filting param for exec verification
@@ -549,8 +556,11 @@ private:
     bool _bStopDetectionThread; ///< whether to stop detection thread
     bool _bStopUpdateEnvironmentThread; ///< whether to stop update environment thread
     bool _bStopControllerMonitorThread; ///< whether to stop controller monitor
+    bool _bStopSendPointCloudObstacleToControllerThread; ///< whether to stop async send pointcloud obstacle to controller call
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
+    bool _bIsDetectionRunning; ///< true if detection thread is running
+    bool _bSendVerificationPointCloud; ///< whether send verification point cloud or not
     std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether to stop the command thread of specified port
 
 };

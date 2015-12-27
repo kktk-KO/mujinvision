@@ -40,7 +40,7 @@ public:
         \params_pt boost property tree defining the image subscriber parameters
      */
     virtual void Initialize(const std::map<std::string, CameraPtr >&mNameCamera, const std::string& streamerIp, const unsigned int streamerPort, const ptree& params_pt, boost::shared_ptr<zmq::context_t> context) = 0;
-
+    
     virtual void DeInitialize() = 0;
 
     /** \brief Gets the latest color image from camera and its timestamp.
@@ -80,8 +80,8 @@ public:
      */
     virtual ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0/*sec*/, const int numimages=-1) = 0;
 
-    virtual void StartCaptureThread(const double& timeout=5.0, const int numimages=-1) = 0;
-    virtual void StopCaptureThread(const double& timeout=5.0) = 0;
+    virtual void StartCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0, const int numimages=-1) = 0;
+    virtual void StopCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0) = 0;
 
     /** \brief Writes color image to disk.
      */

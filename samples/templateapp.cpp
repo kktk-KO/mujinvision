@@ -57,11 +57,11 @@ public:
     void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, const double& timeout)
     {
     }
-    void StartCaptureThread(const double& timeout=5.0, const int numimages=-1)
+    void StartCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0, const int numimages=-1)
     {
     }
 
-    void StopCaptureThread(const double& timeout=5.0)
+    void StopCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0)
     {
     }
 
@@ -109,7 +109,7 @@ public:
     void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsdepthcamera, std::vector<double>& points, const double voxelsize=0.01, const bool fast=false, const bool getgil=false, const double stddev=0.01, const size_t numnn=80) {
     }
 
-    void GetCameraPointCloud(const std::string& regionname, const std::string& depthcameraname, ImageConstPtr depthimage, std::vector<double>& points) {
+    void GetCameraPointCloud(const std::string& regionname, const std::string& depthcameraname, ImageConstPtr depthimage, std::vector<double>& points, const double voxelsize=0.01) {
     }
 
     void SetImage(const std::string& colorcameraname, ImageConstPtr colorimage) {

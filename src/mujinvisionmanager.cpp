@@ -764,10 +764,11 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 }
             }
             double pointsize = command_pt.get("pointsize",0.005);
+            double voxelsize = command_pt.get("voxelsize",0.005);
             bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
             unsigned int maxage = command_pt.get("maxage",0);
             unsigned int fetchimagetimeout = command_pt.get("fetchimagetimeout", 0);
-            VisualizePointCloudOnController(regionname, cameranames, pointsize, ignoreocclusion, maxage, fetchimagetimeout);
+            VisualizePointCloudOnController(regionname, cameranames, pointsize, ignoreocclusion, maxage, fetchimagetimeout, voxelsize);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -1834,10 +1835,10 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // get images from subscriber
         if (usecache) {
-            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, starttime, endtime, fetchimagetimeout);
+            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, starttime, endtime, fetchimagetimeout / 1000.0);
         } else {
             VISIONMANAGER_LOG_WARN("snapping is not supported, using cache");
-            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, starttime, endtime, fetchimagetimeout);
+            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, starttime, endtime, fetchimagetimeout / 1000.0);
         }
 
         // if called by detection thread, break if it is being stopped
@@ -2480,7 +2481,7 @@ void MujinVisionManager::DetectRegionTransform(const std::string& regionname, co
     _SetStatus(TT_Command, MS_Succeeded);
 }
 
-void MujinVisionManager::VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>&cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request)
+void MujinVisionManager::VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>&cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const double voxelsize)
 {
     std::vector<std::string> cameranamestobeused;
     if (regionname != "") {
@@ -2502,6 +2503,12 @@ void MujinVisionManager::VisualizePointCloudOnController(const std::string& regi
         std::vector<ImagePtr> depthimages;
         std::vector<std::string> dcamnames;
         dcamnames.push_back(cameraname);
+
+        // ensure capturing thread is running, otherwise we will timeout to get images
+        if (!!_pImagesubscriberManager) {
+            _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(dcamnames));
+        }
+
         _GetImages(TT_Command, _pBinpickingTask, "", dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, request, false);
         if (depthimages.size() == 0) {
             throw MujinVisionException("failed to get depth image for " + cameraname + ", cannot visualize point cloud", MVE_Failed);
@@ -2509,9 +2516,9 @@ void MujinVisionManager::VisualizePointCloudOnController(const std::string& regi
         {
             boost::mutex::scoped_lock lock(_mutexDetector);
             if (regionname == "") {
-                _pDetector->GetCameraPointCloud(_mCameranameRegionname[cameranamestobeused[i]], cameranamestobeused[i], depthimages.at(0), points);
+                _pDetector->GetCameraPointCloud(_mCameranameRegionname[cameranamestobeused[i]], cameranamestobeused[i], depthimages.at(0), points, voxelsize);
             } else {
-                _pDetector->GetCameraPointCloud(regionname, cameranamestobeused[i], depthimages.at(0), points);
+                _pDetector->GetCameraPointCloud(regionname, cameranamestobeused[i], depthimages.at(0), points, voxelsize);
             }
         }
         if (points.size()>0) {

@@ -204,7 +204,8 @@ public:
                                                  const bool ignoreocclusion=false,
                                                  const unsigned int maxage=0,
                                                  const unsigned int fetchimagetimeout=0,
-                                                 const bool request=true);
+                                                 const bool request=true,
+                                                 const double voxelsize=0.005);
 
     /** \brief Clears visualization made by VisualizePointCloudOnController on mujin controller.
      */

@@ -73,7 +73,7 @@ public:
         \param depthimage depth image
         \param points result points representing the point cloud in world frame
      */
-    virtual void GetCameraPointCloud(const std::string& regionname, const std::string& depthcameraname, ImageConstPtr depthimage, std::vector<double>& points) = 0;
+    virtual void GetCameraPointCloud(const std::string& regionname, const std::string& depthcameraname, ImageConstPtr depthimage, std::vector<double>& points, const double voxelsize=0.01) = 0;
 
     /** \brief Detects the transform of the region.
         \param regionname

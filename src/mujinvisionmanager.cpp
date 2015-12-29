@@ -2102,13 +2102,15 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     FOREACH(it, _mNameCameraParameters) {
         std::string cameraname = it->first;
         CameraParametersPtr pcameraparameters = it->second;
-        //RobotResource::AttachedSensorResource::SensorData sensordata = resultgetinstobjectandsensorinfo.msensordata[cameraname];
+        RobotResource::AttachedSensorResource::SensorData sensordata = resultgetinstobjectandsensorinfo.msensordata[cameraname];
+        /*
+        // do not use webapi to get sensordata for speed reason
         RobotResource::AttachedSensorResource::SensorData sensordata;
         std::string camerabodyname,sensorname;
         _ParseCameraName(cameraname, camerabodyname, sensorname);
 
         utils::GetSensorData(_pControllerClient, _pSceneResource, camerabodyname, sensorname, sensordata);
-
+        */
         CalibrationDataPtr calibrationdata(new CalibrationData());
         calibrationdata->fx           = sensordata.intrinsic[0];
         calibrationdata->fy           = sensordata.intrinsic[4];

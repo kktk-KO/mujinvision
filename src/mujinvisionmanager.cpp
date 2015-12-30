@@ -2381,12 +2381,22 @@ void MujinVisionManager::StopDetectionLoop()
 
 void MujinVisionManager::StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const double voxelsize)
 {
+    if (!!_pImagesubscriberManager) {
+        _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames));
+    } else {
+        throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
+    }
     _StartVisualizePointCloudThread(regionname, cameranames, pointsize, ignoreocclusion, maxage, fetchimagetimeout, request, voxelsize);
+    _SetStatus(TT_Command, MS_Succeeded);
 }
 
 void MujinVisionManager::StopVisualizePointCloudThread()
 {
     _StopVisualizePointCloudThread();
+    if (!!_pImagesubscriberManager) {
+        _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vCameranames));
+    }
+    _SetStatus(TT_Command, MS_Succeeded);
 }
  
 void MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)

@@ -2381,6 +2381,7 @@ void MujinVisionManager::StopDetectionLoop()
 
 void MujinVisionManager::StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const double voxelsize)
 {
+    _vCameranames = cameranames;
     if (!!_pImagesubscriberManager) {
         _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames));
     } else {

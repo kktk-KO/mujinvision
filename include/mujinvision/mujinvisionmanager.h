@@ -211,6 +211,19 @@ public:
      */
     virtual void ClearVisualizationOnController();
 
+    /** \brief Continuously synchronizing cameras and visualizing point clouds on mujin controller
+     */
+    virtual void StartVisualizePointCloudThread(const std::string& regionname,
+                                                const std::vector<std::string>& cameranames,
+                                                const double pointsize=0.005,
+                                                const bool ignoreocclusion=false,
+                                                const unsigned int maxage=0,
+                                                const unsigned int fetchimagetimeout=0,
+                                                const bool request=true,
+                                                const double voxelsize=0.005);
+
+    virtual void StopVisualizePointCloudThread();
+
     /** \brief Detects the transform of region
         \param regionname name of the region where the detection happens
         \param cameranames names of the cameras used for detection
@@ -383,6 +396,10 @@ private:
     void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection);
     void _StopDetectionThread();
 
+    void _VisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const double voxelsize);
+    void _StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
+    void _StopVisualizePointCloudThread();
+
     /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
         \param regionname name of the region of which the pointcloud obstacle represents
         \param cameranames names of the cameras to be used to capture the pointcloud obstacle
@@ -496,6 +513,7 @@ private:
     boost::shared_ptr<boost::thread> _pUpdateEnvironmentThread;
     boost::shared_ptr<boost::thread> _pControllerMonitorThread;
     boost::shared_ptr<boost::thread> _pSendPointCloudObstacleThread;
+    boost::shared_ptr<boost::thread> _pVisualizePointCloudThread;
 
     boost::mutex _mutexCancelCommand;
     std::map<unsigned int, CommandServerPtr> _mPortCommandServer; ///< port -> server
@@ -557,6 +575,7 @@ private:
     bool _bStopUpdateEnvironmentThread; ///< whether to stop update environment thread
     bool _bStopControllerMonitorThread; ///< whether to stop controller monitor
     bool _bStopSendPointCloudObstacleToControllerThread; ///< whether to stop async send pointcloud obstacle to controller call
+    bool _bStopVisualizePointCloudThread; ///< whether to stop pointcloud visualization thread
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
     bool _bIsDetectionRunning; ///< true if detection thread is running

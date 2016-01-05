@@ -569,6 +569,7 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     std::string instobjectname; // instobject name in mujin controller that defines the container of the objects to be detected
     std::vector<std::string> cameranames;
 
+    // automatically filled from mujin controller parameters
     std::vector<double> innerTranslation;
     std::vector<double> innerExtents;
     std::vector<double> innerRotationmat; // row major

@@ -126,6 +126,20 @@ struct MUJINVISION_API ParametersBase
         return ss.str();
     }
 
+    static std::string GetJsonString(const double(&array)[6]) {
+        std::stringstream ss;
+        ss << std::setprecision(std::numeric_limits<double>::digits10+1);
+        ss << "[";
+        for (unsigned int i=0; i<6; ++i) {
+            ss << array[i];
+            if (i != 5) {
+                ss << ", ";
+            }
+        }
+        ss << "]";
+        return ss.str();
+    }
+
     static std::string GetJsonString(const Transform& transform)
     {
         std::stringstream ss;
@@ -435,8 +449,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
     }
 
     /// assume input is in milimeter
-    DetectedObject(const ptree& pt)
-    {
+    DetectedObject(const ptree& pt) {
         _pt = pt;
         name = pt.get<std::string>("name");
         objecturi = pt.get<std::string>("object_uri");
@@ -561,6 +574,21 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         FOREACH(cv, pt.get_child("cameranames")) {
             cameranames.push_back(cv->second.data());
         }
+        type = pt.get<std::string>("type", "boxAxisAligned");
+        unsigned int i=0;
+        FOREACH(v, pt.get_child("cropContainerMarginsXYZXYZ")) {
+            cropContainerMarginsXYZXYZ[i] = boost::lexical_cast<double>(v->second.data());
+            i++;
+        }
+        BOOST_ASSERT(i == 6);
+        i=0;
+        FOREACH(v, pt.get_child("containerRoiMarginsXYZXYZ")) {
+            containerRoiMarginsXYZXYZ[i] = boost::lexical_cast<double>(v->second.data());
+            i++;
+        }
+        BOOST_ASSERT(i == 6);
+        containerEmptyDivisor = pt.get<double>("containerEmptyDivisor", 150);
+        visualizationuri = pt.get<std::string>("visualizationuri", "");
     }
 
     virtual ~RegionParameters() {
@@ -577,12 +605,23 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     std::vector<double> outerExtents;
     std::vector<double> outerRotationmat; // row major
 
+    std::string type; ///< the type of the container, by default it is boxAxisAligned
+    double cropContainerMarginsXYZXYZ[6]; ///< Margins of the container to be cropped (or enlarged if negative), in order to define 3D container region under (calibration & shape) uncertainty - for pointcloud processing.
+    double containerRoiMarginsXYZXYZ[6]; ///< Margins of the container to be cropped (or enlarged if negative), in order to define a 2D container region under (calibration & shape) uncertainty - for 2D processing.
+    double containerEmptyDivisor; ///< Paramater that controls the maximum number of points allowed for the container to be empty after cropping the internal walls.
+    std::string visualizationuri; ///< visualiation URI for the container for debugging purposes.
+    
     std::string GetJsonString()
     {
         std::stringstream ss;
         ss << "{";
-        ss << "\"name\": \"" <<  instobjectname << "\", ";
+        ss << "\"instobjectname\": \"" <<  instobjectname << "\", ";
         ss << "\"cameranames\": " << ParametersBase::GetJsonString(cameranames);
+        ss << ", " << ParametersBase::GetJsonString("type") << ": " << ParametersBase::GetJsonString(type);
+        ss << ", " << ParametersBase::GetJsonString("cropContainerMarginsXYZXYZ") << ": " << ParametersBase::GetJsonString(cropContainerMarginsXYZXYZ);
+        ss << ", " << ParametersBase::GetJsonString("containerRoiMarginsXYZXYZ") << ": " << ParametersBase::GetJsonString(containerRoiMarginsXYZXYZ);
+        ss << ", " << ParametersBase::GetJsonString("containerEmptyDivisor") << ": " << containerEmptyDivisor;
+        ss << ", " << ParametersBase::GetJsonString("visualizationuri") << ": " << ParametersBase::GetJsonString(visualizationuri);
         ss << "}";
         return ss.str();
     }
@@ -590,12 +629,24 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     ptree GetPropertyTree()
     {
         if (_pt.empty()) {
-            _pt.put<std::string>("name", instobjectname);
+            _pt.put<std::string>("instobjectname", instobjectname);
             ptree cameranames_pt;
             for (size_t i=0; i<cameranames.size(); i++) {
                 cameranames_pt.put<std::string>("", cameranames[i]);
             }
             _pt.put_child("cameranames", cameranames_pt);
+            _pt.put<std::string>("type", type);
+            ptree crop_pt;
+            for (size_t i=0; i<6; i++) {
+                crop_pt.put<double>("", cropContainerMarginsXYZXYZ[i]);
+            }
+            _pt.put_child("cropContainerMarginsXYZXYZ", crop_pt);
+            ptree container_pt;
+            for (size_t i=0; i<6; i++) {
+                container_pt.put<double>("", containerRoiMarginsXYZXYZ[i]);
+            }
+            _pt.put_child("containerRoiMarginsXYZXYZ", container_pt);
+            _pt.put<std::string>("visualizationuri", visualizationuri);
         }
         return _pt;
     }

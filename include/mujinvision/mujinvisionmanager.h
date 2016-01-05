@@ -111,6 +111,7 @@ public:
                             const unsigned int controllerPort,
                             const std::string& controllerUsernamePass,
                             const std::string& defaultTaskParameters,
+                            const std::string& containerParameters,
                             const unsigned int binpickingTaskZmqPort,
                             const unsigned int binpickingTaskHeartbeatPort,
                             const double binpickingTaskHeartbeatTimeout,
@@ -492,6 +493,7 @@ private:
     double _binpickingTaskHeartbeatTimeout;
     std::string _binpickingTaskScenePk;
     std::string _defaultTaskParameters; ///< a JSON string with the default task parameters that should be included in every command call to the controller. If empty, then insert nothing
+    std::string _containerParameters; ///< a json string with container info
     std::string _tasktype;
 
     boost::shared_ptr<zmq::context_t> _zmqcontext;

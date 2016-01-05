@@ -671,6 +671,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<unsigned int>("mujinControllerPort", 0),
                        command_pt.get<std::string>("mujinControllerUsernamePass"),
                        command_pt.get<std::string>("defaultTaskParameters"),
+                       command_pt.get<std::string>("containerParameters"),
                        command_pt.get<unsigned int>("binpickingTaskZmqPort"),
                        command_pt.get<unsigned int>("binpickingTaskHeartbeatPort"),
                        command_pt.get<double>("binpickingTaskHeartbeatTimeout"),
@@ -2059,7 +2060,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     }
 }
 
-    void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const std::string& containerParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid)
 {
     _locale = locale;
     uint64_t time0 = GetMilliTime();
@@ -2073,7 +2074,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     _tasktype = tasktype;
     _slaverequestid = slaverequestid;
     _bSendVerificationPointCloud = true;
-    
+    _containerParameters = containerParameters;
     ptree pt;
 
     // load visionserver configuration
@@ -2098,7 +2099,11 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     std::vector<std::string> regionnames;
     std::vector<RegionParametersPtr > vRegionParameters;
     RegionParametersPtr pRegionParameters;
-    FOREACH(v, pt.get_child("regions")) {
+    ptree containerpt;
+    std::stringstream containerss;
+    containerss << containerParameters;
+    read_json(containerss, containerpt);
+    FOREACH(v, containerpt.get_child("regions")) {
         RegionParametersPtr pregionparameters(new RegionParameters(v->second));
         vRegionParameters.push_back(pregionparameters);
         _mNameRegion[pregionparameters->instobjectname] = RegionPtr(new Region(pregionparameters));

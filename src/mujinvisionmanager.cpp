@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "mujinvision/mujinvisionmanager.h"
 #include <boost/algorithm/string.hpp>
+#include <stdlib.h>
 #ifndef MUJIN_TIME
 #define MUJIN_TIME
 #include <time.h>
@@ -683,7 +684,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<unsigned int>("controllertimeout", 10),
                        command_pt.get<std::string>("locale", "en_US"),
                        command_pt.get<std::string>("targeturi", ""),
-                       command_pt.get<std::string>("slaverequestid", "")
+                       command_pt.get<std::string>("slaverequestid", ""),
+                       command_pt.get<std::string>("objectname", ""),
+                       command_pt.get<std::string>("objectarchiveurl", "")
                        );
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -2060,7 +2063,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     }
 }
 
-void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const std::string& containerParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const std::string& containerParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid, const std::string& objectname, const std::string& objectarchiveurl)
 {
     _locale = locale;
     uint64_t time0 = GetMilliTime();
@@ -2076,6 +2079,44 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     _bSendVerificationPointCloud = true;
     _containerParameters = containerParameters;
     ptree pt;
+    std::string detectorconfigfilename = detectorconfigname;
+    // prepare config files
+    if (objectname != "" && objectarchiveurl != "") {
+        std::string templatepath = "/data/template/" + objectname;
+        // prepare directories
+        try {
+            boost::filesystem::create_directories(templatepath);
+        } catch (...) {
+            std::stringstream errss;
+            errss << "Failed to prepare config files because " << templatepath << " could not be created.";
+            VISIONMANAGER_LOG_ERROR(errss.str());
+            throw MujinVisionException(errss.str(), MVE_Failed);
+        }
+        // fetch archive
+        try {
+            std::string cmdstr = "wget -N " + objectarchiveurl + " -P " + templatepath;
+            system(cmdstr.c_str());
+        } catch (...) {
+            std::stringstream errss;
+            errss << "Failed to prepare config files because " << objectarchiveurl << " could not be fetched.";
+            VISIONMANAGER_LOG_ERROR(errss.str());
+            throw MujinVisionException(errss.str(), MVE_Failed);
+        }
+        // extract files
+        std::string archivefilename = templatepath + "/" + objectname + ".tar.gz";
+        try {
+            std::stringstream commandss;
+            commandss << "tar xzvf " << archivefilename << " -C" << templatepath << "; rm " << archivefilename;
+            system(commandss.str().c_str());
+        } catch (...) {
+            std::stringstream errss;
+            errss << "Failed to prepare config files because " << archivefilename << " could not be decompressed.";
+            VISIONMANAGER_LOG_ERROR(errss.str());
+            throw MujinVisionException(errss.str(), MVE_Failed);
+        }
+        VISIONMANAGER_LOG_DEBUG("using templatepath " + templatepath + " as path to detectorconfig, ignoring detectorconfigname");
+        detectorconfigfilename = templatepath + "/detector.json";
+    }
 
     // load visionserver configuration
     std::string visionmanagerconfig;
@@ -2261,7 +2302,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     starttime = GetMilliTime();
     _SetStatusMessage(TT_Command, "Setting up detector.");
     std::string detectorconfig;
-    _LoadConfig(_GetConfigFileName("detector", detectorconfigname), detectorconfig);
+    _LoadConfig(_GetConfigFileName("detector", detectorconfigfilename), detectorconfig);
     _detectorconfig = detectorconfig;
     _targetname = targetname;
     _targeturi = targeturi;

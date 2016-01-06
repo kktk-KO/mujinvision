@@ -2312,7 +2312,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     starttime = GetMilliTime();
     _SetStatusMessage(TT_Command, "Setting up detector.");
     std::string detectorconfig;
-    if (detectorconfigname == "") {
+    if (detectorconfigfilename.size() == 0) {
         detectorconfigfilename = _GetConfigFileName("detector", detectorconfigname);
     }
     _LoadConfig(detectorconfigfilename, detectorconfig);

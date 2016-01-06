@@ -31,14 +31,14 @@ public:
     }
 
     /** Creates object detector.
-        \param objectparams_pt boost property tree describing object parameters
-        \param detectionparams_pt boost property tree describing detection parameters
+        \param detectorconfig json string describing detection parameters
         \param mNameRegion map to detection regions from names
         \param mRegionColorCameraMap map to color camera maps from region names
         \param mRegionDepthCameraMap map to depth camera maps from region names
         \param setstatusfn function the detector can use to set status
+        \param extraInitializationOptions extra initialization options that can override the values in the contructor
      */
-    virtual ObjectDetectorPtr CreateObjectDetector(const ptree& objectparams_pt, const ptree& detectionparams_pt, const std::string& targetname, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn) = 0;
+    virtual ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn, const std::map<std::string, std::string>& extraInitializationOptions = std::map<std::string, std::string>()) = 0;
 };
 
 typedef boost::shared_ptr<DetectorManager> DetectorManagerPtr;

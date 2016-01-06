@@ -594,6 +594,7 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     virtual ~RegionParameters() {
     }
 
+    // the following params are initialized in constructor
     std::string instobjectname; // instobject name in mujin controller that defines the container of the objects to be detected
     std::vector<std::string> cameranames;
     std::string type; ///< the type of the container, by default it is boxAxisAligned
@@ -601,13 +602,15 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     double containerRoiMarginsXYZXYZ[6]; ///< Margins of the container to be cropped (or enlarged if negative), in order to define a 2D container region under (calibration & shape) uncertainty - for 2D processing.
     double containerEmptyDivisor; ///< Paramater that controls the maximum number of points allowed for the container to be empty after cropping the internal walls.
     std::string visualizationuri; ///< visualiation URI for the container for debugging purposes.
+
+    // the following params are initialized later during visionmanager initialization
     std::vector<double> innerTranslation;
     std::vector<double> innerExtents;
     std::vector<double> innerRotationmat; // row major
     std::vector<double> outerTranslation;
     std::vector<double> outerExtents;
     std::vector<double> outerRotationmat; // row major
-
+    
     std::string GetJsonString()
     {
         std::stringstream ss;
@@ -619,6 +622,24 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         ss << ", " << ParametersBase::GetJsonString("containerRoiMarginsXYZXYZ") << ": " << ParametersBase::GetJsonString(containerRoiMarginsXYZXYZ);
         ss << ", " << ParametersBase::GetJsonString("containerEmptyDivisor") << ": " << containerEmptyDivisor;
         ss << ", " << ParametersBase::GetJsonString("visualizationuri") << ": " << ParametersBase::GetJsonString(visualizationuri);
+        if (innerTranslation.size() > 0) {
+            ss << ", " << ParametersBase::GetJsonString("innerTranslation") << ": " << ParametersBase::GetJsonString(innerTranslation);
+        }
+        if (innerExtents.size() > 0) {
+            ss << ", " << ParametersBase::GetJsonString("innerExtents") << ": " << ParametersBase::GetJsonString(innerExtents);
+        }
+        if (innerRotationmat.size() > 0) {
+            ss << ", " << ParametersBase::GetJsonString("innerRotationmat") << ": " << ParametersBase::GetJsonString(innerRotationmat);
+        }
+        if (outerTranslation.size() > 0) {
+            ss << ", " << ParametersBase::GetJsonString("outerTranslation") << ": " << ParametersBase::GetJsonString(outerTranslation);
+        }
+        if (outerExtents.size() > 0) {
+            ss << ", " << ParametersBase::GetJsonString("outerExtents") << ": " << ParametersBase::GetJsonString(outerExtents);
+        }
+        if (outerRotationmat.size() > 0) {
+            ss << ", " << ParametersBase::GetJsonString("outerRotationmat") << ": " << ParametersBase::GetJsonString(outerRotationmat);
+        }
         ss << "}";
         return ss.str();
     }

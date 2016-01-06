@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "mujinvision/mujinvisionmanager.h"
 #include <boost/algorithm/string.hpp>
+#include <stdlib.h>
 #ifndef MUJIN_TIME
 #define MUJIN_TIME
 #include <time.h>
@@ -683,7 +684,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<unsigned int>("controllertimeout", 10),
                        command_pt.get<std::string>("locale", "en_US"),
                        command_pt.get<std::string>("targeturi", ""),
-                       command_pt.get<std::string>("slaverequestid", "")
+                       command_pt.get<std::string>("slaverequestid", ""),
+                       command_pt.get<std::string>("objectname", ""),
+                       command_pt.get<std::string>("objectarchiveurl", "")
                        );
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -2060,7 +2063,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     }
 }
 
-void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const std::string& containerParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const std::string& containerParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid, const std::string& objectname, const std::string& objectarchiveurl)
 {
     _locale = locale;
     uint64_t time0 = GetMilliTime();
@@ -2076,183 +2079,54 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     _bSendVerificationPointCloud = true;
     _containerParameters = containerParameters;
     ptree pt;
-
-    // load visionserver configuration
-    std::string visionmanagerconfig;
-    _LoadConfig(_GetConfigFileName("visionmanager", visionmanagerconfigname), visionmanagerconfig);
-    std::stringstream visionmanagerconfigss;
-    visionmanagerconfigss << visionmanagerconfig;
-    read_json(visionmanagerconfigss, pt);
-
-    // read execution verification configuration
-    ptree visionserverpt;
-    visionserverpt = pt.get_child("visionserver");
-    _vExecutionVerificationCameraNames.clear();
-    FOREACH(it, visionserverpt.get_child("executionverificationcameras")) {
-        _vExecutionVerificationCameraNames.push_back(it->second.data());
-    }
-    _filteringvoxelsize = visionserverpt.get<double>("filteringvoxelsize");
-    _filteringstddev = visionserverpt.get<double>("filteringstddev");
-    _filteringnumnn = visionserverpt.get<int>("filteringnumnn");
-    
-    // set up regions
-    std::vector<std::string> regionnames;
-    std::vector<RegionParametersPtr > vRegionParameters;
-    RegionParametersPtr pRegionParameters;
-    ptree containerpt;
-    std::stringstream containerss;
-    containerss << containerParameters;
-    read_json(containerss, containerpt);
-    FOREACH(v, containerpt.get_child("regions")) {
-        RegionParametersPtr pregionparameters(new RegionParameters(v->second));
-        vRegionParameters.push_back(pregionparameters);
-        _mNameRegion[pregionparameters->instobjectname] = RegionPtr(new Region(pregionparameters));
-        regionnames.push_back(pregionparameters->instobjectname);
-    }
-    // set up cameras
-    boost::optional<const ptree&> cameras_pt(pt.get_child_optional("cameras"));
-    if (!!cameras_pt) {
-        FOREACH(v, pt.get_child("cameras")) {
-            _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
+    std::string detectorconfigfilename = detectorconfigname;
+    std::map<std::string, std::string> extraInitializationOptions;
+    // prepare config files
+    if (objectname != "" && objectarchiveurl != "") {
+        char* templatedir = std::getenv("MUJIN_TEMPLATE_DIR");
+        if (templatedir == NULL) {
+            templatedir = "/data/template";
         }
-    }
-    
-    // connect to mujin controller
-    std::stringstream url_ss;
-    url_ss << "http://" << controllerIp << ":" << controllerPort;
-    ControllerClientPtr controller = CreateControllerClient(controllerUsernamePass, url_ss.str());
-    _pControllerClient = controller;
-    _userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(locale) + "}";
-
-    _SetStatusMessage(TT_Command, "Connected to mujin controller at " + url_ss.str());
-    SceneResourcePtr scene(new SceneResource(controller,binpickingTaskScenePk));
-    _pSceneResource = scene;
-    _pBinpickingTask = scene->GetOrCreateBinPickingTaskFromName_UTF8(tasktype+std::string("task1"), tasktype, TRO_EnableZMQ);
-
-    _SetStatusMessage(TT_Command, "Syncing cameras");
-    std::vector<std::string> cameranames;
-    scene->GetSensorMapping(_mCameraNameHardwareId);
-    FOREACH(v, _mCameraNameHardwareId) {
-        if (_mNameCameraParameters.find(v->first) != _mNameCameraParameters.end()){
-            _mNameCameraParameters[v->first]->id = v->second;
-        } else {
-            _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
-        }
-        cameranames.push_back(v->first);
-    }
-
-    VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in Initialize() with userinfo " + _userinfo_json);
-
-    try {
-        ptree tmppt;
-        std::stringstream tmpss;
-        tmpss.str(_userinfo_json);
-        read_json(tmpss, tmppt); // validate
-    } catch (...) {
-        VISIONMANAGER_LOG_ERROR("Initialize failed to parse json: " + _userinfo_json);
-        throw;
-    }
-
-    _pBinpickingTask->Initialize(defaultTaskParameters, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json, slaverequestid);
-
-    _SetStatusMessage(TT_Command, "Syncing regions");
-    BinPickingTaskResource::ResultGetInstObjectAndSensorInfo resultgetinstobjectandsensorinfo;
-    starttime = GetMilliTime();
-    _pBinpickingTask->GetInstObjectAndSensorInfo(regionnames, cameranames, resultgetinstobjectandsensorinfo, "m", controllertimeout);
-    VISIONMANAGER_LOG_DEBUG("GetInstObjectAndSensorInfo() took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
-
-    // sync regions
-    starttime = GetMilliTime();
-    _SetStatusMessage(TT_Command, "Syncing regions.");
-    FOREACH(it, resultgetinstobjectandsensorinfo.minstobjecttransform) {
-        _SyncRegion(it->first, it->second);
-    }
-    VISIONMANAGER_LOG_DEBUG("sync regions took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
-
-    // set up cameras
-    starttime = GetMilliTime();
-    _SetStatusMessage(TT_Command, "Setting up cameras.");
-    FOREACH(it, _mNameCameraParameters) {
-        std::string cameraname = it->first;
-        CameraParametersPtr pcameraparameters = it->second;
-        RobotResource::AttachedSensorResource::SensorData sensordata = resultgetinstobjectandsensorinfo.msensordata[cameraname];
-        /*
-        // do not use webapi to get sensordata for speed reason
-        RobotResource::AttachedSensorResource::SensorData sensordata;
-        std::string camerabodyname,sensorname;
-        _ParseCameraName(cameraname, camerabodyname, sensorname);
-
-        utils::GetSensorData(_pControllerClient, _pSceneResource, camerabodyname, sensorname, sensordata);
-        */
-        CalibrationDataPtr calibrationdata(new CalibrationData());
-        calibrationdata->fx           = sensordata.intrinsic[0];
-        calibrationdata->fy           = sensordata.intrinsic[4];
-        calibrationdata->pu           = sensordata.intrinsic[2];
-        calibrationdata->pv           = sensordata.intrinsic[5];
-        calibrationdata->s            = sensordata.intrinsic[1];
-        calibrationdata->focal_length = sensordata.focal_length;
-        calibrationdata->distortion_model = sensordata.distortion_model;
-        for (size_t idceff = 0; idceff < 5; idceff++) {
-            calibrationdata->distortion_coeffs[idceff] = sensordata.distortion_coeffs[idceff];
-        }
-        if (sensordata.extra_parameters.size()==4 && sensordata.extra_parameters[0]==1) { // TODO: reorganize
-            calibrationdata->kappa = sensordata.extra_parameters[1];
-        } else {
-            calibrationdata->kappa = 0;
-        }
-        calibrationdata->image_width  = sensordata.image_dimensions[0];
-        calibrationdata->image_height = sensordata.image_dimensions[1];
-
-        if (sensordata.extra_parameters.size()==4 && sensordata.extra_parameters[0]==1) { // TODO: reorganize
-            calibrationdata->pixel_width = sensordata.extra_parameters[2];
-            calibrationdata->pixel_height = sensordata.extra_parameters[3];
-        } else {
-            calibrationdata->pixel_width  = sensordata.focal_length / sensordata.intrinsic[0];
-            calibrationdata->pixel_height = sensordata.focal_length / sensordata.intrinsic[4];
-        }
-        _mNameCamera[cameraname] = CameraPtr(new Camera(cameraname, pcameraparameters, calibrationdata));
-    }
-    std::vector<std::string> syncedcamera;
-    FOREACH(itr, _mNameRegion) {
-        std::string regionname = itr->first;
-        std::map<std::string, CameraPtr> mNameColorCamera, mNameDepthCamera;
-        RegionPtr region = _mNameRegion[regionname];
-        std::string cameraname;
-        CameraParametersPtr pcameraparameters;
-        for (unsigned int i=0; i<region->pRegionParameters->cameranames.size(); ++i) {
-            cameraname = region->pRegionParameters->cameranames.at(i);
-            pcameraparameters = _mNameCamera[cameraname]->pCameraParameters;
-            if (std::find(syncedcamera.begin(), syncedcamera.end(), cameraname) == syncedcamera.end()) {
-                _SyncCamera(cameraname, resultgetinstobjectandsensorinfo.msensortransform[cameraname]);
-                syncedcamera.push_back(cameraname);
-            } else {
-                throw MujinVisionException("does not support same camera mapped to more than one region.", MVE_CommandNotSupported);
+        std::string templatepath = std::string(templatedir) + "/" + objectname;
+        detectorconfigfilename = templatepath + "/detector.json";
+        extraInitializationOptions["templateDir"] = templatepath;
+        if (!boost::filesystem::exists(detectorconfigfilename)) {
+            // prepare directories
+            try {
+                boost::filesystem::create_directories(templatepath);
+            } catch (...) {
+                std::stringstream errss;
+                errss << "Failed to prepare config files because " << templatepath << " could not be created.";
+                VISIONMANAGER_LOG_ERROR(errss.str());
+                throw MujinVisionException(errss.str(), MVE_Failed);
             }
-            if (pcameraparameters->isColorCamera) {
-                _SetStatusMessage(TT_Command, "Loading parameters for color camera " + cameraname +" for region " + regionname +".");
-                mNameColorCamera[cameraname] = _mNameCamera[cameraname];
+            // fetch archive
+            try {
+                std::string cmdstr = "wget -N " + objectarchiveurl + " -P " + templatepath;
+                system(cmdstr.c_str());
+            } catch (...) {
+                std::stringstream errss;
+                errss << "Failed to prepare config files because " << objectarchiveurl << " could not be fetched.";
+                VISIONMANAGER_LOG_ERROR(errss.str());
+                throw MujinVisionException(errss.str(), MVE_Failed);
             }
-            if (pcameraparameters->isDepthCamera) {
-                _SetStatusMessage(TT_Command, "Loading parameters for depth camera " + cameraname +" for region " + regionname +".");
-                mNameDepthCamera[cameraname] = _mNameCamera[cameraname];
+            // extract files
+            std::string archivefilename = templatepath + "/" + objectname + ".tar.gz";
+            try {
+                std::stringstream commandss;
+                commandss << "tar xzvf " << archivefilename << " -C" << templatepath;
+                system(commandss.str().c_str());
+            } catch (...) {
+                std::stringstream errss;
+                errss << "Failed to prepare config files because " << archivefilename << " could not be decompressed.";
+                VISIONMANAGER_LOG_ERROR(errss.str());
+                throw MujinVisionException(errss.str(), MVE_Failed);
             }
-            _mCameranameRegionname[cameraname] = regionname;
+        } else {
+            VISIONMANAGER_LOG_DEBUG(detectorconfigfilename + " exists, no need to fetch it.");
         }
-        _mRegionColorCameraMap[regionname] = mNameColorCamera;
-        _mRegionDepthCameraMap[regionname] = mNameDepthCamera;
+        VISIONMANAGER_LOG_DEBUG("using templatepath " + templatepath + " as path to detectorconfig, ignoring detectorconfigname");
     }
-    VISIONMANAGER_LOG_DEBUG("sync cameras took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
-
-    // set up subscribers
-    _SetStatusMessage(TT_Command, "Loading subscriber configuration.");
-    // load subscriber configuration
-    std::string imagesubscriberconfig;
-    _LoadConfig(_GetConfigFileName("imagesubscriber", imagesubscriberconfigname), imagesubscriberconfig);
-    _imagesubscriberconfig = imagesubscriberconfig;
-    std::stringstream imagesubscriberconfigss;
-    imagesubscriberconfigss << imagesubscriberconfig;
-    read_json(imagesubscriberconfigss, pt);
-
     // set up image subscriber manager
     _SetStatusMessage(TT_Command, "Setting up image manager.");
     _pImagesubscriberManager->Initialize(_mNameCamera, streamerIp, streamerPort, pt.get_child("zmq_subscriber"), _zmqcontext);
@@ -2261,14 +2135,11 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     starttime = GetMilliTime();
     _SetStatusMessage(TT_Command, "Setting up detector.");
     std::string detectorconfig;
-    _LoadConfig(_GetConfigFileName("detector", detectorconfigname), detectorconfig);
+    _LoadConfig(_GetConfigFileName("detector", detectorconfigfilename), detectorconfig);
     _detectorconfig = detectorconfig;
-    std::stringstream detectorconfigss;
-    detectorconfigss << detectorconfig;
-    read_json(detectorconfigss, _ptDetectorConfig);
     _targetname = targetname;
     _targeturi = targeturi;
-    _pDetector = _pDetectorManager->CreateObjectDetector(_ptDetectorConfig.get_child("object"), _ptDetectorConfig.get_child("detection"), _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
+    _pDetector = _pDetectorManager->CreateObjectDetector(detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), extraInitializationOptions);
     VISIONMANAGER_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG(" ------------------------");
@@ -2716,7 +2587,7 @@ void MujinVisionManager::SyncCameras(const std::string& regionname, const std::v
     if (!!_pDetector) {
         _pDetector.reset();
         VISIONMANAGER_LOG_DEBUG("reset detector");
-        _pDetector = _pDetectorManager->CreateObjectDetector(_ptDetectorConfig.get_child("object"), _ptDetectorConfig.get_child("detection"), _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
+        _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
     }
     _SetStatus(TT_Command, MS_Succeeded);
 }

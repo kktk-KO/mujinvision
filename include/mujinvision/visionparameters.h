@@ -88,7 +88,7 @@ struct MUJINVISION_API ParametersBase
         std::stringstream ss;
         ss << "[";
         for (unsigned int i = 0; i < vec.size(); i++) {
-            ss << vec[i];
+            ss << GetJsonString(vec[i]);
             if( i != vec.size()-1) {
                 ss << ", ";
             }

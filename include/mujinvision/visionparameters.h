@@ -603,7 +603,6 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     double containerEmptyDivisor; ///< Paramater that controls the maximum number of points allowed for the container to be empty after cropping the internal walls.
     std::string visualizationuri; ///< visualiation URI for the container for debugging purposes.
 
-
     // the following params are initialized later during visionmanager initialization
     std::vector<double> innerTranslation;
     std::vector<double> innerExtents;
@@ -612,6 +611,12 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     std::vector<double> outerExtents;
     std::vector<double> outerRotationmat; // row major
 
+    std::string type; ///< the type of the container, by default it is boxAxisAligned
+    double cropContainerMarginsXYZXYZ[6]; ///< Margins of the container to be cropped (or enlarged if negative), in order to define 3D container region under (calibration & shape) uncertainty - for pointcloud processing.
+    double containerRoiMarginsXYZXYZ[6]; ///< Margins of the container to be cropped (or enlarged if negative), in order to define a 2D container region under (calibration & shape) uncertainty - for 2D processing.
+    double containerEmptyDivisor; ///< Paramater that controls the maximum number of points allowed for the container to be empty after cropping the internal walls.
+    std::string visualizationuri; ///< visualiation URI for the container for debugging purposes.
+    
     std::string GetJsonString()
     {
         std::stringstream ss;

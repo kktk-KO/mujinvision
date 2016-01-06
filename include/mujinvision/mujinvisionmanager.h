@@ -534,7 +534,6 @@ private:
     std::map<std::string, std::string> _mCameraNameHardwareId; ///< camera name -> camera hardware id
     ImageSubscriberManagerPtr _pImagesubscriberManager;
 
-    boost::property_tree::ptree _ptDetectorConfig; ///< pt of detector config
     ObjectDetectorPtr _pDetector;
     DetectorManagerPtr _pDetectorManager;
 

@@ -2263,12 +2263,9 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     std::string detectorconfig;
     _LoadConfig(_GetConfigFileName("detector", detectorconfigname), detectorconfig);
     _detectorconfig = detectorconfig;
-    std::stringstream detectorconfigss;
-    detectorconfigss << detectorconfig;
-    read_json(detectorconfigss, _ptDetectorConfig);
     _targetname = targetname;
     _targeturi = targeturi;
-    _pDetector = _pDetectorManager->CreateObjectDetector(_ptDetectorConfig.get_child("object"), _ptDetectorConfig.get_child("detection"), _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
+    _pDetector = _pDetectorManager->CreateObjectDetector(detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
     VISIONMANAGER_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG(" ------------------------");
@@ -2715,7 +2712,7 @@ void MujinVisionManager::SyncCameras(const std::string& regionname, const std::v
     if (!!_pDetector) {
         _pDetector.reset();
         VISIONMANAGER_LOG_DEBUG("reset detector");
-        _pDetector = _pDetectorManager->CreateObjectDetector(_ptDetectorConfig.get_child("object"), _ptDetectorConfig.get_child("detection"), _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
+        _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
     }
     _SetStatus(TT_Command, MS_Succeeded);
 }

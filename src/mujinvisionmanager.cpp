@@ -2406,12 +2406,6 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
     }
     
     _tWorldResultOffset = worldresultoffsettransform;
-
-    for (unsigned int i=0; i<tempcameranames.size(); ++i) {
-        
-        VISIONMANAGER_LOG_ERROR(tempcameranames.at(i));
-    }
-    
     if (!!_pImagesubscriberManager) {
         _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(tempcameranames));
     } else {

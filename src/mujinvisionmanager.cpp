@@ -1509,7 +1509,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 uint64_t starttime = GetMilliTime();
                 {
                     boost::mutex::scoped_lock lock(_mutexDetector);
-                    _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false, false, _filteringstddev, _filteringnumnn);
+                    _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
                 }
                 ss << "GetPointCloudObstacle() took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                 VISIONMANAGER_LOG_INFO(ss.str());
@@ -2091,6 +2091,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
         detectorconfigfilename = templatepath + "/detector.json";
         extraInitializationOptions["templateDir"] = templatepath;
         if (!boost::filesystem::exists(detectorconfigfilename)) {
+            VISIONMANAGER_LOG_INFO("getting detector config file");
             // prepare directories
             try {
                 boost::filesystem::create_directories(templatepath);
@@ -2189,6 +2190,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
         } else {
             _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
         }
+        _mNameCameraParameters[v->first]->isDepthCamera = v->first.find("_l_rectified") != std::string::npos;
         cameranames.push_back(v->first);
     }
 

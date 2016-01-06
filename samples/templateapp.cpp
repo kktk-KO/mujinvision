@@ -125,7 +125,7 @@ public:
     virtual ~UserDetectorManager() {
     }
 
-    ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn)
+    ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn, const std::map<std::string, std::string>& extraInitializationOptions = std::map<std::string, std::string>())
     {
         UserObjectDetectorPtr detector(new UserObjectDetector());
         return boost::dynamic_pointer_cast<ObjectDetector>(detector);

@@ -539,6 +539,7 @@ private:
     DetectorManagerPtr _pDetectorManager;
 
     unsigned long long _tsStartDetection; ///< timestamp when start detection loop was first called
+    unsigned long long _tsLastEnvUpdate; ///< timestamp when binpickingtask->UpdateEnvironmentState was called
     std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
     boost::mutex _mutexDetectedInfo; ///< lock for detection result
     std::vector<DetectedObjectPtr> _vDetectedObject; ///< latest detection result

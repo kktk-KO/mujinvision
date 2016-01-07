@@ -181,6 +181,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bIsDetectionRunning = false;
     _numPickAttempt = 0;
     _tsStartDetection = 0;
+    _tsLastEnvUpdate = 0;
     _resultTimestamp = 0;
     _resultState = "{}";
     _pImagesubscriberManager = imagesubscribermanager;
@@ -1567,7 +1568,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         numdetection += 1;
     }
     if (numdetection >= maxnumdetection && maxnumdetection!=0) {
-        VISIONMANAGER_LOG_INFO("reached max num detection, stop capturing");
+        VISIONMANAGER_LOG_INFO("reached max num detection, wait for environment to update");
+        while (_resultTimestamp > _tsLastEnvUpdate) {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(50));
+        }
+        VISIONMANAGER_LOG_INFO("environment is updated with latest result, stop capturing");
         _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
         VISIONMANAGER_LOG_INFO("capturing stopped");
     }
@@ -1688,6 +1693,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(const std::string& regionname,
             try {
                 starttime = GetMilliTime();
                 pBinpickingTask->UpdateEnvironmentState(_targetname, _targeturi, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
+                _tsLastEnvUpdate = _resultTimestamp;
                 std::stringstream ss;
                 ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                 _SetStatusMessage(TT_UpdateEnvironment, ss.str());

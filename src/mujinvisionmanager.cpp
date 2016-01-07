@@ -1572,7 +1572,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         while (_resultTimestamp > _tsLastEnvUpdate) {
             boost::this_thread::sleep(boost::posix_time::milliseconds(50));
         }
-        VISIONMANAGER_LOG_INFO("environment is updated with latest result, stop capturing");
+        VISIONMANAGER_LOG_INFO("environment is updated with latest result, stop environment updating and capturing");
+        _StopUpdateEnvironmentThread();
+        VISIONMANAGER_LOG_INFO("stopped environment update thread");
         _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
         VISIONMANAGER_LOG_INFO("capturing stopped");
     }

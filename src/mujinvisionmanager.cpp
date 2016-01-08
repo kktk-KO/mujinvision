@@ -1577,6 +1577,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         VISIONMANAGER_LOG_INFO("stopped environment update thread");
         _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
         VISIONMANAGER_LOG_INFO("capturing stopped");
+        if (_vExecutionVerificationCameraNames.size() > 0) {
+            _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
+            VISIONMANAGER_LOG_INFO("stopped execution verification cameras");
+        }
     }
     VISIONMANAGER_LOG_INFO("ending detection thread. numdetection=" + boost::lexical_cast<std::string>(numdetection));
 }
@@ -2091,10 +2095,13 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
     // prepare config files
     if (objectname != "" && objectarchiveurl != "") {
         char* templatedir = std::getenv("MUJIN_TEMPLATE_DIR");
+        std::string templatepath;
         if (templatedir == NULL) {
-            templatedir = "/data/template";
+            templatepath = "/data/template";
+        } else {
+            templatepath = std::string(templatedir);
         }
-        std::string templatepath = std::string(templatedir) + "/" + objectname;
+        templatepath +=  "/" + objectname;
         detectorconfigfilename = templatepath + "/detector.json";
         extraInitializationOptions["templateDir"] = templatepath;
         if (!boost::filesystem::exists(detectorconfigfilename)) {
@@ -2430,6 +2437,9 @@ void MujinVisionManager::StopDetectionLoop()
     _StopControllerMonitorThread();
     if (!!_pImagesubscriberManager) {
         _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vCameranames));
+        if (_vExecutionVerificationCameraNames.size() > 0) {
+            _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
+        }
     }
     _SetStatus(TT_Command, MS_Succeeded);
 }

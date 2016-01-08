@@ -347,6 +347,27 @@ private:
         unsigned int maxnumdetection;
     };
 
+    struct UpdateEnvironmentThreadParams {
+        std::string regionname;
+        std::vector<std::string> cameranames;
+        double voxelsize;
+        double pointsize;
+        std::string obstaclename;
+        unsigned int waitinterval;
+        std::string locale;
+    };
+
+    struct SendPointCloudObstacleToControllerThreadParams {
+        std::string regionname;
+        std::vector<std::string> cameranames;
+        std::vector<DetectedObjectPtr> detectedobjectsworld;
+        unsigned int maxage;
+        unsigned int fetchimagetimeout;
+        double voxelsize;
+        double pointsize;
+        std::string obstaclename;
+    };
+
     void _DeInitialize();
 
     enum ThreadType {
@@ -357,6 +378,17 @@ private:
         TT_ControllerMonitor=4,
         TT_SendPointcloudObstacle=5,
     };
+
+    class ImagesubscriberHandler
+    {
+    public:
+        ImagesubscriberHandler(ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids);
+        virtual ~ImagesubscriberHandler();
+        ImageSubscriberManagerPtr _pManager;
+        std::vector<std::string> _vIds;
+    };
+
+    typedef boost::shared_ptr<ImagesubscriberHandler> ImagesubscriberHandlerPtr;
 
     void _SetDetectorStatusMessage(const std::string& msg, const std::string& err="");
     void _SetStatusMessage(ThreadType tt, const std::string& msg, const std::string& err="");
@@ -394,8 +426,8 @@ private:
                         const bool bindetection=false,
                         const bool request=false,
                         const bool useold=false);
-    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection);
+    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params, ImagesubscriberHandlerPtr ih);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, ImagesubscriberHandlerPtr ih);
     void _StopDetectionThread();
 
     void _VisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const double voxelsize);
@@ -409,23 +441,19 @@ private:
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
         \param pointsize size of the point in meters to be sent to the mujin controller
      */
-    void _UpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename="__dynamicobstacle__", const unsigned int waitinterval=50, const std::string& locale="en_US");
-    void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _UpdateEnvironmentThread(UpdateEnvironmentThreadParams params, ImagesubscriberHandlerPtr ih);
+    void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, ImagesubscriberHandlerPtr ih, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopUpdateEnvironmentThread();
 
     void _ControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StartControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StopControllerMonitorThread();
 
-    void _SendPointCloudObstacleToControllerThread(const std::string& regionname,
-                                                   const std::vector<std::string>& cameranames,
-                                                   const std::vector<DetectedObjectPtr>& detectedobjectsworld,
-                                                   const unsigned int maxage=0,
-                                                   const unsigned int fetchimagetimeout=0,
-                                                   const double voxelsize=0.01,
-                                                   const double pointsize=0.005,
-                                                   const std::string& obstaclename="__dynamicobstacle__");
+    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, ImagesubscriberHandlerPtr ih, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01, const double pointsize=0.005, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
+    void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params, ImagesubscriberHandlerPtr ih);
 
+    void _DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, ImagesubscriberHandlerPtr ih, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=false);
+    void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, ImagesubscriberHandlerPtr ih, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
     /** \brief Gets transform of the instobject in meters.
      */
     mujinvision::Transform _GetTransform(const std::string& instobjname);

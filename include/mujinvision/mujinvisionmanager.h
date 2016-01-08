@@ -610,6 +610,7 @@ private:
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
     bool _bIsDetectionRunning; ///< true if detection thread is running
+    bool _bIsVisualizePointcloudRunning; ///< whether the point cloud visualization thread is running
     bool _bSendVerificationPointCloud; ///< whether send verification point cloud or not
     std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether to stop the command thread of specified port
 

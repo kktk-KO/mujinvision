@@ -192,6 +192,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bIsRobotOccludingSourceContainer = false;
     _bForceRequestDetectionResults = false;
     _bIsDetectionRunning = false;
+    _bIsVisualizePointcloudRunning = false;
     _numPickAttempt = 0;
     _tsStartDetection = 0;
     _tsLastEnvUpdate = 0;
@@ -1109,6 +1110,7 @@ std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long ti
         ss << ParametersBase::GetJsonString("sendpointclouderrorcode", sendpclerr) << ", ";
     }
     ss << ParametersBase::GetJsonString("isdetectionrunning", IsDetectionRunning());
+    ss << ParametersBase::GetJsonString("isvisualizepointcloudrunning", (int)_bIsVisualizePointcloudRunning);
     ss << "}";
     try {
         ptree tmppt;
@@ -1296,6 +1298,7 @@ void MujinVisionManager::_StartVisualizePointCloudThread(const std::string& regi
         _SetStatusMessage(TT_Command, "VisualizePointCloud thread is already running, do nothing.");
     } else {
         _bStopVisualizePointCloudThread = false;
+        _bIsVisualizePointcloudRunning = true;
         _pVisualizePointCloudThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_VisualizePointCloudThread, this, regionname, cameranames, pointsize, ignoreocclusion, maxage, fetchimagetimeout, request, voxelsize)));
     }
 }
@@ -1807,6 +1810,7 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
 
 void MujinVisionManager::_VisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const double voxelsize)
 {
+    FalseSetter turnOffVisualize(_bIsVisualizePointcloudRunning);
     while (!_bStopVisualizePointCloudThread) {
         SyncCameras(regionname, cameranames);
         if (_bStopVisualizePointCloudThread) {

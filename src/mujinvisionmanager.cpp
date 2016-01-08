@@ -666,9 +666,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 _bInitialized = true;
             }
             std::string locale = command_pt.get<std::string>("locale", "en_US");
-            Initialize(command_pt.get<std::string>("visionmanagerconfigname"),
+            Initialize(command_pt.get<std::string>("visionmanagerconfig"),
                        command_pt.get<std::string>("detectorconfigname"),
-                       command_pt.get<std::string>("imagesubscriberconfigname"),
+                       command_pt.get<std::string>("imagesubscriberconfig"),
                        command_pt.get<std::string>("mujinControllerIp", ""),
                        command_pt.get<unsigned int>("mujinControllerPort", 0),
                        command_pt.get<std::string>("mujinControllerUsernamePass"),
@@ -2071,7 +2071,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     }
 }
 
-void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const std::string& containerParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid, const std::string& objectname, const std::string& objectarchiveurl)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, const std::string& detectorconfigname, const std::string& imagesubscriberconfig, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const std::string& containerParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid, const std::string& objectname, const std::string& objectarchiveurl)
 {
     _locale = locale;
     uint64_t time0 = GetMilliTime();
@@ -2086,7 +2086,6 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     _slaverequestid = slaverequestid;
     _bSendVerificationPointCloud = true;
     _containerParameters = containerParameters;
-    ptree pt;
     std::string detectorconfigfilename;
     std::map<std::string, std::string> extraInitializationOptions;
     // prepare config files
@@ -2138,15 +2137,12 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     }
 
     // load visionserver configuration
-    std::string visionmanagerconfig;
-    _LoadConfig(_GetConfigFileName("visionmanager", visionmanagerconfigname), visionmanagerconfig);
     std::stringstream visionmanagerconfigss;
     visionmanagerconfigss << visionmanagerconfig;
-    read_json(visionmanagerconfigss, pt);
 
     // read execution verification configuration
     ptree visionserverpt;
-    visionserverpt = pt.get_child("visionserver");
+    read_json(visionmanagerconfigss, visionserverpt);
     _vExecutionVerificationCameraNames.clear();
     FOREACH(it, visionserverpt.get_child("executionverificationcameras")) {
         _vExecutionVerificationCameraNames.push_back(it->second.data());
@@ -2154,6 +2150,13 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     _filteringvoxelsize = visionserverpt.get<double>("filteringvoxelsize");
     _filteringstddev = visionserverpt.get<double>("filteringstddev");
     _filteringnumnn = visionserverpt.get<int>("filteringnumnn");
+
+    std::string detectormodulename = visionserverpt.get<std::string>("modulename", "");
+    std::string detectorclassname = visionserverpt.get<std::string>("classname", "");
+    if (detectormodulename.size() > 0 && detectorclassname.size() > 0) {
+        extraInitializationOptions["modulename"] = detectormodulename;
+        extraInitializationOptions["classname"] = detectorclassname;
+    }
 
     // set up regions
     std::vector<std::string> regionnames;
@@ -2168,13 +2171,6 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
         vRegionParameters.push_back(pregionparameters);
         _mNameRegion[pregionparameters->instobjectname] = RegionPtr(new Region(pregionparameters));
         regionnames.push_back(pregionparameters->instobjectname);
-    }
-    // set up cameras
-    boost::optional<const ptree&> cameras_pt(pt.get_child_optional("cameras"));
-    if (!!cameras_pt) {
-        FOREACH(v, pt.get_child("cameras")) {
-            _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
-        }
     }
 
     // connect to mujin controller
@@ -2307,16 +2303,15 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     // set up subscribers
     _SetStatusMessage(TT_Command, "Loading subscriber configuration.");
     // load subscriber configuration
-    std::string imagesubscriberconfig;
-    _LoadConfig(_GetConfigFileName("imagesubscriber", imagesubscriberconfigname), imagesubscriberconfig);
     _imagesubscriberconfig = imagesubscriberconfig;
     std::stringstream imagesubscriberconfigss;
     imagesubscriberconfigss << imagesubscriberconfig;
-    read_json(imagesubscriberconfigss, pt);
+    ptree imagesubscriberpt;
+    read_json(imagesubscriberconfigss, imagesubscriberpt);
 
     // set up image subscriber manager
     _SetStatusMessage(TT_Command, "Setting up image manager.");
-    _pImagesubscriberManager->Initialize(_mNameCamera, streamerIp, streamerPort, pt.get_child("zmq_subscriber"), _zmqcontext);
+    _pImagesubscriberManager->Initialize(_mNameCamera, streamerIp, streamerPort, imagesubscriberpt.get_child("zmq_subscriber"), _zmqcontext);
 
     // set up detectors
     starttime = GetMilliTime();

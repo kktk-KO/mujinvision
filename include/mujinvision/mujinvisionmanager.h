@@ -104,9 +104,9 @@ public:
 
         /param defaultTaskParameters a JSON string with the default task parameters that should be included in every command call to the controller. If empty, then insert nothing
      */
-    virtual void Initialize(const std::string& visionmanagerconfigname,
+    virtual void Initialize(const std::string& visionmanagerconfig,
                             const std::string& detectorconfigname,
-                            const std::string& imagesubscriberconfigname,
+                            const std::string& imagesubscriberconfig,
                             const std::string& controllerIp,
                             const unsigned int controllerPort,
                             const std::string& controllerUsernamePass,

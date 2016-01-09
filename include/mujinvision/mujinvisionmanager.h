@@ -124,8 +124,7 @@ public:
                             const std::string& locale="en_US",
                             const std::string& targeturi="",
                             const std::string& slaverequestid="",
-                            const std::string& objectname="",
-                            const std::string& objectarchiveurl="");
+                            const std::string& targetarchiveurl="");
 
     /** \brief Detects objects in specified region with specified cameras
         \param regionname name of the region

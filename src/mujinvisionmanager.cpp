@@ -2097,7 +2097,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     char* templatedir = std::getenv("MUJIN_TEMPLATE_DIR");
     std::string templatepath;
     if (templatedir == NULL) {
-        templatepath = "/data/template";
+        templatepath = "/data/templates";
     } else {
         templatepath = std::string(templatedir);
     }
@@ -2108,7 +2108,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
         // fetch archive
         try {
             std::string cmdstr = "wget -qN " + targetarchiveurl + " -P " + templatepath;
-            system(cmdstr.c_str());
+            system(cmdstr.c_str()); // TODO: check process exit code here
         } catch (...) {
             std::stringstream errss;
             errss << "Failed to prepare config files because " << targetarchiveurl << " could not be fetched.";
@@ -2121,7 +2121,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
         try {
             std::stringstream commandss;
             commandss << "tar xzf " << archivefilename << " -C " << templatepath;
-            system(commandss.str().c_str());
+            system(commandss.str().c_str()); // TODO: check process exit code here
         } catch (...) {
             std::stringstream errss;
             errss << "Failed to prepare config files because " << archivefilename << " could not be decompressed.";
@@ -2131,11 +2131,13 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     }
 
     // prepare config files
-    if (boost::filesystem::exists(templatepath + "/detector.json")) {
+    detectorconfigfilename = templatepath + "/detector.json";
+    if (boost::filesystem::exists(detectorconfigfilename)) {
         VISIONMANAGER_LOG_INFO("getting detector config file");
         VISIONMANAGER_LOG_DEBUG("using templatepath " + templatepath + " as path to detectorconfig, ignoring detectorconfigname");
         extraInitializationOptions["templateDir"] = templatepath;
-        detectorconfigfilename = templatepath + "/detector.json";
+    } else {
+        detectorconfigfilename = "";
     }
 
     // load visionserver configuration

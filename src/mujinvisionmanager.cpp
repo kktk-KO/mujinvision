@@ -193,6 +193,8 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bForceRequestDetectionResults = false;
     _bIsDetectionRunning = false;
     _bIsVisualizePointcloudRunning = false;
+    _bIsSendPointcloudRunning = false;
+    _bIsEnvironmentUpdateRunning = false;
     _numPickAttempt = 0;
     _tsStartDetection = 0;
     _tsLastEnvUpdate = 0;
@@ -1110,7 +1112,9 @@ std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long ti
         ss << ParametersBase::GetJsonString("sendpointclouderrorcode", sendpclerr) << ", ";
     }
     ss << ParametersBase::GetJsonString("isdetectionrunning", IsDetectionRunning());
-    ss << ParametersBase::GetJsonString("isvisualizepointcloudrunning", (int)_bIsVisualizePointcloudRunning);
+    ss << ", " << ParametersBase::GetJsonString("isvisualizepointcloudrunning", (int)_bIsVisualizePointcloudRunning);
+    ss << ", " << ParametersBase::GetJsonString("issendpointcloudrunning", (int)_bIsSendPointcloudRunning);
+    ss << ", " << ParametersBase::GetJsonString("isenvironmentupdaterunning", (int)_bIsEnvironmentUpdateRunning);
     ss << "}";
     try {
         ptree tmppt;
@@ -1270,6 +1274,7 @@ void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& region
         _SetStatusMessage(TT_Command, "UpdateEnvironment thread is already running, do nothing.");
     } else {
         _bStopUpdateEnvironmentThread = false;
+        _bIsEnvironmentUpdateRunning = true;
         UpdateEnvironmentThreadParams params;
         params.regionname = regionname;
         params.cameranames = cameranames;
@@ -1611,6 +1616,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
 void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams params, ImagesubscriberHandlerPtr ih)
 {
+    FalseSetter turnoffstatusvar(_bIsEnvironmentUpdateRunning);
     std::string regionname = params.regionname;
     std::vector<std::string> cameranames = params.cameranames;
     //double voxelsize = params.voxelsize;
@@ -2562,6 +2568,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
         }
     }  else {
         _bStopSendPointCloudObstacleToControllerThread = false;
+        _bIsSendPointcloudRunning = true;
         SendPointCloudObstacleToControllerThreadParams params;
         params.regionname = regionname;
         params.cameranames = cameranames;
@@ -2581,6 +2588,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
 
 void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params, ImagesubscriberHandlerPtr ih)
 {
+    FalseSetter turnoffstatusvar(_bIsSendPointcloudRunning);
     std::string regionname = params.regionname;
     std::vector<std::string> cameranames = params.cameranames;
     std::vector<DetectedObjectPtr> detectedobjectsworld = params.detectedobjectsworld;

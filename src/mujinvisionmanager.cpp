@@ -1112,9 +1112,9 @@ std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long ti
         ss << ParametersBase::GetJsonString("sendpointclouderrorcode", sendpclerr) << ", ";
     }
     ss << ParametersBase::GetJsonString("isdetectionrunning", IsDetectionRunning());
-    ss << ", " << ParametersBase::GetJsonString("isvisualizepointcloudrunning", (int)_bIsVisualizePointcloudRunning);
-    ss << ", " << ParametersBase::GetJsonString("issendpointcloudrunning", (int)_bIsSendPointcloudRunning);
-    ss << ", " << ParametersBase::GetJsonString("isenvironmentupdaterunning", (int)_bIsEnvironmentUpdateRunning);
+    ss << ", " << ParametersBase::GetJsonString("isvisualizepointcloudrunning", _bIsVisualizePointcloudRunning);
+    ss << ", " << ParametersBase::GetJsonString("issendpointcloudrunning", _bIsSendPointcloudRunning);
+    ss << ", " << ParametersBase::GetJsonString("isenvironmentupdaterunning", _bIsEnvironmentUpdateRunning);
     ss << "}";
     try {
         ptree tmppt;

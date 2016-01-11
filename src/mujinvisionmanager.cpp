@@ -176,7 +176,7 @@ bool MujinVisionManager::_PreemptSubscriber()
     return _bShutdown || _bCancelCommand || _bStopDetectionThread;
 }
 
-MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir)
+MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir, const std::string& detectionconfdir)
 {
     _bInitialized = false;
     _bShutdown = false;
@@ -209,6 +209,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _commandport = commandport;
     _configport = configport;
     _configdir = configdir;
+    _detectionConfigDir = detectionconfdir;
     _binpickingTaskZmqPort = 0;
     _binpickingTaskHeartbeatPort = 0;
     _binpickingTaskHeartbeatTimeout = 10;
@@ -285,7 +286,12 @@ void MujinVisionManager::GetConfig(const std::string& type, std::string& config)
 
 std::string MujinVisionManager::_GetConfigFileName(const std::string& type, const std::string& configname)
 {
-    return _configdir + "/" + type + "-" + configname + ".json";
+    std::string filename = _configdir + "/" + type;
+    if (configname.size() > 0) {
+        filename += "-" + configname;
+    }
+    filename += ".json";
+    return filename;
 }
 
 void MujinVisionManager::_LoadConfig(const std::string& filename, std::string& content)
@@ -1694,9 +1700,9 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
 
     pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
     uint64_t starttime;
-    uint64_t lastwarnedtimestamp0 = 0;
+    //uint64_t lastwarnedtimestamp0 = 0;
     uint64_t lastwarnedtimestamp1 = 0;
-    uint64_t lastsentcloudtime = 0;
+    //uint64_t lastsentcloudtime = 0;
     while (!_bStopUpdateEnvironmentThread) {
         bool update = false;
 
@@ -1790,7 +1796,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
     std::string resultstate;
     
 
-    uint64_t lastUpdateTimestamp = GetMilliTime();
+    //uint64_t lastUpdateTimestamp = GetMilliTime();
     _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
     std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
 
@@ -1809,9 +1815,9 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
     }
 
     pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
-    uint64_t starttime;
+    //uint64_t starttime;
     uint64_t lastwarnedtimestamp0 = 0;
-    uint64_t lastwarnedtimestamp1 = 0;
+    //uint64_t lastwarnedtimestamp1 = 0;
     uint64_t lastsentcloudtime = 0;
     while (!_bStopExecutionVerificationPointCloudThread) {
 
@@ -2228,14 +2234,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
     std::string detectorconfigfilename;
     // prepare config files
     if (objectname != "" && objectarchiveurl != "") {
-        char* templatedir = std::getenv("MUJIN_TEMPLATE_DIR");
-        std::string templatepath;
-        if (templatedir == NULL) {
-            templatepath = "/data/template";
-        } else {
-            templatepath = std::string(templatedir);
-        }
-        templatepath +=  "/" + objectname;
+        std::string templatepath = _detectionConfigDir + "/" + objectname;
         detectorconfigfilename = templatepath + "/detector.json";
         _mDetectorExtraInitializationOptions["templateDir"] = templatepath;
         if (!boost::filesystem::exists(detectorconfigfilename)) {

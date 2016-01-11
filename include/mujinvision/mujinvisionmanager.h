@@ -58,7 +58,7 @@ class MUJINVISION_API MujinVisionManager
 public:
     /** \brief sets up vision manager
      */
-    MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned int configport, const std::string& configdir);
+    MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned int configport, const std::string& configdir, const std::string& detectionconfigdir);
     virtual ~MujinVisionManager();
 
     virtual void Destroy();
@@ -594,6 +594,7 @@ private:
 
     ObjectDetectorPtr _pDetector;
     DetectorManagerPtr _pDetectorManager;
+    std::string _detectionConfigDir;
 
     unsigned long long _tsStartDetection; ///< timestamp when start detection loop was first called
     unsigned long long _tsLastEnvUpdate; ///< timestamp when binpickingtask->UpdateEnvironmentState was called

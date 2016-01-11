@@ -368,6 +368,17 @@ private:
         std::string obstaclename;
     };
 
+    struct VisualizePointcloudThreadParams {
+        std::string regionname;
+        std::vector<std::string> cameranames;
+        double pointsize;
+        bool ignoreocclusion;
+        unsigned int maxage;
+        unsigned int fetchimagetimeout;
+        bool request;
+        double voxelsize;
+    };
+
     void _DeInitialize();
 
     enum ThreadType {
@@ -430,8 +441,8 @@ private:
     void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, ImagesubscriberHandlerPtr ih);
     void _StopDetectionThread();
 
-    void _VisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const double voxelsize);
-    void _StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
+    void _VisualizePointCloudThread(VisualizePointcloudThreadParams params, ImagesubscriberHandlerPtr ih);
+    void _StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, ImagesubscriberHandlerPtr ih, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
     void _StopVisualizePointCloudThread();
 
     /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
@@ -561,6 +572,7 @@ private:
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
     std::map<std::string, boost::shared_ptr<CustomCommand> > _mNameCommand; ///< all registered commands, command name -> custom command
     std::map<std::string, std::string> _mCameraNameHardwareId; ///< camera name -> camera hardware id
+    std::map<std::string, std::string> _mDetectorExtraInitializationOptions; ///< extra init options for detector
     ImageSubscriberManagerPtr _pImagesubscriberManager;
 
     ObjectDetectorPtr _pDetector;

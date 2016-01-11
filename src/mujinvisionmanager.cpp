@@ -1297,14 +1297,23 @@ void MujinVisionManager::_StartControllerMonitorThread(const unsigned int waitin
     }
 }
 
-void MujinVisionManager::_StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const double voxelsize)
+void MujinVisionManager::_StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, ImagesubscriberHandlerPtr ih, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const double voxelsize)
 {
     if (!!_pVisualizePointCloudThread && !_bStopVisualizePointCloudThread) {
         _SetStatusMessage(TT_Command, "VisualizePointCloud thread is already running, do nothing.");
     } else {
         _bStopVisualizePointCloudThread = false;
         _bIsVisualizePointcloudRunning = true;
-        _pVisualizePointCloudThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_VisualizePointCloudThread, this, regionname, cameranames, pointsize, ignoreocclusion, maxage, fetchimagetimeout, request, voxelsize)));
+        VisualizePointcloudThreadParams params;
+        params.regionname = regionname;
+        params.cameranames = cameranames;
+        params.pointsize = pointsize;
+        params.ignoreocclusion = ignoreocclusion;
+        params.maxage = maxage;
+        params.fetchimagetimeout = fetchimagetimeout;
+        params.request = request;
+        params.voxelsize = voxelsize;
+        _pVisualizePointCloudThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_VisualizePointCloudThread, this, params, ih)));
     }
 }
 
@@ -1814,9 +1823,18 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
     }
 }
 
-void MujinVisionManager::_VisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const double voxelsize)
+void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadParams params, ImagesubscriberHandlerPtr ih)
 {
     FalseSetter turnOffVisualize(_bIsVisualizePointcloudRunning);
+    std::string regionname = params.regionname;
+    std::vector<std::string> cameranames = params.cameranames;
+    double pointsize = params.pointsize;
+    bool ignoreocclusion = params.ignoreocclusion;
+    unsigned int maxage = params.maxage;
+    unsigned int fetchimagetimeout = params.fetchimagetimeout;
+    bool request = params.request;
+    double voxelsize = params.voxelsize;
+
     while (!_bStopVisualizePointCloudThread) {
         SyncCameras(regionname, cameranames);
         if (_bStopVisualizePointCloudThread) {
@@ -2131,7 +2149,6 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
     _bSendVerificationPointCloud = true;
     _containerParameters = containerParameters;
     std::string detectorconfigfilename;
-    std::map<std::string, std::string> extraInitializationOptions;
     // prepare config files
     if (objectname != "" && objectarchiveurl != "") {
         char* templatedir = std::getenv("MUJIN_TEMPLATE_DIR");
@@ -2143,7 +2160,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
         }
         templatepath +=  "/" + objectname;
         detectorconfigfilename = templatepath + "/detector.json";
-        extraInitializationOptions["templateDir"] = templatepath;
+        _mDetectorExtraInitializationOptions["templateDir"] = templatepath;
         if (!boost::filesystem::exists(detectorconfigfilename)) {
             VISIONMANAGER_LOG_INFO("getting detector config file");
             // prepare directories
@@ -2201,8 +2218,8 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
     std::string detectormodulename = visionserverpt.get<std::string>("modulename", "");
     std::string detectorclassname = visionserverpt.get<std::string>("classname", "");
     if (detectormodulename.size() > 0 && detectorclassname.size() > 0) {
-        extraInitializationOptions["modulename"] = detectormodulename;
-        extraInitializationOptions["classname"] = detectorclassname;
+        _mDetectorExtraInitializationOptions["modulename"] = detectormodulename;
+        _mDetectorExtraInitializationOptions["classname"] = detectorclassname;
     }
 
     // set up regions
@@ -2371,7 +2388,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
     _detectorconfig = detectorconfig;
     _targetname = targetname;
     _targeturi = targeturi;
-    _pDetector = _pDetectorManager->CreateObjectDetector(detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), extraInitializationOptions);
+    _pDetector = _pDetectorManager->CreateObjectDetector(detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions);
     VISIONMANAGER_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG(" ------------------------");
@@ -2495,7 +2512,8 @@ void MujinVisionManager::StartVisualizePointCloudThread(const std::string& regio
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
     }
     _vCameranames = cameranames;
-    _StartVisualizePointCloudThread(regionname, cameranames, pointsize, ignoreocclusion, maxage, fetchimagetimeout, request, voxelsize);
+    ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler(_pImagesubscriberManager, _GetHardwareIds(cameranames)));
+    _StartVisualizePointCloudThread(regionname, cameranames, ih, pointsize, ignoreocclusion, maxage, fetchimagetimeout, request, voxelsize);
     _SetStatus(TT_Command, MS_Succeeded);
 }
 
@@ -2864,7 +2882,7 @@ void MujinVisionManager::SyncCameras(const std::string& regionname, const std::v
     if (!!_pDetector) {
         _pDetector.reset();
         VISIONMANAGER_LOG_DEBUG("reset detector");
-        _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2));
+        _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions);
     }
     _SetStatus(TT_Command, MS_Succeeded);
 }

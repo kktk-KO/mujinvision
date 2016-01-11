@@ -565,6 +565,10 @@ typedef boost::weak_ptr<DetectedObject> DetectedObjectWeakPtr;
 struct MUJINVISION_API RegionParameters : public ParametersBase
 {
     RegionParameters() {
+        memset(cropContainerMarginsXYZXYZ, 0, sizeof(cropContainerMarginsXYZXYZ));
+        memset(cropContainerEmptyMarginsXYZXYZ, 0, sizeof(cropContainerEmptyMarginsXYZXYZ));
+        memset(containerRoiMarginsXYZXYZ, 0, sizeof(containerRoiMarginsXYZXYZ));
+        containerEmptyDivisor = 150;
     }
 
     RegionParameters(const ptree& pt)
@@ -587,6 +591,12 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
             i++;
         }
         BOOST_ASSERT(i == 6);
+        i=0;
+        FOREACH(v, pt.get_child("cropContainerEmptyMarginsXYZXYZ")) {
+            cropContainerEmptyMarginsXYZXYZ[i] = boost::lexical_cast<double>(v->second.data());
+            i++;
+        }
+        BOOST_ASSERT(i == 6);
         containerEmptyDivisor = pt.get<double>("containerEmptyDivisor", 150);
         visualizationuri = pt.get<std::string>("visualizationuri", "");
     }
@@ -599,6 +609,7 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     std::vector<std::string> cameranames;
     std::string type; ///< the type of the container, by default it is boxAxisAligned
     double cropContainerMarginsXYZXYZ[6]; ///< Margins of the container to be cropped (or enlarged if negative), in order to define 3D container region under (calibration & shape) uncertainty - for pointcloud processing.
+    double cropContainerEmptyMarginsXYZXYZ[6]; ///< Margins of the container to be cropped (or enlarged if negative), in order to define 3D container region under (calibration & shape) uncertainty - to compute container empty variable
     double containerRoiMarginsXYZXYZ[6]; ///< Margins of the container to be cropped (or enlarged if negative), in order to define a 2D container region under (calibration & shape) uncertainty - for 2D processing.
     double containerEmptyDivisor; ///< Paramater that controls the maximum number of points allowed for the container to be empty after cropping the internal walls.
     std::string visualizationuri; ///< visualiation URI for the container for debugging purposes.
@@ -619,6 +630,7 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         ss << "\"cameranames\": " << ParametersBase::GetJsonString(cameranames);
         ss << ", " << ParametersBase::GetJsonString("type") << ": " << ParametersBase::GetJsonString(type);
         ss << ", " << ParametersBase::GetJsonString("cropContainerMarginsXYZXYZ") << ": " << ParametersBase::GetJsonString(cropContainerMarginsXYZXYZ);
+        ss << ", " << ParametersBase::GetJsonString("cropContainerEmptyMarginsXYZXYZ") << ": " << ParametersBase::GetJsonString(cropContainerEmptyMarginsXYZXYZ);
         ss << ", " << ParametersBase::GetJsonString("containerRoiMarginsXYZXYZ") << ": " << ParametersBase::GetJsonString(containerRoiMarginsXYZXYZ);
         ss << ", " << ParametersBase::GetJsonString("containerEmptyDivisor") << ": " << containerEmptyDivisor;
         ss << ", " << ParametersBase::GetJsonString("visualizationuri") << ": " << ParametersBase::GetJsonString(visualizationuri);
@@ -659,6 +671,11 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
                 crop_pt.put<double>("", cropContainerMarginsXYZXYZ[i]);
             }
             _pt.put_child("cropContainerMarginsXYZXYZ", crop_pt);
+            ptree crop_empty_pt;
+            for (size_t i=0; i<6; i++) {
+                crop_empty_pt.put<double>("", cropContainerEmptyMarginsXYZXYZ[i]);
+            }
+            _pt.put_child("cropContainerEmptyMarginsXYZXYZ", crop_empty_pt);
             ptree container_pt;
             for (size_t i=0; i<6; i++) {
                 container_pt.put<double>("", containerRoiMarginsXYZXYZ[i]);

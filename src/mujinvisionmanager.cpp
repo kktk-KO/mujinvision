@@ -163,7 +163,7 @@ bool MujinVisionManager::_PreemptSubscriber()
     return _bShutdown || _bCancelCommand || _bStopDetectionThread;
 }
 
-MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir)
+MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir, const std::string& detectiondir)
 {
     _bInitialized = false;
     _bShutdown = false;
@@ -192,6 +192,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _commandport = commandport;
     _configport = configport;
     _configdir = configdir;
+    _detectiondir = detectiondir;
     _binpickingTaskZmqPort = 0;
     _binpickingTaskHeartbeatPort = 0;
     _binpickingTaskHeartbeatTimeout = 10;
@@ -686,7 +687,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<std::string>("locale", "en_US"),
                        command_pt.get<std::string>("targeturi", ""),
                        command_pt.get<std::string>("slaverequestid", ""),
-                       command_pt.get<std::string>("targetarchiveurl", "")
+                       command_pt.get<std::string>("targetdetectionarchiveurl", "")
                        );
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -2074,7 +2075,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     }
 }
 
-void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const std::string& containerParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid, const std::string& targetarchiveurl)
+void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, const std::string& detectorconfigname, const std::string& imagesubscriberconfigname, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const std::string& containerParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid, const std::string& targetdetectionarchiveurl)
 {
     _locale = locale;
     uint64_t time0 = GetMilliTime();
@@ -2092,35 +2093,28 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     ptree pt;
     std::string detectorconfigfilename;
     std::map<std::string, std::string> extraInitializationOptions;
+    std::string detectionpath;
 
-    // figure out the template dir
-    char* templatedir = std::getenv("MUJIN_TEMPLATE_DIR");
-    std::string templatepath;
-    if (templatedir == NULL) {
-        templatepath = "/data/templates";
-    } else {
-        templatepath = std::string(templatedir);
-    }
-    templatepath +=  "/" + targetname;
+    detectionpath = _detectiondir + "/" + targetname;
 
     // update target archive if needed
-    if (targetarchiveurl != "") {
+    if (targetdetectionarchiveurl != "") {
         // fetch archive
         try {
-            std::string cmdstr = "wget -qN " + targetarchiveurl + " -P " + templatepath;
+            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + targetdetectionarchiveurl + " -P " + detectionpath;
             system(cmdstr.c_str()); // TODO: check process exit code here
         } catch (...) {
             std::stringstream errss;
-            errss << "Failed to prepare config files because " << targetarchiveurl << " could not be fetched.";
+            errss << "Failed to prepare config files because " << targetdetectionarchiveurl << " could not be fetched.";
             VISIONMANAGER_LOG_ERROR(errss.str());
             throw MujinVisionException(errss.str(), MVE_Failed);
         }
 
         // extract files
-        std::string archivefilename = templatepath + "/" + targetname + ".tar.gz";
+        std::string archivefilename = detectionpath + "/" + targetname + ".tar.gz";
         try {
             std::stringstream commandss;
-            commandss << "tar xzf " << archivefilename << " -C " << templatepath;
+            commandss << "tar xzf " << archivefilename << " -C " << detectionpath;
             system(commandss.str().c_str()); // TODO: check process exit code here
         } catch (...) {
             std::stringstream errss;
@@ -2131,11 +2125,11 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfigname, 
     }
 
     // prepare config files
-    detectorconfigfilename = templatepath + "/detector.json";
+    detectorconfigfilename = detectionpath + "/detector.json";
     if (boost::filesystem::exists(detectorconfigfilename)) {
         VISIONMANAGER_LOG_INFO("getting detector config file");
-        VISIONMANAGER_LOG_DEBUG("using templatepath " + templatepath + " as path to detectorconfig, ignoring detectorconfigname");
-        extraInitializationOptions["templateDir"] = templatepath;
+        VISIONMANAGER_LOG_DEBUG("using detectionpath " + detectionpath + " as path to detectorconfig, ignoring detectorconfigname");
+        extraInitializationOptions["templateDir"] = detectionpath;
     } else {
         detectorconfigfilename = "";
     }

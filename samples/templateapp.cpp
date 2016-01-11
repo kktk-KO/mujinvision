@@ -160,7 +160,7 @@ int main(int argc, char* argv[])
     UserImageSubscriberManagerPtr imagesubscribermanager(new UserImageSubscriberManager());
     UserDetectorManagerPtr detectormanager(new UserDetectorManager());
     MujinVisionManagerPtr visionmanager;
-    visionmanager.reset(new MujinVisionManager(imagesubscribermanager, detectormanager,50001, 50002, 50003, "/tmp"));
+    visionmanager.reset(new MujinVisionManager(imagesubscribermanager, detectormanager,50001, 50002, 50003, "/tmp", "/tmp"));
     while (!visionmanager->IsShutdown()) {
         boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
     }

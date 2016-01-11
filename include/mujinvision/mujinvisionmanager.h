@@ -357,6 +357,16 @@ private:
         std::string locale;
     };
 
+    struct SendExecutionVerificationPointCloudParams {
+        std::string regionname;
+        std::vector<std::string> cameranames;
+        double voxelsize;
+        double pointsize;
+        std::string obstaclename;
+        unsigned int waitinterval;
+        std::string locale;
+    };
+
     struct SendPointCloudObstacleToControllerThreadParams {
         std::string regionname;
         std::vector<std::string> cameranames;
@@ -456,6 +466,12 @@ private:
     void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, ImagesubscriberHandlerPtr ih, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopUpdateEnvironmentThread();
 
+    /** \brief thread that sends the execution verification point cloud
+     */
+    void _SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params, ImagesubscriberHandlerPtr ih);
+    void _StartExecutionVerificationPointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, ImagesubscriberHandlerPtr ih, const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _StopExecutionVerificationPointCloudThread();
+    
     void _ControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StartControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StopControllerMonitorThread();
@@ -553,6 +569,7 @@ private:
     boost::shared_ptr<boost::thread> _pStatusThread;
     boost::shared_ptr<boost::thread> _pDetectionThread;
     boost::shared_ptr<boost::thread> _pUpdateEnvironmentThread;
+    boost::shared_ptr<boost::thread> _pExecutionVerificationPointCloudThread;
     boost::shared_ptr<boost::thread> _pControllerMonitorThread;
     boost::shared_ptr<boost::thread> _pSendPointCloudObstacleThread;
     boost::shared_ptr<boost::thread> _pVisualizePointCloudThread;
@@ -616,6 +633,7 @@ private:
     bool _bStopStatusThread; ///< whether to stop status thread
     bool _bStopDetectionThread; ///< whether to stop detection thread
     bool _bStopUpdateEnvironmentThread; ///< whether to stop update environment thread
+    bool _bStopExecutionVerificationPointCloudThread; ///< whether to stop the verification point cloud from sending
     bool _bStopControllerMonitorThread; ///< whether to stop controller monitor
     bool _bStopSendPointCloudObstacleToControllerThread; ///< whether to stop async send pointcloud obstacle to controller call
     bool _bStopVisualizePointCloudThread; ///< whether to stop pointcloud visualization thread

@@ -565,6 +565,10 @@ typedef boost::weak_ptr<DetectedObject> DetectedObjectWeakPtr;
 struct MUJINVISION_API RegionParameters : public ParametersBase
 {
     RegionParameters() {
+        memset(cropContainerMarginsXYZXYZ, 0, sizeof(cropContainerMarginsXYZXYZ));
+        memset(cropContainerEmptyMarginsXYZXYZ, 0, sizeof(cropContainerEmptyMarginsXYZXYZ));
+        memset(containerRoiMarginsXYZXYZ, 0, sizeof(containerRoiMarginsXYZXYZ));
+        containerEmptyDivisor = 150;
     }
 
     RegionParameters(const ptree& pt)

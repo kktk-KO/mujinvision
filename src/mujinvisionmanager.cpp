@@ -2177,22 +2177,46 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
     _slaverequestid = slaverequestid;
     _bSendVerificationPointCloud = true;
     _containerParameters = containerParameters;
+
+    std::stringstream url_ss;
+    url_ss << "http://" << controllerIp << ":" << controllerPort;
+    ControllerClientPtr controller = CreateControllerClient(controllerUsernamePass, url_ss.str());
+    _pControllerClient = controller;
+
     std::string detectorconfigfilename;
     std::string detectionpath;
+    std::string modelfilename;
 
     detectionpath = _detectionConfigDir + "/" + targetname;
 
-    // update target archive if needed
-    if (targetdetectionarchiveurl != "") {
-        // prepare directories
+    // prepare directories
+    try {
+        boost::filesystem::create_directories(detectionpath);
+    } catch (...) {
+        std::stringstream errss;
+        errss << "Failed to prepare config files because " << detectionpath << " could not be created.";
+        VISIONMANAGER_LOG_ERROR(errss.str());
+        throw MujinVisionException(errss.str(), MVE_Failed);
+    }
+
+    modelfilename = _detectionConfigDir + "/" + targetname + ".mujin.dae";
+    if (targeturi.size() > 0) {
+        // fetch modelfile
         try {
-            boost::filesystem::create_directories(detectionpath);
+            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + targetname + ".mujin.dae " + " -P " + _detectionConfigDir;
+            system(cmdstr.c_str()); // TODO: check process exit code
         } catch (...) {
             std::stringstream errss;
-            errss << "Failed to prepare config files because " << detectionpath << " could not be created.";
+            errss << "Failed to fetch model file from controller.";
             VISIONMANAGER_LOG_ERROR(errss.str());
             throw MujinVisionException(errss.str(), MVE_Failed);
         }
+    } else {
+        VISIONMANAGER_LOG_INFO("targeturi is empty, do not fetch model file.");
+    }
+
+    // update target archive if needed
+    if (targetdetectionarchiveurl != "") {
         // fetch archive
         try {
             std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + targetdetectionarchiveurl + " -P " + detectionpath;
@@ -2266,10 +2290,6 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
     }
 
     // connect to mujin controller
-    std::stringstream url_ss;
-    url_ss << "http://" << controllerIp << ":" << controllerPort;
-    ControllerClientPtr controller = CreateControllerClient(controllerUsernamePass, url_ss.str());
-    _pControllerClient = controller;
     _userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(locale) + "}";
 
     _SetStatusMessage(TT_Command, "Connected to mujin controller at " + url_ss.str());
@@ -2405,6 +2425,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
         detectorconfigfilename = _GetConfigFileName("detector", detectorconfigname);
     }
     _LoadConfig(detectorconfigfilename, detectorconfig);
+
     // append additional params to detectorconf string
     bool debug = visionserverpt.get<bool>("debug", false);
     double cleanSize = visionserverpt.get<double>("cleanSize", 0.007);
@@ -2412,7 +2433,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
     if (index == std::string::npos) {
         throw MujinVisionException("invalid detectorconfig: " + detectorconfig, MVE_InvalidArgument);
     }
-    _detectorconfig = detectorconfig.substr(0, index) + ", " + ParametersBase::GetJsonString("debug", debug) + ", " + ParametersBase::GetJsonString("cleanSize", cleanSize) + "}";
+    _detectorconfig = detectorconfig.substr(0, index) + ", " + ParametersBase::GetJsonString("debug", debug) + ", " + ParametersBase::GetJsonString("cleanSize", cleanSize) + ", " + ParametersBase::GetJsonString("modelFilename", modelfilename) + "}";
     ParametersBase::ValidateJsonString(_detectorconfig);
     _targetname = targetname;
     _targeturi = targeturi;

@@ -88,9 +88,23 @@ struct MUJINVISION_API ParametersBase
         return GetJsonString(key) + ": " + GetJsonString(value);
     }
 
-    static std::string GetJsonString(const std::string& key, const unsigned int value)
+    static std::string GetJsonString(const std::string& key, const unsigned int& value)
     {
         std::stringstream ss;
+        ss << ParametersBase::GetJsonString(key) << ": " << value;
+        return ss.str();
+    }
+
+    static std::string GetJsonString(const std::string& key, const bool value)
+    {
+        std::stringstream ss;
+        ss << ParametersBase::GetJsonString(key) << ": " << value;
+        return ss.str();
+    }
+
+    static std::string GetJsonString(const std::string& key, const double& value) {
+        std::stringstream ss;
+        ss << std::setprecision(std::numeric_limits<double>::digits10+1);
         ss << ParametersBase::GetJsonString(key) << ": " << value;
         return ss.str();
     }

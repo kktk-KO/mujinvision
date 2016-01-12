@@ -322,15 +322,7 @@ void MujinVisionManager::SaveConfig(const std::string& type, const std::string& 
     if (config == "") {
         GetConfig(type, content);
     } else {
-        try {
-            ptree tmppt;
-            std::stringstream tmpss;
-            tmpss.str(config);
-            read_json(tmpss, tmppt); // validate
-        } catch (...) {
-            VISIONMANAGER_LOG_ERROR("SaveConfig failed to parse json: " + config);
-            throw;
-        }
+        ParametersBase::ValidateJsonString(config);
         content = config;
     }
     std::ofstream out(filename.c_str());
@@ -1123,14 +1115,7 @@ std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long ti
     ss << ", " << ParametersBase::GetJsonString("issendpointcloudrunning", _bIsSendPointcloudRunning);
     ss << ", " << ParametersBase::GetJsonString("isenvironmentupdaterunning", _bIsEnvironmentUpdateRunning);
     ss << "}";
-    try {
-        ptree tmppt;
-        read_json(ss, tmppt); // validate
-    } catch (...) {
-        VISIONMANAGER_LOG_ERROR("_GetStatusJsonString failed to parse json: " + ss.str());
-        throw;
-    }
-
+    ParametersBase::ValidateJsonString(ss.str());
     return ss.str();
 }
 
@@ -1217,13 +1202,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 }
 
                 // send output
-                try {
-                    ptree tmppt;
-                    read_json(result_ss, tmppt); // validate
-                } catch (...) {
-                    VISIONMANAGER_LOG_ERROR("_CommandThread failed to parse json: " + result_ss.str());
-                    throw;
-                }
+                ParametersBase::ValidateJsonString(result_ss.str());
                 _mPortCommandServer[port]->Send(result_ss.str());
             }
         }
@@ -1447,15 +1426,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(_locale) + "}";
     VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in DetectionThread with userinfo " + userinfo_json);
 
-    try {
-        ptree tmppt;
-        std::stringstream tmpss;
-        tmpss.str(userinfo_json);
-        read_json(tmpss, tmppt); // validate
-    } catch (...) {
-        VISIONMANAGER_LOG_ERROR("_DetectionThread failed to parse json: " + userinfo_json);
-        throw;
-    }
+    ParametersBase::ValidateJsonString(userinfo_json);
 
     pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 
@@ -1687,15 +1658,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
     std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(locale) + "}";
     VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in UpdateEnvironmentThread with userinfo " + userinfo_json);
 
-    try {
-        ptree tmppt;
-        std::stringstream tmpss;
-        tmpss.str(userinfo_json);
-        read_json(tmpss, tmppt); // validate
-    } catch (...) {
-        VISIONMANAGER_LOG_ERROR("_UpdateEnvironmentThread failed to parse json: " + userinfo_json);
-        throw;
-    }
+    ParametersBase::ValidateJsonString(userinfo_json);
 
     pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
     uint64_t starttime;
@@ -1803,15 +1766,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
     std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(locale) + "}";
     VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in _SendExecutionVerificationPointCloudThread with userinfo " + userinfo_json);
 
-    try {
-        ptree tmppt;
-        std::stringstream tmpss;
-        tmpss.str(userinfo_json);
-        read_json(tmpss, tmppt); // validate
-    } catch (...) {
-        VISIONMANAGER_LOG_ERROR("_SendExecutionVerificationPointCloudThread failed to parse json: " + userinfo_json);
-        throw;
-    }
+    ParametersBase::ValidateJsonString(userinfo_json);
 
     pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
     //uint64_t starttime;
@@ -1855,15 +1810,7 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
     BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
     std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(_locale) + "}";
 
-    try {
-        ptree tmppt;
-        std::stringstream tmpss;
-        tmpss.str(userinfo_json);
-        read_json(tmpss, tmppt); // validate
-    } catch (...) {
-        VISIONMANAGER_LOG_ERROR("_ControllerMonitorThread failed to parse json: " + userinfo_json);
-        throw;
-    }
+    ParametersBase::ValidateJsonString(userinfo_json);
 
     pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 
@@ -2345,15 +2292,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
 
     VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in Initialize() with userinfo " + _userinfo_json);
 
-    try {
-        ptree tmppt;
-        std::stringstream tmpss;
-        tmpss.str(_userinfo_json);
-        read_json(tmpss, tmppt); // validate
-    } catch (...) {
-        VISIONMANAGER_LOG_ERROR("Initialize failed to parse json: " + _userinfo_json);
-        throw;
-    }
+    ParametersBase::ValidateJsonString(_userinfo_json);
 
     _pBinpickingTask->Initialize(defaultTaskParameters, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json, slaverequestid);
 
@@ -2466,10 +2405,18 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
         detectorconfigfilename = _GetConfigFileName("detector", detectorconfigname);
     }
     _LoadConfig(detectorconfigfilename, detectorconfig);
-    _detectorconfig = detectorconfig;
+    // append additional params to detectorconf string
+    bool debug = visionserverpt.get<bool>("debug", false);
+    double cleanSize = visionserverpt.get<double>("cleanSize", 0.007);
+    size_t index = detectorconfig.find_last_of("}");
+    if (index == std::string::npos) {
+        throw MujinVisionException("invalid detectorconfig: " + detectorconfig, MVE_InvalidArgument);
+    }
+    _detectorconfig = detectorconfig.substr(0, index) + ", " + ParametersBase::GetJsonString("debug", debug) + ", " + ParametersBase::GetJsonString("cleanSize", cleanSize) + "}";
+    ParametersBase::ValidateJsonString(_detectorconfig);
     _targetname = targetname;
     _targeturi = targeturi;
-    _pDetector = _pDetectorManager->CreateObjectDetector(detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions);
+    _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions);
     VISIONMANAGER_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG(" ------------------------");
@@ -2710,15 +2657,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
         std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(_locale) + "}";
         VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in _SendPointCloudObstacleToControllerThread with userinfo " + userinfo_json);
 
-        try {
-            ptree tmppt;
-            std::stringstream tmpss;
-            tmpss.str(userinfo_json);
-            read_json(tmpss, tmppt); // validate
-        } catch (...) {
-            VISIONMANAGER_LOG_ERROR("_SendPointCloudObstacleToControllerThread failed to parse json: " + userinfo_json);
-            throw;
-        }
+        ParametersBase::ValidateJsonString(userinfo_json);
 
         pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 

@@ -59,6 +59,18 @@ struct MUJINVISION_API ParametersBase
 
     void Print();
 
+    static void ValidateJsonString(const std::string& str)
+    {
+        try {
+            std::stringstream ss;
+            ss << str;
+            ptree tmppt;
+            read_json(ss, tmppt);
+        } catch (...) {
+            throw MujinVisionException("json string " + str + " is invalid.", MVE_InvalidArgument);
+        }
+    }
+
     static std::string GetJsonString(const std::string& str)
     {
         std::string newstr = str;

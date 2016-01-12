@@ -1188,6 +1188,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
                 catch (std::exception& e) {
                     std::string whatstr = e.what();
                     boost::replace_all(whatstr, "\"", ""); // need to remove " in the message so that json parser works
+                    boost::replace_all(whatstr, "\\", ""); // need to remove \ in the message so that json parser works
                     std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), whatstr);
                     result_ss << "{" << errstr << "}";
                     VISIONMANAGER_LOG_ERROR("unhandled std exception, " + whatstr);
@@ -1588,6 +1589,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_RecognitionError), ss.str());
             std::string errstr = ss.str();
             boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
+            boost::replace_all(errstr, "\\", ""); // need to remove \ in the message so that json parser works
             VISIONMANAGER_LOG_ERROR(errstr);
             _SetDetectorStatusMessage(errstr, GetErrorCodeString(MVE_RecognitionError));
             continue;

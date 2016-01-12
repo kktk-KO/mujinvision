@@ -176,7 +176,7 @@ bool MujinVisionManager::_PreemptSubscriber()
     return _bShutdown || _bCancelCommand || _bStopDetectionThread;
 }
 
-MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir, const std::string& detectionconfdir)
+MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir, const std::string& detectiondir)
 {
     _bInitialized = false;
     _bShutdown = false;
@@ -209,7 +209,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _commandport = commandport;
     _configport = configport;
     _configdir = configdir;
-    _detectionConfigDir = detectionconfdir;
+    _detectionDir = detectiondir;
     _binpickingTaskZmqPort = 0;
     _binpickingTaskHeartbeatPort = 0;
     _binpickingTaskHeartbeatTimeout = 10;
@@ -2186,8 +2186,9 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
     std::string detectorconfigfilename;
     std::string detectionpath;
     std::string modelfilename;
+    std::string modelurl;
 
-    detectionpath = _detectionConfigDir + "/" + targetname;
+    detectionpath = _detectionDir + "/" + targetname;
 
     // prepare directories
     try {
@@ -2199,11 +2200,13 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
         throw MujinVisionException(errss.str(), MVE_Failed);
     }
 
-    modelfilename = _detectionConfigDir + "/" + targetname + ".mujin.dae";
+    modelfilename = _detectionDir + "/" + targetname + ".mujin.dae";
     if (targeturi.size() > 0) {
         // fetch modelfile
+        modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + targetname + ".mujin.dae";
+        VISIONMANAGER_LOG_DEBUG("updating " + modelfilename + " from " + modelurl);
         try {
-            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + targetname + ".mujin.dae " + " -P " + _detectionConfigDir;
+            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + modelurl + " -P " + _detectionDir;
             system(cmdstr.c_str()); // TODO: check process exit code
         } catch (...) {
             std::stringstream errss;

@@ -594,7 +594,6 @@ private:
 
     ObjectDetectorPtr _pDetector;
     DetectorManagerPtr _pDetectorManager;
-    std::string _detectionDir;
 
     unsigned long long _tsStartDetection; ///< timestamp when start detection loop was first called
     unsigned long long _tsLastEnvUpdate; ///< timestamp when binpickingtask->UpdateEnvironmentState was called

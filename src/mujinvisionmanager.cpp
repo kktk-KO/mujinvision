@@ -2200,10 +2200,10 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
         throw MujinVisionException(errss.str(), MVE_Failed);
     }
 
-    modelfilename = _detectionDir + "/" + targetname + ".mujin.dae";
+    modelfilename = targetname + ".mujin.dae";
     if (targeturi.size() > 0) {
         // fetch modelfile
-        modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + targetname + ".mujin.dae";
+        modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + modelfilename;
         VISIONMANAGER_LOG_DEBUG("updating " + modelfilename + " from " + modelurl);
         try {
             std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + modelurl + " -P " + _detectionDir;

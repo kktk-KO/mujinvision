@@ -168,7 +168,8 @@ public:
                                     const std::string& locale="en_US",
                                     const unsigned int maxnumfastdetection=1,
                                     const unsigned int maxnumdetection=0,
-                                    const bool sendVerificationPointCloud=true);
+                                    const bool sendVerificationPointCloud=true,
+                                    const bool stopOnLeftInOrder=false);
    
 
     virtual void StopDetectionLoop();
@@ -341,6 +342,7 @@ private:
         double voxelsize;
         double pointsize;
         bool ignoreocclusion;
+        bool stoponleftinorder;
         unsigned int maxage;
         unsigned int fetchimagetimeout;
         unsigned int maxnumfastdetection;
@@ -449,7 +451,7 @@ private:
                         const bool useold=false,
                         const bool checkcontaineremptyonly=false);
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params, ImagesubscriberHandlerPtr ih);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, ImagesubscriberHandlerPtr ih);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder, ImagesubscriberHandlerPtr ih);
     void _StopDetectionThread();
 
     void _VisualizePointCloudThread(VisualizePointcloudThreadParams params, ImagesubscriberHandlerPtr ih);
@@ -625,6 +627,7 @@ private:
 
     // mujin controller binpicking state
     unsigned long long _binpickingstateTimestamp; ///< timestamp of latest binpicking state
+    unsigned long long _lastGrabbedTargetTimestamp; ///< timestamp when last grabbed target
     int _numPickAttempt; ///< num of picking attempts
     int _orderNumber;  ///< num of ordered items
     int _numLeftInOrder; ///< num of order to go
@@ -634,6 +637,7 @@ private:
     bool _bIsRobotOccludingSourceContainer; ///< whether robot is occluding the source container
     bool _bForceRequestDetectionResults; ///< whether to run detection ignoring _numPickAttempt
     bool _bIsGrabbingTarget; ///< whether the robot is grabbing target
+    bool _bIsGrabbingLastTarget; ///< whether the robot is grabbing the last target
 
     // vision manager flags
     bool _bInitialized; ///< whether visionmanager is initialized

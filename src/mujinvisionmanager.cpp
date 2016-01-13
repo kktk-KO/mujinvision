@@ -192,12 +192,22 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bExecutingUserCommand = false;
     _bIsControllerPickPlaceRunning = false;
     _bIsRobotOccludingSourceContainer = false;
-    _bForceRequestDetectionResults = false;
     _bIsDetectionRunning = false;
     _bIsVisualizePointcloudRunning = false;
     _bIsSendPointcloudRunning = false;
     _bIsEnvironmentUpdateRunning = false;
+    _bIsControllerPickPlaceRunning = false;
+    _bIsRobotOccludingSourceContainer = false;
+    _bForceRequestDetectionResults = false;
+    _bIsGrabbingTarget = false;
+    _bIsGrabbingLastTarget = false;
     _numPickAttempt = 0;
+    _binpickingstateTimestamp = 0;
+    _lastGrabbedTargetTimestamp = 0;
+    _orderNumber = 0;
+    _numLeftInOrder = 0;
+    _numLeftInSupply = 0;
+    _placedInDest = 0;
     _tsStartDetection = 0;
     _tsLastEnvUpdate = 0;
     _resultTimestamp = 0;
@@ -213,7 +223,6 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _binpickingTaskZmqPort = 0;
     _binpickingTaskHeartbeatPort = 0;
     _binpickingTaskHeartbeatTimeout = 10;
-    _binpickingstateTimestamp = 0;
     _lastocclusionTimestamp = 0;
     _controllerCommandTimeout = 10.0;
     _locale = "en_US";
@@ -1271,6 +1280,22 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
         params.stoponleftinorder = stoponleftinorder;
 
         _bIsDetectionRunning = true;
+        // reset cached binpicking state to ensure clean state, e.g. lastGrabbedTargetTimeStamp
+        {
+            boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
+            _bIsControllerPickPlaceRunning = false;
+            _bIsRobotOccludingSourceContainer = false;
+            _bForceRequestDetectionResults = false;
+            _numPickAttempt = 0;
+            _binpickingstateTimestamp = 0;
+            _lastGrabbedTargetTimestamp = 0;
+            _bIsGrabbingTarget = false;
+            _bIsGrabbingLastTarget = false;
+            _orderNumber = 0;
+            _numLeftInOrder = 0;
+            _numLeftInSupply = 0;
+            _placedInDest = 0;
+        }
         _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, params, ih)));
     }
 }
@@ -1690,7 +1715,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         VISIONMANAGER_LOG_INFO("stopped environment update thread");
     }
     std::stringstream ss;
-    ss << "ending detection thread. numdetection=" << numdetection << " numLeftInOrder=" << numLeftInOrder << " _bStopDetectionThread=" << _bStopDetectionThread;
+    ss << "ending detection thread. numdetection=" << numdetection << " numLeftInOrder=" << numLeftInOrder << " _bStopDetectionThread=" << _bStopDetectionThread << " lastGrabbedTargetTimeStamp=" << lastGrabbedTargetTimeStamp << " _tsLastEnvUpdate=" << _tsLastEnvUpdate;
     VISIONMANAGER_LOG_INFO(ss.str());
 }
 
@@ -1921,8 +1946,8 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
             _bIsRobotOccludingSourceContainer = binpickingstate.isRobotOccludingSourceContainer;
             _bForceRequestDetectionResults = binpickingstate.forceRequestDetectionResults;
             _numPickAttempt = binpickingstate.pickAttemptFromSourceId;
-            _binpickingstateTimestamp = binpickingstate.timestamp * 1000; // s -> ms
-            _lastGrabbedTargetTimestamp = binpickingstate.lastGrabbedTargetTimeStamp * 1000; // s -> ms
+            _binpickingstateTimestamp = binpickingstate.timestamp;
+            _lastGrabbedTargetTimestamp = binpickingstate.lastGrabbedTargetTimeStamp;
             _bIsGrabbingTarget = binpickingstate.isGrabbingTarget;
             _bIsGrabbingLastTarget = binpickingstate.isGrabbingLastTarget;
             _orderNumber = binpickingstate.orderNumber;

@@ -581,7 +581,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 tworldresultoffset.rot[2] = 0;
                 tworldresultoffset.rot[3] = 0;
             }
-            StartDetectionLoop(regionname, cameranames, tworldresultoffset, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, obstaclename, starttime, locale, maxnumfastdetection, maxnumdetection);
+            bool sendVerificationPointCloud = command_pt.get<bool>("sendVerificationPointCloud", true);
+            StartDetectionLoop(regionname, cameranames, tworldresultoffset, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, obstaclename, starttime, locale, maxnumfastdetection, maxnumdetection, sendVerificationPointCloud);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -1360,30 +1361,26 @@ void MujinVisionManager::_StopDetectionThread()
 void MujinVisionManager::_StopUpdateEnvironmentThread()
 {
     _SetStatusMessage(TT_Command, "Stopping update environment thread.");
-    if (!_bStopUpdateEnvironmentThread) {
+    if (!!_pUpdateEnvironmentThread) {
         _bStopUpdateEnvironmentThread = true;
-        if (!!_pUpdateEnvironmentThread) {
-            _pUpdateEnvironmentThread->join();
-            _pUpdateEnvironmentThread.reset();
-            _SetStatusMessage(TT_Command, "Stopped update environment thread.");
-        }
-        _bStopUpdateEnvironmentThread = false; // reset so that _GetImage works properly afterwards
+        _pUpdateEnvironmentThread->join();
+        _pUpdateEnvironmentThread.reset();
+        _SetStatusMessage(TT_Command, "Stopped update environment thread.");
     }
+    _bStopUpdateEnvironmentThread = false; // reset so that _GetImage works properly afterwards
     VISIONMANAGER_LOG_DEBUG("stopped updateenvironment thread");
 }
 
 void MujinVisionManager::_StopExecutionVerificationPointCloudThread()
 {
     _SetStatusMessage(TT_Command, "Stopping execution verification thread.");
-    if (!_bStopExecutionVerificationPointCloudThread) {
+    if (!!_pExecutionVerificationPointCloudThread) {
         _bStopExecutionVerificationPointCloudThread = true;
-        if (!!_pExecutionVerificationPointCloudThread) {
-            _pExecutionVerificationPointCloudThread->join();
-            _pExecutionVerificationPointCloudThread.reset();
-            _SetStatusMessage(TT_Command, "Stopped execution verification thread.");
-        }
-        _bStopExecutionVerificationPointCloudThread = false; // reset so that _GetImage works properly afterwards
+        _pExecutionVerificationPointCloudThread->join();
+        _pExecutionVerificationPointCloudThread.reset();
+        _SetStatusMessage(TT_Command, "Stopped execution verification thread.");
     }
+    _bStopExecutionVerificationPointCloudThread = false; // reset so that _GetImage works properly afterwards
     VISIONMANAGER_LOG_DEBUG("stopped execution verification thread");
 }
 

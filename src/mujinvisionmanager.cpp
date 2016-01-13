@@ -168,12 +168,13 @@ void ParametersBase::Print()
 
 bool MujinVisionManager::_PreemptSubscriber()
 {
-    if (_bShutdown || _bCancelCommand || _bStopDetectionThread) {
+    bool bpreempt = _bShutdown || _bCancelCommand || _bStopDetectionThread || _bStopUpdateEnvironmentThread || _bStopExecutionVerificationPointCloudThread;
+    if (bpreempt ) {
         std::stringstream ss;
         ss << "preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread;
         VISIONMANAGER_LOG_DEBUG(ss.str())
     }
-    return _bShutdown || _bCancelCommand || _bStopDetectionThread;
+    return bpreempt;
 }
 
 MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir)
@@ -1645,15 +1646,16 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             boost::this_thread::sleep(boost::posix_time::milliseconds(50));
         }
         VISIONMANAGER_LOG_INFO("environment is updated with latest result, stop environment updating and capturing");
-        _StopUpdateEnvironmentThread();
-        _StopExecutionVerificationPointCloudThread();
-        VISIONMANAGER_LOG_INFO("stopped environment update thread");
+        // since threads might be blocking on waiting for captures, so stop capturing to enable the preempt function to exit
         _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
         VISIONMANAGER_LOG_INFO("capturing stopped");
         if (_vExecutionVerificationCameraNames.size() > 0) {
             _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
             VISIONMANAGER_LOG_INFO("stopped execution verification cameras");
         }
+        _StopUpdateEnvironmentThread();
+        _StopExecutionVerificationPointCloudThread();
+        VISIONMANAGER_LOG_INFO("stopped environment update thread");
     }
     VISIONMANAGER_LOG_INFO("ending detection thread. numdetection=" + boost::lexical_cast<std::string>(numdetection));
 }
@@ -2541,7 +2543,7 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
     _SetStatus(tt, MS_Succeeded);
 }
 
- void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>& cameranames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool sendVerificationPointCloud)
+void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>& cameranames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool sendVerificationPointCloud)
 {
     if (!_pImagesubscriberManager) {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
@@ -2571,16 +2573,18 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
 
 void MujinVisionManager::StopDetectionLoop()
 {
-    _StopDetectionThread();
-    _StopUpdateEnvironmentThread();
-    _StopExecutionVerificationPointCloudThread();
-    _StopControllerMonitorThread();
+    // since threads might be blocking on waiting for captures, so stop capturing to enable the preempt function to exit
     if (!!_pImagesubscriberManager) {
         _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vCameranames));
         if (_vExecutionVerificationCameraNames.size() > 0) {
             _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
         }
     }
+
+    _StopDetectionThread();
+    _StopUpdateEnvironmentThread();
+    _StopExecutionVerificationPointCloudThread();
+    _StopControllerMonitorThread();
     _SetStatus(TT_Command, MS_Succeeded);
 }
 

@@ -1463,9 +1463,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     bool isControllerPickPlaceRunning = false;
     bool isRobotOccludingSourceContainer = false;
     bool forceRequestDetectionResults = false;
+    int numLeftInOrder = -1;
     unsigned long long binpickingstateTimestamp = 0;
     unsigned int numdetection = 0;
-    while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection)) {
+    while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) || numLeftInOrder != 0) {
         time0 = GetMilliTime();
         std::vector<DetectedObjectPtr> detectedobjects;
         std::string resultstate;
@@ -1485,12 +1486,16 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 isControllerPickPlaceRunning = _bIsControllerPickPlaceRunning;
                 isRobotOccludingSourceContainer = _bIsRobotOccludingSourceContainer;
                 forceRequestDetectionResults = _bForceRequestDetectionResults;
+                numLeftInOrder = _numLeftInOrder;
             }
             if (_bStopDetectionThread) {
                 break;
             }
-
-            if (!isControllerPickPlaceRunning || forceRequestDetectionResults || _vDetectedObject.size() == 0) { // detect if forced or no result
+            if (numLeftInOrder == 0) {
+                _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames));
+                // only check if container is empty
+                _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, false, false, false, false, true);
+            } else if (!isControllerPickPlaceRunning || forceRequestDetectionResults || _vDetectedObject.size() == 0) { // detect if forced or no result
                 std::stringstream ss;
                 ss << "force detection, start capturing..." << (int)isControllerPickPlaceRunning << " " << (int)forceRequestDetectionResults << " " << _vDetectedObject.size();
                 _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames));
@@ -1638,6 +1643,22 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         VISIONMANAGER_LOG_INFO("Cycle time: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
         VISIONMANAGER_LOG_INFO(" ------------------------");
         numdetection += 1;
+    }
+    if (numLeftInOrder == 0) {
+        VISIONMANAGER_LOG_INFO("stopped detection because numLeftInOrder is 0");
+        while (_resultTimestamp > _tsLastEnvUpdate) {
+            boost::this_thread::sleep(boost::posix_time::milliseconds(50));
+        }
+        VISIONMANAGER_LOG_INFO("environment is updated with latest result, stop environment updating and capturing");
+        _StopUpdateEnvironmentThread();
+        _StopExecutionVerificationPointCloudThread();
+        VISIONMANAGER_LOG_INFO("stopped environment update thread");
+        _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
+        VISIONMANAGER_LOG_INFO("capturing stopped");
+        if (_vExecutionVerificationCameraNames.size() > 0) {
+            _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
+            VISIONMANAGER_LOG_INFO("stopped execution verification cameras");
+        }
     }
     if (numdetection >= maxnumdetection && maxnumdetection!=0) {
         VISIONMANAGER_LOG_INFO("reached max num detection, wait for environment to update");
@@ -1886,6 +1907,11 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
             _bForceRequestDetectionResults = binpickingstate.forceRequestDetectionResults;
             _numPickAttempt = binpickingstate.pickAttemptFromSourceId;
             _binpickingstateTimestamp = binpickingstate.timestamp * 1000; // s -> ms
+            _bIsGrabbingTarget = binpickingstate.isGrabbingTarget;
+            _orderNumber = binpickingstate.orderNumber;
+            _numLeftInOrder = binpickingstate.numLeftInOrder;
+            _numLeftInSupply = binpickingstate.numLeftInSupply;
+            _placedInDest = binpickingstate.placedInDest;
             lastUpdateTimestamp = GetMilliTime();
         }
 
@@ -2501,7 +2527,7 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
     _DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold);
 }
 
-void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request, const bool useold)
+void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request, const bool useold, const bool checkcontaineremptyonly)
 {
     boost::mutex::scoped_lock lock(_mutexDetector);
     uint64_t starttime = GetMilliTime();
@@ -2527,9 +2553,9 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
         }
         // detect objects
         if (resultimages.size() > 0) {
-            _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, resultimages, detectedobjects, resultstate, fastdetection, bindetection);
+            _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, resultimages, detectedobjects, resultstate, fastdetection, bindetection, checkcontaineremptyonly);
         } else {
-            _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, resultstate, fastdetection, bindetection);
+            _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, resultstate, fastdetection, bindetection, checkcontaineremptyonly);
         }
     }
     if (resultstate == "") {

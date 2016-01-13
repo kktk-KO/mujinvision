@@ -446,7 +446,8 @@ private:
                         const bool fastdetection=false,
                         const bool bindetection=false,
                         const bool request=false,
-                        const bool useold=false);
+                        const bool useold=false,
+                        const bool checkcontaineremptyonly=false);
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params, ImagesubscriberHandlerPtr ih);
     void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, ImagesubscriberHandlerPtr ih);
     void _StopDetectionThread();
@@ -603,8 +604,6 @@ private:
     unsigned long long _resultTimestamp; ///< timestamp of latest detection result
     std::map<std::string, std::vector<Real> > _mResultPoints; ///< result pointcloud obstacle, cameraname -> points
     boost::mutex _mutexControllerBinpickingState; ///< lock for controller binpicking state
-    int _numPickAttempt; ///< num of picking attempts
-    unsigned long long _binpickingstateTimestamp; ///< timestamp of latest binpicking state
     unsigned long long _lastocclusionTimestamp;
     std::vector<ImagePtr> _lastcolorimages; ///< last color images used for detection
     std::vector<ImagePtr> _lastdepthimages; ///< last depth images used for detection
@@ -624,10 +623,19 @@ private:
     std::string _userinfo_json; ///< userinfo json
     std::string _slaverequestid; ///< slaverequestid to ensure that binpicking task uses the same slave
 
+    // mujin controller binpicking state
+    unsigned long long _binpickingstateTimestamp; ///< timestamp of latest binpicking state
+    int _numPickAttempt; ///< num of picking attempts
+    int _orderNumber;  ///< num of ordered items
+    int _numLeftInOrder; ///< num of order to go
+    int _numLeftInSupply; ///< num of items left in supply
+    int _placedInDest; ///< num placed in destination
     bool _bIsControllerPickPlaceRunning; ///< whether pick and place thread is running on the controller
     bool _bIsRobotOccludingSourceContainer; ///< whether robot is occluding the source container
     bool _bForceRequestDetectionResults; ///< whether to run detection ignoring _numPickAttempt
+    bool _bIsGrabbingTarget; ///< whether the robot is grabbing target
 
+    // vision manager flags
     bool _bInitialized; ///< whether visionmanager is initialized
     bool _bShutdown; ///< whether the visionmanager is shut down
     bool _bStopStatusThread; ///< whether to stop status thread

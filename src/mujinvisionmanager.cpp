@@ -209,7 +209,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _commandport = commandport;
     _configport = configport;
     _configdir = configdir;
-    _detectionDir = detectiondir;
+    _detectiondir = detectiondir;
     _binpickingTaskZmqPort = 0;
     _binpickingTaskHeartbeatPort = 0;
     _binpickingTaskHeartbeatTimeout = 10;
@@ -2187,7 +2187,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
     std::string modelfilename;
     std::string modelurl;
 
-    detectionpath = _detectionDir + "/" + targetname;
+    detectionpath = _detectiondir + "/" + targetname;
 
     // prepare directories
     try {
@@ -2205,7 +2205,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
         modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + modelfilename;
         VISIONMANAGER_LOG_DEBUG("updating " + modelfilename + " from " + modelurl);
         try {
-            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + modelurl + " -P " + _detectionDir;
+            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + modelurl + " -P " + _detectiondir;
             system(cmdstr.c_str()); // TODO: check process exit code
         } catch (...) {
             std::stringstream errss;

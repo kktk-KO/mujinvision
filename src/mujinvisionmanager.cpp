@@ -1662,8 +1662,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             boost::this_thread::sleep(boost::posix_time::milliseconds(50));
         }
         VISIONMANAGER_LOG_INFO("environment is updated with latest result, stop environment updating and capturing");
-        _StopUpdateEnvironmentThread();
-        _StopExecutionVerificationPointCloudThread();
         VISIONMANAGER_LOG_INFO("stopped environment update thread");
         _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
         VISIONMANAGER_LOG_INFO("capturing stopped");
@@ -1671,6 +1669,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
             VISIONMANAGER_LOG_INFO("stopped execution verification cameras");
         }
+        _StopUpdateEnvironmentThread();
+        _StopExecutionVerificationPointCloudThread();
     }
     if (numdetection >= maxnumdetection && maxnumdetection!=0) {
         VISIONMANAGER_LOG_INFO("reached max num detection, wait for environment to update");

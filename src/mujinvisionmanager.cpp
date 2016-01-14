@@ -1767,7 +1767,6 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
     }
     catch( const std::exception& ex) {
         VISIONMANAGER_LOG_ERROR(str(boost::format("failed to start update thread due to initializing cameras and binpicking client: %s")%ex.what()));
-        _bIsEnvironmentUpdateRunning = false;
         return;
     }
     

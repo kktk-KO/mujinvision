@@ -588,7 +588,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             unsigned int maxage = command_pt.get<unsigned int>("maxage", 0);
             unsigned int fetchimagetimeout = command_pt.get("fetchimagetimeout", 0);
             std::string obstaclename = command_pt.get<std::string>("obstaclename", "__dynamicobstacle__");
-            unsigned long long starttime = command_pt.get<unsigned long long>("starttime", 0);
+            unsigned long long detectionstarttime = command_pt.get<unsigned long long>("starttime", 0);
             std::string locale = command_pt.get<std::string>("locale", "en_US");
             unsigned int maxnumfastdetection = command_pt.get<unsigned int>("maxnumfastdetection", 1);
             unsigned int maxnumdetection = command_pt.get<unsigned int>("maxnumdetection", 0);
@@ -609,7 +609,11 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 tworldresultoffset.rot[3] = 0;
             }
             bool sendVerificationPointCloud = command_pt.get<bool>("sendVerificationPointCloud", true);
-            StartDetectionLoop(regionname, cameranames, tworldresultoffset, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, obstaclename, starttime, locale, maxnumfastdetection, maxnumdetection, sendVerificationPointCloud, stoponleftinorder);
+            if (IsDetectionRunning()) {
+                VISIONMANAGER_LOG_WARN("detection is already running, do nothing.");
+            } else {
+                StartDetectionLoop(regionname, cameranames, tworldresultoffset, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, obstaclename, detectionstarttime, locale, maxnumfastdetection, maxnumdetection, sendVerificationPointCloud, stoponleftinorder);
+            }
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";

@@ -1590,6 +1590,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 }
             }
 
+            if( !_bIsEnvironmentUpdateRunning ) {
+                VISIONMANAGER_LOG_WARN("environment update thread stopped! so stopping detector");
+                break;
+            }
+            
             if (_bStopDetectionThread) {
                 break;
             }
@@ -1658,6 +1663,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
         // process results
         if (_bStopDetectionThread) {
+            break;
+        }
+
+        if( !_bIsEnvironmentUpdateRunning ) {
+            VISIONMANAGER_LOG_WARN("environment update thread stopped! so stopping detector");
             break;
         }
 
@@ -1731,26 +1741,36 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
     std::string locale = params.locale;
     std::vector<DetectedObjectPtr> vDetectedObject; ///< latest detection result
     std::string resultstate;
-    
 
     uint64_t lastUpdateTimestamp = GetMilliTime();
-    std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
-
-    BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-    std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(locale) + "}";
-    VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in UpdateEnvironmentThread with userinfo " + userinfo_json);
-
+    std::vector<std::string> cameranamestobeused;
+    BinPickingTaskResourcePtr pBinpickingTask;
+    
     try {
-        ptree tmppt;
-        std::stringstream tmpss;
-        tmpss.str(userinfo_json);
-        read_json(tmpss, tmppt); // validate
-    } catch (...) {
-        VISIONMANAGER_LOG_ERROR("_UpdateEnvironmentThread failed to parse json: " + userinfo_json);
-        throw;
-    }
+        cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
 
-    pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+        pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
+        std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(locale) + "}";
+        VISIONMANAGER_LOG_DEBUG("initialzing binpickingtask in UpdateEnvironmentThread with userinfo " + userinfo_json);
+        
+        try {
+            ptree tmppt;
+            std::stringstream tmpss;
+            tmpss.str(userinfo_json);
+            read_json(tmpss, tmppt); // validate
+        } catch (...) {
+            VISIONMANAGER_LOG_ERROR("_UpdateEnvironmentThread failed to parse json: " + userinfo_json);
+            throw;
+        }
+
+        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+    }
+    catch( const std::exception& ex) {
+        VISIONMANAGER_LOG_ERROR(str(boost::format("failed to start update thread due to initializing cameras and binpicking client: %s")%ex.what()));
+        _bIsEnvironmentUpdateRunning = false;
+        return;
+    }
+    
     uint64_t starttime;
     uint64_t lastwarnedtimestamp0 = 0;
     uint64_t lastwarnedtimestamp1 = 0;
@@ -3075,7 +3095,7 @@ std::string MujinVisionManager::_GetJsonString(const std::vector<DetectedObjectP
 std::vector<std::string> MujinVisionManager::_GetCameraNames(const std::string& regionname, const std::vector<std::string>& cameranames)
 {
     if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
-        throw MujinVisionException("Region "+regionname+ " is unknown!", MVE_InvalidArgument);
+        throw MujinVisionException("Region "+regionname+ " is unknown for _GetCameraNames!", MVE_InvalidArgument);
     }
     std::vector<std::string> cameranamestobeused;
     std::vector<std::string> mappedcameranames = _mNameRegion[regionname]->pRegionParameters->cameranames;

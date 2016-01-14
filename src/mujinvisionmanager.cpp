@@ -1516,7 +1516,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     unsigned long long binpickingstateTimestamp = 0;
     unsigned long long lastGrabbedTargetTimeStamp = 0;
     unsigned int numdetection = 0;
-    while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimeStamp > 0 && _tsLastEnvUpdate > 0 && lastGrabbedTargetTimeStamp < _tsLastEnvUpdate)) {
+    while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimeStamp > _tsStartDetection && _tsLastEnvUpdate > 0 && lastGrabbedTargetTimeStamp < _tsLastEnvUpdate)) {
         time0 = GetMilliTime();
         std::vector<DetectedObjectPtr> detectedobjects;
         std::string resultstate;
@@ -1742,7 +1742,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         VISIONMANAGER_LOG_INFO("stopped environment update thread");
     }
     std::stringstream ss;
-    ss << "ending detection thread. numdetection=" << numdetection << " numLeftInOrder=" << numLeftInOrder << " _bStopDetectionThread=" << _bStopDetectionThread << " lastGrabbedTargetTimeStamp=" << lastGrabbedTargetTimeStamp << " _tsLastEnvUpdate=" << _tsLastEnvUpdate;
+    ss << "ending detection thread. numdetection=" << numdetection << " numLeftInOrder=" << numLeftInOrder << " _bStopDetectionThread=" << _bStopDetectionThread << " lastGrabbedTargetTimeStamp=" << lastGrabbedTargetTimeStamp << " _tsLastEnvUpdate=" << _tsLastEnvUpdate << " _tsStartDetection=" << _tsStartDetection;
     VISIONMANAGER_LOG_INFO(ss.str());
 }
 

@@ -400,6 +400,8 @@ private:
         TT_UpdateEnvironment=3,
         TT_ControllerMonitor=4,
         TT_SendPointcloudObstacle=5,
+        TT_VisualizePointCloud=6,
+        TT_SendExecutionVerificationPointCloud=7
     };
 
     class ImagesubscriberHandler

@@ -1759,7 +1759,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
 
                 BinPickingTaskResource::DetectedObject detectedobject;
                 std::stringstream name_ss;
-                name_ss << _vDetectedObject[i]->name << "_" << i;
+                name_ss << "detected_" << _vDetectedObject[i]->name << "_" << i;
                 detectedobject.name = name_ss.str();
                 detectedobject.object_uri = _vDetectedObject[i]->objecturi;
                 detectedobject.transform = transform;

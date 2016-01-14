@@ -1607,6 +1607,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 }
             }
 
+            if( !_bIsEnvironmentUpdateRunning ) {
+                VISIONMANAGER_LOG_WARN("environment update thread stopped! so stopping detector");
+                break;
+            }
+            
             if (_bStopDetectionThread) {
                 break;
             }
@@ -1675,6 +1680,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
         // process results
         if (_bStopDetectionThread) {
+            break;
+        }
+
+        if( !_bIsEnvironmentUpdateRunning ) {
+            VISIONMANAGER_LOG_WARN("environment update thread stopped! so stopping detector");
             break;
         }
 
@@ -1775,7 +1785,6 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
         uint64_t lastsentcloudtime = 0;
         while (!_bStopUpdateEnvironmentThread) {
             bool update = false;
-
             {
                 boost::mutex::scoped_lock lock(_mutexDetectedInfo);
                 update = _resultTimestamp != 0 && _resultTimestamp > lastUpdateTimestamp;
@@ -3220,7 +3229,7 @@ std::string MujinVisionManager::_GetJsonString(const std::vector<DetectedObjectP
 std::vector<std::string> MujinVisionManager::_GetCameraNames(const std::string& regionname, const std::vector<std::string>& cameranames)
 {
     if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
-        throw MujinVisionException("Region "+regionname+ " is unknown!", MVE_InvalidArgument);
+        throw MujinVisionException("Region "+regionname+ " is unknown for _GetCameraNames!", MVE_InvalidArgument);
     }
     std::vector<std::string> cameranamestobeused;
     std::vector<std::string> mappedcameranames = _mNameRegion[regionname]->pRegionParameters->cameranames;

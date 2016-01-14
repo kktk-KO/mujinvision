@@ -564,8 +564,8 @@ private:
     BinPickingTaskResourcePtr _pBinpickingTask;
 
     std::queue<ManagerStatus> _statusQueue;
-    std::queue<std::string> _commandMessageQueue, _configMessageQueue, _detectorMessageQueue, _updateenvironmentMessageQueue, _controllermonitorMessageQueue, _sendpointcloudMessageQueue;
-    std::queue<std::string> _commandErrorQueue, _configErrorQueue, _detectorErrorQueue, _updateenvironmentErrorQueue, _controllermonitorErrorQueue, _sendpointcloudErrorQueue;
+    std::queue<std::string> _commandMessageQueue, _configMessageQueue, _detectorMessageQueue, _updateenvironmentMessageQueue, _controllermonitorMessageQueue, _sendpointcloudMessageQueue, _visualizepointcloudMessageQueue, _sendexecverificationMessageQueue;
+    std::queue<std::string> _commandErrorQueue, _configErrorQueue, _detectorErrorQueue, _updateenvironmentErrorQueue, _controllermonitorErrorQueue, _sendpointcloudErrorQueue, _visualizepointcloudErrorQueue, _sendexecverificationErrorQueue;
     std::queue<unsigned long long> _timestampQueue;
     boost::mutex _mutexStatusQueue; ///< protects _statusQueue, _messageQueue, and _timestampQueue
     //boost::condition _condStatus; ///< notification when _statusqueue has data

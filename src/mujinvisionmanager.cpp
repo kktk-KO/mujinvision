@@ -373,6 +373,10 @@ void MujinVisionManager::_SetStatus(ThreadType tt, ManagerStatus status, const s
     std::string controllermonerr = "";
     std::string sendpclmsg = "";
     std::string sendpclerr = "";
+    std::string visualizepcmsg = "";
+    std::string visualizepcerr = "";
+    std::string sendexecvpcmsg = "";
+    std::string sendexecvpcerr = "";
     switch (tt) {
     case TT_Command:
         cmdmsg = msg;
@@ -398,6 +402,14 @@ void MujinVisionManager::_SetStatus(ThreadType tt, ManagerStatus status, const s
         sendpclmsg = msg;
         sendpclerr = err;
         break;
+    case TT_VisualizePointCloud:
+        visualizepcmsg = msg;
+        visualizepcerr = err;
+        break;
+    case TT_SendExecutionVerificationPointCloud:
+        sendexecvpcmsg = msg;
+        sendexecvpcerr = err;
+        break;
     default:
         std::stringstream ss;
         ss << "unknown thread type " << tt << " cannot update status";
@@ -416,6 +428,10 @@ void MujinVisionManager::_SetStatus(ThreadType tt, ManagerStatus status, const s
     _controllermonitorErrorQueue.push(controllermonerr);
     _sendpointcloudMessageQueue.push(sendpclmsg);
     _sendpointcloudErrorQueue.push(sendpclerr);
+    _visualizepointcloudMessageQueue.push(visualizepcmsg);
+    _visualizepointcloudErrorQueue.push(visualizepcerr);
+    _sendexecverificationMessageQueue.push(sendexecvpcmsg);
+    _sendexecverificationErrorQueue.push(sendexecvpcerr);
     _timestampQueue.push(GetMilliTime());
     ss.clear();
     ss << "updated status queue: " << status << " " << cmdmsg << " " << cmderr << " " << cfgmsg << " " << cfgerr << " " << detectormsg << " " << detectorerr << " " << updateenvmsg << " " << updateenverr << " " << controllermonmsg << " " << controllermonerr << " " << sendpclmsg << " " << sendpclerr << " " << GetMilliTime();
@@ -1088,6 +1104,7 @@ void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned i
                 vsendpclmsg.push_back(_sendpointcloudMessageQueue.front());
                 vsendpclerr.push_back(_sendpointcloudErrorQueue.front());
             }
+            // TODO add VisualizePointCloud and SendExecutionVerificationPointCloud messages
         }
         for (unsigned int i=0; i<vstatus.size(); i++) {
             //VISIONMANAGER_LOG_ERROR(_GetStatusJsonString(vtimestamp.at(i), _GetManagerStatusString(vstatus.at(i)), vcmdmsg.at(i), vcmderr.at(i), vcfgmsg.at(i), vcfgerr.at(i), vdetectormsg.at(i), vdetectorerr.at(i), vupdateenvmsg.at(i), vupdateenverr.at(i), vcontrollermonmsg.at(i), vcontrollermonerr.at(i), vsendpclmsg.at(i), vsendpclerr.at(i)));

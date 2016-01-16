@@ -2591,6 +2591,8 @@ void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const
     if (!_pImagesubscriberManager) {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
     }
+    // clear cached detected objects
+    _vDetectedObject.clear();
     // do not start capturing here, let the detection thread and env update thread handle this
     _bSendVerificationPointCloud = sendVerificationPointCloud;
     _tWorldResultOffset = worldresultoffsettransform;

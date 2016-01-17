@@ -2435,7 +2435,7 @@ void MujinVisionManager::Initialize(
     detectionpath = _detectiondir + "/" + targetname;
     
     // fetch or update modelfile
-    modelfilename = targeturi.substr(sizeof("mujin:/")-1, std::string::npos) + ".mujin.dae";
+    modelfilename = targeturi.substr(sizeof("mujin:/")-1, std::string::npos);
     modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + modelfilename;
     VISIONMANAGER_LOG_DEBUG("updating " + modelfilename + " from " + modelurl);
     try {

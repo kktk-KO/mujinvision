@@ -117,12 +117,13 @@ public:
                             const double binpickingTaskHeartbeatTimeout,
                             const std::string& binpickingTaskScenePk,
                             const std::string& targetname,
+                            const std::string& targeturi,
+                            const std::string& targetupdatename,
                             const std::string& streamerIp,
                             const unsigned int streamerPort,
                             const std::string& tasktype="binpicking",
                             const double controllertimeout=10.0, /*seconds*/
                             const std::string& locale="en_US",
-                            const std::string& targeturi="",
                             const std::string& slaverequestid="",
                             const std::string& targetdetectionarchiveurl="");
 
@@ -586,6 +587,7 @@ private:
 
     std::string _targetname; ///< name of the target object
     std::string _targeturi; ///< uri of the target
+    std::string _targetupdatename; ///< prefix of the detected object name used to update environment
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
     std::map<std::string, std::string> _mCameranameRegionname; ///< cameraname -> regionname
     std::map<std::string, CameraParametersPtr> _mNameCameraParameters; ///< name->camera param

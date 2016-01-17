@@ -232,6 +232,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _tasktype = "";
     _targetname = "";
     _targeturi = "";
+    _targetupdatename = "detected_";
     _resultState = "";
     _userinfo_json = "";
     _slaverequestid = "";
@@ -723,12 +724,13 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<double>("binpickingTaskHeartbeatTimeout"),
                        command_pt.get<std::string>("binpickingTaskScenePk"),
                        command_pt.get<std::string>("targetname"),
+                       command_pt.get<std::string>("targeturi"),
+                       command_pt.get<std::string>("targetupdatename"),
                        command_pt.get<std::string>("streamerIp"),
                        command_pt.get<unsigned int>("streamerPort"),
                        command_pt.get<std::string>("tasktype","binpicking"),
                        command_pt.get<unsigned int>("controllertimeout", 10),
                        command_pt.get<std::string>("locale", "en_US"),
-                       command_pt.get<std::string>("targeturi", ""),
                        command_pt.get<std::string>("slaverequestid", ""),
                        command_pt.get<std::string>("targetdetectionarchiveurl", "")
                        );
@@ -1750,9 +1752,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
 
         pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
         uint64_t starttime;
-        uint64_t lastwarnedtimestamp0 = 0;
         uint64_t lastwarnedtimestamp1 = 0;
-        uint64_t lastsentcloudtime = 0;
         while (!_bStopUpdateEnvironmentThread) {
             bool update = false;
             {
@@ -1786,7 +1786,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
 
                     BinPickingTaskResource::DetectedObject detectedobject;
                     std::stringstream name_ss;
-                    name_ss << _vDetectedObject[i]->name << "_" << i;
+                    name_ss << _targetupdatename << i;
                     detectedobject.name = name_ss.str();
                     detectedobject.object_uri = _vDetectedObject[i]->objecturi;
                     detectedobject.transform = transform;
@@ -1811,7 +1811,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                 }
                 try {
                     starttime = GetMilliTime();
-                    pBinpickingTask->UpdateEnvironmentState(_targetname, _targeturi, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
+                    pBinpickingTask->UpdateEnvironmentState(_targetupdatename, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
                     _tsLastEnvUpdate = _resultTimestamp;
                     std::stringstream ss;
                     ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
@@ -2383,7 +2383,30 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     }
 }
 
-void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, const std::string& detectorconfigname, const std::string& imagesubscriberconfig, const std::string& controllerIp, const unsigned int controllerPort, const std::string& controllerUsernamePass, const std::string& defaultTaskParameters, const std::string& containerParameters, const unsigned int binpickingTaskZmqPort, const unsigned int binpickingTaskHeartbeatPort, const double binpickingTaskHeartbeatTimeout, const std::string& binpickingTaskScenePk, const std::string& targetname, const std::string& streamerIp, const unsigned int streamerPort, const std::string& tasktype, const double controllertimeout, const std::string& locale, const std::string& targeturi, const std::string& slaverequestid, const std::string& targetdetectionarchiveurl)
+void MujinVisionManager::Initialize(
+    const std::string& visionmanagerconfig,
+    const std::string& detectorconfigname,
+    const std::string& imagesubscriberconfig,
+    const std::string& controllerIp,
+    const unsigned int controllerPort,
+    const std::string& controllerUsernamePass,
+    const std::string& defaultTaskParameters,
+    const std::string& containerParameters,
+    const unsigned int binpickingTaskZmqPort,
+    const unsigned int binpickingTaskHeartbeatPort,
+    const double binpickingTaskHeartbeatTimeout,
+    const std::string& binpickingTaskScenePk,
+    const std::string& targetname,
+    const std::string& targeturi,
+    const std::string& targetupdatename,
+    const std::string& streamerIp,
+    const unsigned int streamerPort,
+    const std::string& tasktype,
+    const double controllertimeout,
+    const std::string& locale,
+    const std::string& slaverequestid,
+    const std::string& targetdetectionarchiveurl
+)
 {
     _locale = locale;
     uint64_t time0 = GetMilliTime();
@@ -2410,33 +2433,19 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
     std::string modelurl;
 
     detectionpath = _detectiondir + "/" + targetname;
-
-    // prepare directories
+    
+    // fetch or update modelfile
+    modelfilename = targeturi.substr(sizeof("mujin:/")-1, std::string::npos) + ".mujin.dae";
+    modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + modelfilename;
+    VISIONMANAGER_LOG_DEBUG("updating " + modelfilename + " from " + modelurl);
     try {
-        boost::filesystem::create_directories(detectionpath);
+        std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + modelurl + " -P " + _detectiondir;
+        system(cmdstr.c_str()); // TODO: check process exit code
     } catch (...) {
         std::stringstream errss;
-        errss << "Failed to prepare config files because " << detectionpath << " could not be created.";
+        errss << "Failed to fetch model file from controller.";
         VISIONMANAGER_LOG_ERROR(errss.str());
         throw MujinVisionException(errss.str(), MVE_Failed);
-    }
-
-    modelfilename = targetname + ".mujin.dae";
-    if (targeturi.size() > 0) {
-        // fetch modelfile
-        modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + modelfilename;
-        VISIONMANAGER_LOG_DEBUG("updating " + modelfilename + " from " + modelurl);
-        try {
-            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + modelurl + " -P " + _detectiondir;
-            system(cmdstr.c_str()); // TODO: check process exit code
-        } catch (...) {
-            std::stringstream errss;
-            errss << "Failed to fetch model file from controller.";
-            VISIONMANAGER_LOG_ERROR(errss.str());
-            throw MujinVisionException(errss.str(), MVE_Failed);
-        }
-    } else {
-        VISIONMANAGER_LOG_INFO("targeturi is empty, do not fetch model file.");
     }
 
     // update target archive if needed
@@ -2661,6 +2670,7 @@ void MujinVisionManager::Initialize(const std::string& visionmanagerconfig, cons
     ParametersBase::ValidateJsonString(_detectorconfig);
     _targetname = targetname;
     _targeturi = targeturi;
+    _targetupdatename = targetupdatename;
     _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions);
     VISIONMANAGER_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     VISIONMANAGER_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");

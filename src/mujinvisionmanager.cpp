@@ -2960,40 +2960,41 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
         std::vector<std::string> dummycameranames;
         //_GetDepthImages(TT_SendPointcloudObstacle, regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, true);
         _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, true, false);
+        VISIONMANAGER_LOG_DEBUG("got images in SendPointCloudObstacleToControllerThread");
         if (depthimages.size() == depthcameranames.size()) {
             for (size_t i=0; i<depthimages.size(); ++i) {
                 std::string cameraname = depthcameranames.at(i);
                 CameraPtr camera= _mNameCamera[cameraname];
                 // get point cloud obstacle
                 std::vector<Real> points;
-		if (!!_pDetector) {
-		    boost::mutex::scoped_lock lock(_mutexDetector);
-		    _pDetector->SetDepthImage(cameraname, depthimages.at(i));
-		    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
-		} else {
-		    VISIONMANAGER_LOG_WARN("detector is reset, stop async SendPointCloudObstacleToController call");
-		    return;
-		}
-		if (points.size() / 3 == 0) {
-		    _SetStatusMessage(TT_SendPointcloudObstacle, "got 0 point from GetPointCloudObstacle()");
-		    int numretries = 3;
-		    std::vector<std::string> depthcameranames1;
-		    std::vector<ImagePtr> depthimages1;
-		    depthcameranames1.push_back(cameraname);
-		    while (numretries > 0 && points.size() / 3 == 0) {
-			points.clear();
-			_SetStatusMessage(TT_SendPointcloudObstacle, "re-try getting depthimage and pointcloudobstacle");
-			//_GetDepthImages(TT_SendPointcloudObstacle, regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, true);
-			_GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, true, false);
-			if (!!_pDetector) {
-			    boost::mutex::scoped_lock lock(_mutexDetector);
-			    _pDetector->SetDepthImage(cameraname, depthimages1.at(0));
-			    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
-			} else {
-			    VISIONMANAGER_LOG_WARN("detector is reset, stop async SendPointCloudObstacleToController call");
-			    return;
-			}
-			numretries--;
+                if (!!_pDetector) {
+                    boost::mutex::scoped_lock lock(_mutexDetector);
+                    _pDetector->SetDepthImage(cameraname, depthimages.at(i));
+                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
+                } else {
+                    VISIONMANAGER_LOG_WARN("detector is reset, stop async SendPointCloudObstacleToController call");
+                    return;
+                }
+                if (points.size() / 3 == 0) {
+                    _SetStatusMessage(TT_SendPointcloudObstacle, "got 0 point from GetPointCloudObstacle()");
+                    int numretries = 3;
+                    std::vector<std::string> depthcameranames1;
+                    std::vector<ImagePtr> depthimages1;
+                    depthcameranames1.push_back(cameraname);
+                    while (numretries > 0 && points.size() / 3 == 0) {
+                        points.clear();
+                        _SetStatusMessage(TT_SendPointcloudObstacle, "re-try getting depthimage and pointcloudobstacle");
+                        //_GetDepthImages(TT_SendPointcloudObstacle, regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, true);
+                        _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, true, false);
+                        if (!!_pDetector) {
+                            boost::mutex::scoped_lock lock(_mutexDetector);
+                            _pDetector->SetDepthImage(cameraname, depthimages1.at(0));
+                            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
+                        } else {
+                            VISIONMANAGER_LOG_WARN("detector is reset, stop async SendPointCloudObstacleToController call");
+                            return;
+                        }
+                        numretries--;
                     }
                     if (points.size() / 3 == 0) {
                         throw MujinVisionException("got 0 point from GetPointCloudObstacle() after retries", MVE_Failed);
@@ -3004,6 +3005,8 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                 _SetStatusMessage(TT_SendPointcloudObstacle, ss.str());
                 pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename);
             }
+        } else {
+            VISIONMANAGER_LOG_WARN("failed to get images in SendPointCloudObstacleToControllerThread");
         }
         _SetStatus(TT_SendPointcloudObstacle, MS_Succeeded);
     }

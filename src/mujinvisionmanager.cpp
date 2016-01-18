@@ -1554,8 +1554,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
             if (stoponleftinorder && orderNumber > 0 && numLeftInOrder == 0) {
                 std::stringstream debugss;
-                debugss <<"numLeftInOrder=" << numLeftInOrder << " orderNumber=" << orderNumber << " stoponleftinorder=" << stoponleftinorder << ", check container empty only."
-                VISIONMANAGER_LOG_INFO();
+                debugss <<"numLeftInOrder=" << numLeftInOrder << " orderNumber=" << orderNumber << " stoponleftinorder=" << stoponleftinorder << ", check container empty only.";
+                VISIONMANAGER_LOG_INFO(debugss.str());
                 _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames));
                 detectcontaineronly = true;
             } else if (!isControllerPickPlaceRunning || forceRequestDetectionResults || _vDetectedObject.size() == 0) { // detect if forced or no result

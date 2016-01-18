@@ -1516,6 +1516,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     bool forceRequestDetectionResults = false;
     bool isGrabbingTarget = false;
     bool isGrabbingLastTarget = false;
+    bool detectcontaineronly = false;
     int numLeftInOrder = -1;
     unsigned long long binpickingstateTimestamp = 0;
     unsigned long long lastGrabbedTargetTimeStamp = 0;
@@ -1551,8 +1552,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             if (stoponleftinorder && numLeftInOrder == 0) {
                 VISIONMANAGER_LOG_INFO("numLeftInOrder is 0, check container empty only.");
                 _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames));
-                // only check if container is empty
-                _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, false, false, false, false, true);
+                detectcontaineronly = true;
             } else if (!isControllerPickPlaceRunning || forceRequestDetectionResults || _vDetectedObject.size() == 0) { // detect if forced or no result
                 std::stringstream ss;
                 ss << "force detection, start capturing..." << (int)isControllerPickPlaceRunning << " " << (int)forceRequestDetectionResults << " " << _vDetectedObject.size();
@@ -1619,7 +1619,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             if (_bStopDetectionThread) {
                 break;
             }
-            if (numfastdetection > 0) {
+            if (detectcontaineronly) {
+                VISIONMANAGER_LOG_DEBUG("detect to check if container is empty");
+                _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, false, false, false, false, true);
+            } else if (numfastdetection > 0) {
                 while (detectedobjects.size() == 0 && numfastdetection > 0) {
                     VISIONMANAGER_LOG_DEBUG("DetectObjects() in fast mode");
                     _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, true, true);
@@ -1635,6 +1638,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 }
                 numfastdetection -= 1;
             } else {
+                VISIONMANAGER_LOG_DEBUG("detect normally");
                 _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, false, false);
             }
             if (_bStopDetectionThread) {

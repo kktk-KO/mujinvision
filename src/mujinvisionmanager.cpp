@@ -1522,6 +1522,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     unsigned long long lastGrabbedTargetTimeStamp = 0;
     unsigned int numdetection = 0;
     while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimeStamp > _tsStartDetection && _tsLastEnvUpdate > 0 && lastGrabbedTargetTimeStamp < _tsLastEnvUpdate)) {
+        detectcontaineronly = false;
         time0 = GetMilliTime();
         std::vector<DetectedObjectPtr> detectedobjects;
         std::string resultstate;
@@ -1717,7 +1718,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         numdetection += 1;
     }
     if (stoponleftinorder && numLeftInOrder == 0) {
-        VISIONMANAGER_LOG_INFO("stopped detection because numLeftInOrder is 0, wait for environment to update");
+        VISIONMANAGER_LOG_INFO("got out of detection loop because numLeftInOrder is 0, wait for environment to update");
         while (_resultTimestamp > _tsLastEnvUpdate) {
             boost::this_thread::sleep(boost::posix_time::milliseconds(50));
         }

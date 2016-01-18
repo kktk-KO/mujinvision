@@ -1518,6 +1518,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     bool isGrabbingLastTarget = false;
     bool detectcontaineronly = false;
     int numLeftInOrder = -1;
+    int orderNumber = -1;
     unsigned long long binpickingstateTimestamp = 0;
     unsigned long long lastGrabbedTargetTimeStamp = 0;
     unsigned int numdetection = 0;
@@ -1546,11 +1547,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 isGrabbingLastTarget = _bIsGrabbingLastTarget;
                 forceRequestDetectionResults = _bForceRequestDetectionResults;
                 numLeftInOrder = _numLeftInOrder;
+                orderNumber = _orderNumber;
             }
             if (_bStopDetectionThread) {
                 break;
             }
-            if (stoponleftinorder && numLeftInOrder == 0) {
+            if (stoponleftinorder && orderNumber > 0 && numLeftInOrder == 0) {
                 VISIONMANAGER_LOG_INFO("numLeftInOrder is 0, check container empty only.");
                 _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames));
                 detectcontaineronly = true;

@@ -2833,6 +2833,12 @@ void MujinVisionManager::StopVisualizePointCloudThread()
  
 void MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
 {
+    if (async) {
+        if (!!_pSendPointCloudObstacleThread) {
+            _pSendPointCloudObstacleThread->join();
+            _pSendPointCloudObstacleThread.reset();
+        }
+    }
      ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler(_pImagesubscriberManager, _GetHardwareIds(cameranames)));   
      _SendPointCloudObstacleToController(regionname, cameranames, detectedobjectsworld, ih, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
 }

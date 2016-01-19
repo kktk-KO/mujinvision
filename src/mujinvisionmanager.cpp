@@ -151,14 +151,14 @@ namespace mujinvision {
 MujinVisionManager::ImagesubscriberHandler::ImagesubscriberHandler(ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids)
 {
     _ts = GetMilliTime();
-    VISIONMANAGER_LOG_ERROR("in ImagesubscriberHandler constructor " + boost::lexical_cast<std::string>(_ts));
+    VISIONMANAGER_LOG_DEBUG("in ImagesubscriberHandler constructor " + boost::lexical_cast<std::string>(_ts));
     _pManager = pImagesubscriberManager;
     _vIds = ids;
     _pManager->StartCaptureThread(ids);
 }
 
 MujinVisionManager::ImagesubscriberHandler::~ImagesubscriberHandler() {
-    VISIONMANAGER_LOG_ERROR("in ImagesubscriberHandler destructor " +  boost::lexical_cast<std::string>(_ts));
+    VISIONMANAGER_LOG_DEBUG("in ImagesubscriberHandler destructor " +  boost::lexical_cast<std::string>(_ts));
     _pManager->StopCaptureThread(_vIds);
 }
 

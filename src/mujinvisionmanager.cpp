@@ -1553,6 +1553,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             if (binpickingstateTimestamp > _lastocclusionTimestamp) {
                                 _lastocclusionTimestamp = binpickingstateTimestamp;
                             }
+                            VISIONMANAGER_LOG_DEBUG("stop capturing " + ParametersBase::GetJsonString(_GetHardwareIds(cameranames)));
                             _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
                             continue;
                         } else { // detect when robot is not occluding camera

@@ -2833,12 +2833,14 @@ void MujinVisionManager::StopVisualizePointCloudThread()
  
 void MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
 {
+    /*
     if (async) {
         if (!!_pSendPointCloudObstacleThread) {
             _pSendPointCloudObstacleThread->join();
             _pSendPointCloudObstacleThread.reset();
         }
     }
+    */
      ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler(_pImagesubscriberManager, _GetHardwareIds(cameranames)));   
      _SendPointCloudObstacleToController(regionname, cameranames, detectedobjectsworld, ih, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
 }
@@ -2907,7 +2909,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
         params.voxelsize = voxelsize;
         params.pointsize = pointsize;
         params.obstaclename = obstaclename;
-        _pSendPointCloudObstacleThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendPointCloudObstacleToControllerThread, this, params, ih)));   
+        _pSendPointCloudObstacleThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendPointCloudObstacleToControllerThread, this, params, boost::ref(ih))));   
     }
     std::stringstream ss;
     ss << "SendPointCloudObstacleToController async " << int(async) << " took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
@@ -2915,8 +2917,9 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
     _SetStatus(TT_Command, MS_Succeeded);
 }
 
-void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params, ImagesubscriberHandlerPtr ih)
+void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params, ImagesubscriberHandlerPtr& ihraw)
 {
+    ImagesubscriberHandlerPtr ih = ihraw;
     FalseSetter turnoffstatusvar(_bIsSendPointcloudRunning);
     std::string regionname = params.regionname;
     std::vector<std::string> cameranames = params.cameranames;

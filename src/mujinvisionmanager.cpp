@@ -150,14 +150,15 @@ namespace mujinvision {
 
 MujinVisionManager::ImagesubscriberHandler::ImagesubscriberHandler(ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids)
 {
-    VISIONMANAGER_LOG_ERROR("in ImagesubscriberHandler constructor");
+    _ts = GetMilliTime();
+    VISIONMANAGER_LOG_ERROR("in ImagesubscriberHandler constructor " + boost::lexical_cast<std::string>(_ts));
     _pManager = pImagesubscriberManager;
     _vIds = ids;
     _pManager->StartCaptureThread(ids);
 }
 
 MujinVisionManager::ImagesubscriberHandler::~ImagesubscriberHandler() {
-    VISIONMANAGER_LOG_ERROR("in ImagesubscriberHandler destructor");
+    VISIONMANAGER_LOG_ERROR("in ImagesubscriberHandler destructor " +  boost::lexical_cast<std::string>(_ts));
     _pManager->StopCaptureThread(_vIds);
 }
 
@@ -2994,6 +2995,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
     catch(const std::exception& ex) {
         VISIONMANAGER_LOG_WARN(str(boost::format("threw exception while sending pointcloud: %s")%ex.what()));
     }
+    VISIONMANAGER_LOG_ERROR("end of SendPointCloudObstacleToControllerThread");
 }
 
 void MujinVisionManager::DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request)

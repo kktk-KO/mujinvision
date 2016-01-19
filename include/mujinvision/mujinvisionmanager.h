@@ -411,6 +411,7 @@ private:
         virtual ~ImagesubscriberHandler();
         ImageSubscriberManagerPtr _pManager;
         std::vector<std::string> _vIds;
+        uint64_t _ts;
     };
 
     typedef boost::shared_ptr<ImagesubscriberHandler> ImagesubscriberHandlerPtr;

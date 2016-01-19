@@ -1547,13 +1547,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     if (GetMilliTime() - binpickingstateTimestamp < maxage) { // only do the following if the binpicking state message is up-to-date
                         if (isRobotOccludingSourceContainer) { // skip detection if robot occludes camera
                             if (GetMilliTime() - lastocclusionwarningts > 1000.0) {
-                                VISIONMANAGER_LOG_INFO("robot is picking now (occluding camera), stop capturing");
+                                VISIONMANAGER_LOG_INFO("robot is picking now (occluding camera), stop capturing " + ParametersBase::GetJsonString(_GetHardwareIds(cameranames)));
                                 lastocclusionwarningts = GetMilliTime();
                             }
                             if (binpickingstateTimestamp > _lastocclusionTimestamp) {
                                 _lastocclusionTimestamp = binpickingstateTimestamp;
                             }
-                            VISIONMANAGER_LOG_DEBUG("stop capturing " + ParametersBase::GetJsonString(_GetHardwareIds(cameranames)));
                             _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
                             continue;
                         } else { // detect when robot is not occluding camera

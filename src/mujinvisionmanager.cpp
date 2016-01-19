@@ -3004,7 +3004,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
     catch(const std::exception& ex) {
         VISIONMANAGER_LOG_WARN(str(boost::format("threw exception while sending pointcloud: %s")%ex.what()));
     }
-    VISIONMANAGER_LOG_ERROR("end of SendPointCloudObstacleToControllerThread");
+    VISIONMANAGER_LOG_DEBUG("end of SendPointCloudObstacleToControllerThread");
 }
 
 void MujinVisionManager::DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request)

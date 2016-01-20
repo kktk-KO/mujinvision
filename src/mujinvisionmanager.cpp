@@ -1313,10 +1313,9 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
             _placedInDest = 0;
         }
         // need to pass in a reference of ih since we don't want the thread object to hold a reference to it, only the thread. However, this means we have to wait until the thread starts running before we resume. In order to achieve that, wait on a condition that will be signaled by the running thread.
-        boost::mutex mWaitForThreadRun;
         boost::condition condrunningthread;
         {
-            boost::mutex::scoped_lock lock(mWaitForThreadRun);
+            boost::mutex::scoped_lock lock(_mutexThreadResourceSync);
             _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, params, boost::ref(ih), boost::ref(condrunningthread))));
             condrunningthread.wait(lock);
         }
@@ -1339,10 +1338,9 @@ void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& region
         params.waitinterval = waitinterval;
         params.locale = locale;
         // need to pass in a reference of ih since we don't want the thread object to hold a reference to it, only the thread. However, this means we have to wait until the thread starts running before we resume. In order to achieve that, wait on a condition that will be signaled by the running thread.
-        boost::mutex mWaitForThreadRun;
         boost::condition condrunningthread;
         {
-            boost::mutex::scoped_lock lock(mWaitForThreadRun);
+            boost::mutex::scoped_lock lock(_mutexThreadResourceSync);
         _pUpdateEnvironmentThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_UpdateEnvironmentThread, this, params, boost::ref(ih), boost::ref(condrunningthread))));
             condrunningthread.wait(lock);
         }
@@ -1366,10 +1364,9 @@ void MujinVisionManager::_StartExecutionVerificationPointCloudThread(const std::
         params.waitinterval = waitinterval;
         params.locale = locale;
         // need to pass in a reference of ih since we don't want the thread object to hold a reference to it, only the thread. However, this means we have to wait until the thread starts running before we resume. In order to achieve that, wait on a condition that will be signaled by the running thread.
-        boost::mutex mWaitForThreadRun;
         boost::condition condrunningthread;
         {
-            boost::mutex::scoped_lock lock(mWaitForThreadRun);
+            boost::mutex::scoped_lock lock(_mutexThreadResourceSync);
             _pExecutionVerificationPointCloudThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendExecutionVerificationPointCloudThread, this, params, boost::ref(ih), boost::ref(condrunningthread))));
             condrunningthread.wait(lock);
         }
@@ -1403,10 +1400,9 @@ void MujinVisionManager::_StartVisualizePointCloudThread(const std::string& regi
         params.request = request;
         params.voxelsize = voxelsize;
         // need to pass in a reference of ih since we don't want the thread object to hold a reference to it, only the thread. However, this means we have to wait until the thread starts running before we resume. In order to achieve that, wait on a condition that will be signaled by the running thread.
-        boost::mutex mWaitForThreadRun;
         boost::condition condrunningthread;
         {
-            boost::mutex::scoped_lock lock(mWaitForThreadRun);
+            boost::mutex::scoped_lock lock(_mutexThreadResourceSync);
             _pVisualizePointCloudThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_VisualizePointCloudThread, this, params, boost::ref(ih), boost::ref(condrunningthread))));
             condrunningthread.wait(lock);
         }
@@ -1502,7 +1498,11 @@ public:
 void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
     ImagesubscriberHandlerPtr ih = ihraw;
-    condrunningthread.notify_all();
+    {
+        // notify creator that the handle was copied
+        boost::mutex::scoped_lock lock(_mutexThreadResourceSync);
+        condrunningthread.notify_all();
+    }
     FalseSetter turnOffDetection(_bIsDetectionRunning);
     double voxelsize = params.voxelsize;
     //double pointsize = params.pointsize;
@@ -1773,7 +1773,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
     ImagesubscriberHandlerPtr ih = ihraw;
-    condrunningthread.notify_all();
+    {
+        // notify creator that the handle was copied
+        boost::mutex::scoped_lock lock(_mutexThreadResourceSync);
+        condrunningthread.notify_all();
+    }
+
     try {
         FalseSetter turnoffstatusvar(_bIsEnvironmentUpdateRunning);
         std::string regionname = params.regionname;
@@ -1911,7 +1916,12 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
 void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
     ImagesubscriberHandlerPtr ih = ihraw;
-    condrunningthread.notify_all();
+    {
+        // notify creator that the handle was copied
+        boost::mutex::scoped_lock lock(_mutexThreadResourceSync);
+        condrunningthread.notify_all();
+    }
+
     try {
         //FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);
         std::string regionname = params.regionname;
@@ -2095,7 +2105,12 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
 void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
     ImagesubscriberHandlerPtr ih = ihraw;
-    condrunningthread.notify_all();
+    {
+        // notify creator that the handle was copied
+        boost::mutex::scoped_lock lock(_mutexThreadResourceSync);
+        condrunningthread.notify_all();
+    }
+
     try {
         FalseSetter turnOffVisualize(_bIsVisualizePointcloudRunning);
         std::string regionname = params.regionname;
@@ -2938,10 +2953,9 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
         params.obstaclename = obstaclename;
 
         // need to pass in a reference of ih since we don't want _pSendPointCloudObstacleThread object to hold a reference to it, only the thread. However, this means we have to wait until the thread starts running before we resume. In order to achieve that, wait on a condition that will be signaled by the running thread.
-        boost::mutex mWaitForThreadRun;
         boost::condition condrunningthread;
         {
-            boost::mutex::scoped_lock lock(mWaitForThreadRun);
+            boost::mutex::scoped_lock lock(_mutexThreadResourceSync);
             _pSendPointCloudObstacleThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendPointCloudObstacleToControllerThread, this, params, boost::ref(ih), boost::ref(condrunningthread))));
             condrunningthread.wait(lock);
         }
@@ -2955,7 +2969,11 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
 void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
     ImagesubscriberHandlerPtr ih = ihraw;
-    condrunningthread.notify_all();
+    {
+        // notify creator that the handle was copied
+        boost::mutex::scoped_lock lock(_mutexThreadResourceSync);
+        condrunningthread.notify_all();
+    }
     FalseSetter turnoffstatusvar(_bIsSendPointcloudRunning);
     std::string regionname = params.regionname;
     std::vector<std::string> cameranames = params.cameranames;

@@ -620,6 +620,8 @@ private:
     std::vector<ImagePtr> _lastresultimages; ///< last result image used for detection
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
     boost::mutex _mutexDetector; ///< lock for detector
+    boost::mutex _mutexThreadResourceSync; ///< mutex for syncing resources when threads are being created
+
     std::vector<std::string> _vCameranames; ///< cameranames passed in for start detection loop
     std::vector<std::string> _vExecutionVerificationCameraNames; ///< names of cameras for exec verification
     double _filteringvoxelsize;  ///< point cloud filting param for exec verification

@@ -26,6 +26,7 @@
 #include <queue>
 #include <boost/filesystem.hpp>
 #include <boost/thread.hpp>
+#include <boost/thread/condition.hpp>
 
 #ifndef USE_LOG4CPP // logging
 
@@ -483,7 +484,7 @@ private:
     void _StopControllerMonitorThread();
 
     void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, ImagesubscriberHandlerPtr ih, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01, const double pointsize=0.005, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
-    void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params, ImagesubscriberHandlerPtr& ihraw);
+    void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread);
 
     void _DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, ImagesubscriberHandlerPtr ih, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=false);
     void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, ImagesubscriberHandlerPtr ih, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);

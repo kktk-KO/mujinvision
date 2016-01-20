@@ -2909,7 +2909,15 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
         params.voxelsize = voxelsize;
         params.pointsize = pointsize;
         params.obstaclename = obstaclename;
-        _pSendPointCloudObstacleThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendPointCloudObstacleToControllerThread, this, params, boost::ref(ih))));   
+
+        // need to pass in a reference of ih since we don't want _pSendPointCloudObstacleThread object to hold a reference to it, only the thread. However, this means we have to wait until the thread starts running before we resume. In order to achieve that, wait on a condition that will be signaled by the running thread.
+        boost::mutex mWaitForThreadRun;
+        boost::condition condrunningthread;
+        {
+            boost::mutex::scoped_lock lock(mWaitForThreadRun);
+            _pSendPointCloudObstacleThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendPointCloudObstacleToControllerThread, this, params, boost::ref(ih), boost::ref(condrunningthread))));
+            condrunningthread.wait(lock);
+        }
     }
     std::stringstream ss;
     ss << "SendPointCloudObstacleToController async " << int(async) << " took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
@@ -2917,9 +2925,10 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
     _SetStatus(TT_Command, MS_Succeeded);
 }
 
-void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params, ImagesubscriberHandlerPtr& ihraw)
+void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
     ImagesubscriberHandlerPtr ih = ihraw;
+    condrunningthread.notify_all();
     FalseSetter turnoffstatusvar(_bIsSendPointcloudRunning);
     std::string regionname = params.regionname;
     std::vector<std::string> cameranames = params.cameranames;

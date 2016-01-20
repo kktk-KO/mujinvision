@@ -1892,7 +1892,6 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
     
 
         //uint64_t lastUpdateTimestamp = GetMilliTime();
-        _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
         std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
 
         BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
@@ -1907,6 +1906,8 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         //uint64_t lastwarnedtimestamp1 = 0;
         uint64_t lastsentcloudtime = 0;
         while (!_bStopExecutionVerificationPointCloudThread) {
+            // ensure publishing
+            _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
 
             // send latest pointcloud for execution verification
             for (unsigned int i=0; i<_vExecutionVerificationCameraNames.size(); ++i) {

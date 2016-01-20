@@ -1501,6 +1501,8 @@ public:
 
 void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
+    ImagesubscriberHandlerPtr ih = ihraw;
+    condrunningthread.notify_all();
     FalseSetter turnOffDetection(_bIsDetectionRunning);
     double voxelsize = params.voxelsize;
     //double pointsize = params.pointsize;
@@ -1770,6 +1772,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
 void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
+    ImagesubscriberHandlerPtr ih = ihraw;
+    condrunningthread.notify_all();
     try {
         FalseSetter turnoffstatusvar(_bIsEnvironmentUpdateRunning);
         std::string regionname = params.regionname;
@@ -1906,11 +1910,14 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
 
 void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
+    ImagesubscriberHandlerPtr ih = ihraw;
+    condrunningthread.notify_all();
     try {
         //FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);
         std::string regionname = params.regionname;
         std::vector<std::string> cameranames = params.cameranames;
         std::vector<std::string> evcamnames = params.executionverificationcameranames;
+        VISIONMANAGER_LOG_INFO("starting SendExecutionVerificationPointCloudThread " + ParametersBase::GetJsonString(evcamnames));
         //double voxelsize = params.voxelsize;
         double pointsize = params.pointsize;
         std::string obstaclename = params.obstaclename;
@@ -2087,6 +2094,8 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
 
 void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
+    ImagesubscriberHandlerPtr ih = ihraw;
+    condrunningthread.notify_all();
     try {
         FalseSetter turnOffVisualize(_bIsVisualizePointcloudRunning);
         std::string regionname = params.regionname;

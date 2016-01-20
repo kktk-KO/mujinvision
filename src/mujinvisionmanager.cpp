@@ -581,6 +581,13 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                     cameranames.push_back(v->second.get<std::string>(""));
                 }
             }
+            std::vector<std::string> evcamnames;
+            boost::optional<const ptree&> evcamnames_pt(command_pt.get_child_optional("executionverificationcameranames"));
+            if (!!evcamnames_pt) {
+                FOREACH(v, *evcamnames_pt) {
+                    evcamnames.push_back(v->second.get<std::string>(""));
+                }
+            }
             double voxelsize = command_pt.get<double>("voxelsize", 0.01);
             double pointsize = command_pt.get<double>("pointsize", 0.005);
             bool ignoreocclusion = command_pt.get<bool>("ignoreocclusion", false);
@@ -612,7 +619,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             if (IsDetectionRunning()) {
                 VISIONMANAGER_LOG_WARN("detection is already running, do nothing.");
             } else {
-                StartDetectionLoop(regionname, cameranames, tworldresultoffset, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, obstaclename, detectionstarttime, locale, maxnumfastdetection, maxnumdetection, sendVerificationPointCloud, stoponleftinorder);
+                StartDetectionLoop(regionname, cameranames, evcamnames, tworldresultoffset, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, obstaclename, detectionstarttime, locale, maxnumfastdetection, maxnumdetection, sendVerificationPointCloud, stoponleftinorder);
             }
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -1328,7 +1335,7 @@ void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& region
     }
 }
 
-void MujinVisionManager::_StartExecutionVerificationPointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, ImagesubscriberHandlerPtr ih, const unsigned int waitinterval, const std::string& locale)
+void MujinVisionManager::_StartExecutionVerificationPointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const std::string& obstaclename, ImagesubscriberHandlerPtr ih, const unsigned int waitinterval, const std::string& locale)
 {
     if (!!_pExecutionVerificationPointCloudThread && !_bStopExecutionVerificationPointCloudThread) {
         _SetStatusMessage(TT_Command, "ExecutionVerificationPointCloud thread is already running, do nothing.");
@@ -1338,6 +1345,7 @@ void MujinVisionManager::_StartExecutionVerificationPointCloudThread(const std::
         SendExecutionVerificationPointCloudParams params;
         params.regionname = regionname;
         params.cameranames = cameranames;
+        params.executionverificationcameranames = evcamnames;
         params.voxelsize = voxelsize;
         params.pointsize = pointsize;
         params.obstaclename = obstaclename;
@@ -1711,10 +1719,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         VISIONMANAGER_LOG_INFO("stopped environment update thread");
         _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
         VISIONMANAGER_LOG_INFO("capturing stopped");
-        if (_vExecutionVerificationCameraNames.size() > 0) {
-            _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
-            VISIONMANAGER_LOG_INFO("stopped execution verification cameras");
-        }
         _StopUpdateEnvironmentThread();
         _StopExecutionVerificationPointCloudThread();
     }
@@ -1727,10 +1731,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         // since threads might be blocking on waiting for captures, so stop capturing to enable the preempt function to exit
         _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
         VISIONMANAGER_LOG_INFO("capturing stopped");
-        if (_vExecutionVerificationCameraNames.size() > 0) {
-            _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
-            VISIONMANAGER_LOG_INFO("stopped execution verification cameras");
-        }
         _StopUpdateEnvironmentThread();
         _StopExecutionVerificationPointCloudThread();
         VISIONMANAGER_LOG_INFO("stopped environment update thread");
@@ -1882,6 +1882,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         //FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);
         std::string regionname = params.regionname;
         std::vector<std::string> cameranames = params.cameranames;
+        std::vector<std::string> evcamnames = params.executionverificationcameranames;
         //double voxelsize = params.voxelsize;
         double pointsize = params.pointsize;
         std::string obstaclename = params.obstaclename;
@@ -1907,12 +1908,12 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         uint64_t lastsentcloudtime = 0;
         while (!_bStopExecutionVerificationPointCloudThread) {
             // ensure publishing
-            _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
+            _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(evcamnames));
 
             // send latest pointcloud for execution verification
-            for (unsigned int i=0; i<_vExecutionVerificationCameraNames.size(); ++i) {
+            for (unsigned int i=0; i<evcamnames.size(); ++i) {
                 std::vector<double> points;
-                std::string cameraname = _vExecutionVerificationCameraNames.at(i);
+                std::string cameraname = evcamnames.at(i);
                 unsigned long long cloudstarttime, cloudendtime;
 
                 _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn);
@@ -2507,10 +2508,6 @@ void MujinVisionManager::Initialize(
     // read execution verification configuration
     ptree visionserverpt;
     read_json(visionmanagerconfigss, visionserverpt);
-    _vExecutionVerificationCameraNames.clear();
-    FOREACH(it, visionserverpt.get_child("executionverificationcameras")) {
-        _vExecutionVerificationCameraNames.push_back(it->second.data());
-    }
     _filteringvoxelsize = visionserverpt.get<double>("filteringvoxelsize");
     _filteringstddev = visionserverpt.get<double>("filteringstddev");
     _filteringnumnn = visionserverpt.get<int>("filteringnumnn");
@@ -2765,7 +2762,7 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
     _SetStatus(tt, MS_Succeeded);
 }
 
-void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>& cameranames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool sendVerificationPointCloud, const bool stopOnLeftInOrder)
+void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool sendVerificationPointCloud, const bool stopOnLeftInOrder)
 {
     if (!_pImagesubscriberManager) {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
@@ -2778,7 +2775,7 @@ void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const
     _vCameranames = cameranames;
     std::vector<std::string> ids = _GetHardwareIds(cameranames);
     if (_bSendVerificationPointCloud) {
-        std::vector<std::string> ids1 = _GetHardwareIds(_vExecutionVerificationCameraNames);
+        std::vector<std::string> ids1 = _GetHardwareIds(evcamnames);
         for (size_t i=0; i<ids1.size(); ++i) {
             if (std::find(ids.begin(), ids.end(), ids1[i]) == ids.end()) {
                 ids.push_back(ids1[i]);
@@ -2789,7 +2786,7 @@ void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const
     _StartDetectionThread(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, starttime, maxnumfastdetection, maxnumdetection, stopOnLeftInOrder, ih);
     _StartUpdateEnvironmentThread(regionname, cameranames, voxelsize, pointsize, obstaclename, ih, 50, locale);
     if( _bSendVerificationPointCloud ) {
-        _StartExecutionVerificationPointCloudThread(regionname, cameranames, voxelsize, pointsize, obstaclename, ih, 50, locale);
+        _StartExecutionVerificationPointCloudThread(regionname, cameranames, evcamnames, voxelsize, pointsize, obstaclename, ih, 50, locale);
     }
     _StartControllerMonitorThread(50, locale);
     _SetStatus(TT_Command, MS_Succeeded);
@@ -2797,14 +2794,6 @@ void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const
 
 void MujinVisionManager::StopDetectionLoop()
 {
-    // since threads might be blocking on waiting for captures, so stop capturing to enable the preempt function to exit
-    if (!!_pImagesubscriberManager) {
-        _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vCameranames));
-        if (_vExecutionVerificationCameraNames.size() > 0) {
-            _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames));
-        }
-    }
-
     _StopDetectionThread();
     _StopUpdateEnvironmentThread();
     _StopExecutionVerificationPointCloudThread();

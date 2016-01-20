@@ -158,6 +158,7 @@ public:
      */
     virtual void StartDetectionLoop(const std::string& regionname,
                                     const std::vector<std::string>& cameranames,
+                                    const std::vector<std::string>& executionverificationcameranames,
                                     const Transform& worldresultoffsettransform,
                                     const double voxelsize=0.01,
                                     const double pointsize=0.005,
@@ -363,6 +364,7 @@ private:
     struct SendExecutionVerificationPointCloudParams {
         std::string regionname;
         std::vector<std::string> cameranames;
+        std::vector<std::string> executionverificationcameranames;
         double voxelsize;
         double pointsize;
         std::string obstaclename;
@@ -476,7 +478,7 @@ private:
     /** \brief thread that sends the execution verification point cloud
      */
     void _SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params, ImagesubscriberHandlerPtr ih);
-    void _StartExecutionVerificationPointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, ImagesubscriberHandlerPtr ih, const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _StartExecutionVerificationPointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const std::string& obstaclename, ImagesubscriberHandlerPtr ih, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopExecutionVerificationPointCloudThread();
     
     void _ControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");

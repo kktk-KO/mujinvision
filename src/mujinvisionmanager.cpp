@@ -1312,7 +1312,14 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
             _numLeftInSupply = 0;
             _placedInDest = 0;
         }
-        _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, params, ih)));
+        // need to pass in a reference of ih since we don't want the thread object to hold a reference to it, only the thread. However, this means we have to wait until the thread starts running before we resume. In order to achieve that, wait on a condition that will be signaled by the running thread.
+        boost::mutex mWaitForThreadRun;
+        boost::condition condrunningthread;
+        {
+            boost::mutex::scoped_lock lock(mWaitForThreadRun);
+            _pDetectionThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_DetectionThread, this, regionname, cameranames, params, boost::ref(ih), boost::ref(condrunningthread))));
+            condrunningthread.wait(lock);
+        }
     }
 }
 
@@ -1331,7 +1338,14 @@ void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& region
         params.obstaclename = obstaclename;
         params.waitinterval = waitinterval;
         params.locale = locale;
-        _pUpdateEnvironmentThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_UpdateEnvironmentThread, this, params, ih)));
+        // need to pass in a reference of ih since we don't want the thread object to hold a reference to it, only the thread. However, this means we have to wait until the thread starts running before we resume. In order to achieve that, wait on a condition that will be signaled by the running thread.
+        boost::mutex mWaitForThreadRun;
+        boost::condition condrunningthread;
+        {
+            boost::mutex::scoped_lock lock(mWaitForThreadRun);
+        _pUpdateEnvironmentThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_UpdateEnvironmentThread, this, params, boost::ref(ih), boost::ref(condrunningthread))));
+            condrunningthread.wait(lock);
+        }
     }
 }
 
@@ -1351,7 +1365,14 @@ void MujinVisionManager::_StartExecutionVerificationPointCloudThread(const std::
         params.obstaclename = obstaclename;
         params.waitinterval = waitinterval;
         params.locale = locale;
-        _pExecutionVerificationPointCloudThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendExecutionVerificationPointCloudThread, this, params, ih)));
+        // need to pass in a reference of ih since we don't want the thread object to hold a reference to it, only the thread. However, this means we have to wait until the thread starts running before we resume. In order to achieve that, wait on a condition that will be signaled by the running thread.
+        boost::mutex mWaitForThreadRun;
+        boost::condition condrunningthread;
+        {
+            boost::mutex::scoped_lock lock(mWaitForThreadRun);
+            _pExecutionVerificationPointCloudThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendExecutionVerificationPointCloudThread, this, params, boost::ref(ih), boost::ref(condrunningthread))));
+            condrunningthread.wait(lock);
+        }
     }
 }
 
@@ -1381,7 +1402,14 @@ void MujinVisionManager::_StartVisualizePointCloudThread(const std::string& regi
         params.fetchimagetimeout = fetchimagetimeout;
         params.request = request;
         params.voxelsize = voxelsize;
-        _pVisualizePointCloudThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_VisualizePointCloudThread, this, params, ih)));
+        // need to pass in a reference of ih since we don't want the thread object to hold a reference to it, only the thread. However, this means we have to wait until the thread starts running before we resume. In order to achieve that, wait on a condition that will be signaled by the running thread.
+        boost::mutex mWaitForThreadRun;
+        boost::condition condrunningthread;
+        {
+            boost::mutex::scoped_lock lock(mWaitForThreadRun);
+            _pVisualizePointCloudThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_VisualizePointCloudThread, this, params, boost::ref(ih), boost::ref(condrunningthread))));
+            condrunningthread.wait(lock);
+        }
     }
 }
 
@@ -1471,7 +1499,7 @@ public:
     bool& _value;
 };
 
-void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params, ImagesubscriberHandlerPtr ih)
+void MujinVisionManager::_DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
     FalseSetter turnOffDetection(_bIsDetectionRunning);
     double voxelsize = params.voxelsize;
@@ -1740,7 +1768,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     VISIONMANAGER_LOG_INFO(ss.str());
 }
 
-void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams params, ImagesubscriberHandlerPtr ih)
+void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
     try {
         FalseSetter turnoffstatusvar(_bIsEnvironmentUpdateRunning);
@@ -1876,7 +1904,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
     }
 }
 
-void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params, ImagesubscriberHandlerPtr ih)
+void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
     try {
         //FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);
@@ -2057,7 +2085,7 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
     }
 }
 
-void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadParams params, ImagesubscriberHandlerPtr ih)
+void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread)
 {
     try {
         FalseSetter turnOffVisualize(_bIsVisualizePointcloudRunning);

@@ -1907,6 +1907,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         //uint64_t lastwarnedtimestamp1 = 0;
         uint64_t lastsentcloudtime = 0;
         while (!_bStopExecutionVerificationPointCloudThread) {
+            _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(_vExecutionVerificationCameraNames)); // start publishing
 
             // send latest pointcloud for execution verification
             for (unsigned int i=0; i<_vExecutionVerificationCameraNames.size(); ++i) {

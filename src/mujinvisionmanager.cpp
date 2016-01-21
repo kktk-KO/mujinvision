@@ -1951,7 +1951,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         uint64_t lastwarnedtimestamp0 = 0;
         //uint64_t lastwarnedtimestamp1 = 0;
         uint64_t lastsentcloudtime = 0;
-        while (!_bStopExecutionVerificationPointCloudThread) {
+        while (!_bStopExecutionVerificationPointCloudThread && evcamnames.size() > 0) {
             // ensure publishing
             _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(evcamnames));
 

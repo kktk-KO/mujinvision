@@ -1975,7 +1975,10 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                             lastwarnedtimestamp0 = GetMilliTime();
                             std::stringstream ss;
                             ss << "Failed to send latest pointcloud of " << cameraname << " ex.what()=" << ex.what() << ".";
-                            _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
+                            std::string whatstr = ss.str();
+                            boost::replace_all(whatstr, "\"", ""); // need to remove " in the message so that json parser works
+                            boost::replace_all(whatstr, "\\", ""); // need to remove \ in the message so that json parser works
+                            _SetStatusMessage(TT_UpdateEnvironment, whatstr, GetErrorCodeString(MVE_ControllerError));
                             VISIONMANAGER_LOG_WARN(ss.str());
                         }
                     }
@@ -2042,6 +2045,7 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
                         ss << "Failed to get published task state from mujin controller: " << ex.what() << ".";
                         std::string errstr = ss.str();
                         boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
+                        boost::replace_all(errstr, "\\", ""); // need to remove \ in the message so that json parser works
                         _SetStatusMessage(TT_ControllerMonitor, errstr, GetErrorCodeString(MVE_ControllerError));
                         VISIONMANAGER_LOG_WARN(errstr);
                     }

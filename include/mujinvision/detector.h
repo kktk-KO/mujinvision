@@ -83,13 +83,8 @@ public:
     virtual void DetectRegionTransform(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, mujinvision::Transform& regiontransform) {
     }
 
-    virtual void SetColorImage(const std::string& colorcameraname, ImagePtr colorimage) {
-        _mColorImage[colorcameraname] = colorimage;
-    }
-
-    virtual void SetDepthImage(const std::string& depthcameraname, ImagePtr depthimage) {
-        _mDepthImage[depthcameraname] = depthimage;
-    }
+    virtual void SetColorImage(ImagePtr colorimage) = 0;
+    virtual void SetDepthImage(ImagePtr depthimage) = 0;
 
     virtual ImagePtr GetDepthImage(const std::string& depthcameraname) {
         return _mDepthImage[depthcameraname];

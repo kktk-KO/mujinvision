@@ -114,6 +114,12 @@ public:
 
     void SetImage(const std::string& colorcameraname, ImageConstPtr colorimage) {
     }
+
+    void SetColorImage(ImagePtr colorimage) {
+    }
+
+    void SetDepthImage(ImagePtr depthimage) {
+    }
 };
 typedef boost::shared_ptr<UserObjectDetector> UserObjectDetectorPtr;
 

@@ -2507,17 +2507,19 @@ void MujinVisionManager::Initialize(
     detectionpath = _detectiondir + "/" + targetname;
     
     // fetch or update modelfile
-    modelfilename = targeturi.substr(sizeof("mujin:/")-1, std::string::npos);
-    modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + modelfilename;
-    VISIONMANAGER_LOG_DEBUG("updating " + modelfilename + " from " + modelurl);
-    try {
-        std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + modelurl + " -P " + _detectiondir;
-        system(cmdstr.c_str()); // TODO: check process exit code
-    } catch (...) {
-        std::stringstream errss;
-        errss << "Failed to fetch model file from controller.";
-        VISIONMANAGER_LOG_ERROR(errss.str());
-        throw MujinVisionException(errss.str(), MVE_Failed);
+    if (targeturi != "") {
+        modelfilename = targeturi.substr(sizeof("mujin:/")-1, std::string::npos);
+        modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + modelfilename;
+        VISIONMANAGER_LOG_DEBUG("updating " + modelfilename + " from " + modelurl);
+        try {
+            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + modelurl + " -P " + _detectiondir;
+            system(cmdstr.c_str()); // TODO: check process exit code
+        } catch (...) {
+            std::stringstream errss;
+            errss << "Failed to fetch model file from controller.";
+            VISIONMANAGER_LOG_ERROR(errss.str());
+            throw MujinVisionException(errss.str(), MVE_Failed);
+        }
     }
 
     // update target archive if needed

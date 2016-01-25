@@ -609,10 +609,7 @@ private:
     unsigned long long _tsStartDetection; ///< timestamp when start detection loop was first called
     unsigned long long _tsLastEnvUpdate; ///< timestamp when binpickingtask->UpdateEnvironmentState was called
     std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
-    boost::mutex _mutexDetectedInfo; ///< lock for detection result
-    std::vector<DetectedObjectPtr> _vDetectedObject; ///< latest detection result
-    unsigned long long _resultTimestamp; ///< timestamp of latest detection result
-    std::map<std::string, std::vector<Real> > _mResultPoints; ///< result pointcloud obstacle, cameraname -> points
+    unsigned long long _resultTimestamp; ///< timestamp of latest detection result. protected by _mutexDetectedInfo
     boost::mutex _mutexControllerBinpickingState; ///< lock for controller binpicking state
     unsigned long long _lastocclusionTimestamp;
     std::vector<ImagePtr> _lastcolorimages; ///< last color images used for detection
@@ -630,7 +627,14 @@ private:
     Transform _tWorldResultOffset; ///< transform to be applied to detection result in world frame
 
     std::string _locale; ///< controller locale
-    std::string _resultState; ///< additional information about the detection result
+
+    //@{ detection state. protected by _mutexDetectedInfo
+    boost::mutex _mutexDetectedInfo; ///< lock for detection result
+    std::vector<DetectedObjectPtr> _vDetectedObject; ///< latest detection result. protected by _mutexDetectedInfo
+    std::string _resultState; ///< additional information about the detection result. protected by _mutexDetectedInfo
+    std::map<std::string, std::vector<Real> > _mResultPoints; ///< result pointcloud obstacle, cameraname -> points. protected by _mutexDetectedInfo
+    //@}
+    
     double _controllerCommandTimeout; ///< controller command timeout in seconds
     std::string _userinfo_json; ///< userinfo json
     std::string _slaverequestid; ///< slaverequestid to ensure that binpicking task uses the same slave
@@ -666,6 +670,7 @@ private:
     bool _bIsSendPointcloudRunning; ///< whether send point cloud obstacle thread is running
     bool _bIsEnvironmentUpdateRunning; ///< whether env update thread is running
     bool _bSendVerificationPointCloud; ///< whether send verification point cloud or not
+    bool _bDetectedObjectsValid; ///< if true, then _vDetectedObject is valid and should be updated to the scene. if false, then not valid and UpdateEnvironmentState should not update the objects. protected by _mutexDetectedInfo
     std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether to stop the command thread of specified port
 
 };

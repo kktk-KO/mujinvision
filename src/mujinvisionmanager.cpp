@@ -129,19 +129,19 @@ void __GetMachineName(char* machineName)
     char Name[150];
 
     #ifdef WIN32
-        TCHAR infoBuf[150];
-        DWORD bufCharCount = 150;
-        memset(Name, 0, 150);
-        if( GetComputerName( infoBuf, &bufCharCount ) ) {
-            for(int i=0; i<150; i++) {
-                Name[i] = infoBuf[i];
-            }
-        } else {
-            strcpy(Name, "Unknown_Host_Name");
+    TCHAR infoBuf[150];
+    DWORD bufCharCount = 150;
+    memset(Name, 0, 150);
+    if( GetComputerName( infoBuf, &bufCharCount ) ) {
+        for(int i=0; i<150; i++) {
+            Name[i] = infoBuf[i];
         }
+    } else {
+        strcpy(Name, "Unknown_Host_Name");
+    }
     #else
-        memset(Name, 0, 150);
-        gethostname(Name, 150);
+    memset(Name, 0, 150);
+    gethostname(Name, 150);
     #endif
     strncpy(machineName, Name, 150);
 }
@@ -1341,7 +1341,7 @@ void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& region
         boost::condition condrunningthread;
         {
             boost::mutex::scoped_lock lock(_mutexThreadResourceSync);
-        _pUpdateEnvironmentThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_UpdateEnvironmentThread, this, params, boost::ref(ih), boost::ref(condrunningthread))));
+            _pUpdateEnvironmentThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_UpdateEnvironmentThread, this, params, boost::ref(ih), boost::ref(condrunningthread))));
             condrunningthread.wait(lock);
         }
     }
@@ -1540,11 +1540,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     unsigned long long binpickingstateTimestamp = 0;
     unsigned long long lastGrabbedTargetTimeStamp = 0;
     unsigned int numdetection = 0;
+    std::vector<DetectedObjectPtr> detectedobjects;
     while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimeStamp > _tsStartDetection && _tsLastEnvUpdate > 0 && lastGrabbedTargetTimeStamp < _tsLastEnvUpdate)) {
         detectcontaineronly = false;
         time0 = GetMilliTime();
-        std::vector<DetectedObjectPtr> detectedobjects;
         std::string resultstate;
+        detectedobjects.resize(0);
         try {
             {
                 boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
@@ -1638,7 +1639,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 VISIONMANAGER_LOG_WARN("environment update thread stopped! so stopping detector");
                 break;
             }
-            
+
             if (_bStopDetectionThread) {
                 break;
             }
@@ -1667,7 +1668,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             if (_bStopDetectionThread) {
                 break;
             }
-            _vDetectedObject = detectedobjects;
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
             for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
                 std::string cameraname = cameranamestobeused[i];
@@ -1676,7 +1676,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 uint64_t starttime = GetMilliTime();
                 {
                     boost::mutex::scoped_lock lock(_mutexDetector);
-                    _pDetector->GetPointCloudObstacle(regionname, cameraname, _vDetectedObject, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
+                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjects, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
                 }
                 ss << "GetPointCloudObstacle() took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                 VISIONMANAGER_LOG_INFO(ss.str());
@@ -1720,12 +1720,16 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             break;
         }
 
-        std::vector<DetectedObjectPtr> newdetectedobjects;
-
         if (resultstate != "null") {
             boost::mutex::scoped_lock lock(_mutexDetectedInfo);
-            newdetectedobjects = detectedobjects;
-            _vDetectedObject = detectedobjects;
+            if( !detectcontaineronly ) {
+                // only update the objects if detector actually returned them, otherwise will be erasing previously sent good results
+                _vDetectedObject.swap(detectedobjects);
+                _bDetectedObjectsValid = true;
+            }
+            else {
+                _bDetectedObjectsValid = false;
+            }
             _resultState = resultstate;
             _resultTimestamp = GetMilliTime();
             VISIONMANAGER_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp));
@@ -1790,7 +1794,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
         std::string locale = params.locale;
         std::vector<DetectedObjectPtr> vDetectedObject; ///< latest detection result
         std::string resultstate;
-    
+
 
         uint64_t lastUpdateTimestamp = GetMilliTime();
         std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
@@ -1804,79 +1808,110 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
         pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
         uint64_t starttime;
         uint64_t lastwarnedtimestamp1 = 0;
+
+        std::vector<BinPickingTaskResource::DetectedObject> detectedobjects;
+        std::vector<Real> totalpoints;
+        std::map<std::string, std::vector<Real> > mResultPoints;
+        std::vector<Real> newpoints;
+
         while (!_bStopUpdateEnvironmentThread) {
             bool update = false;
+            bool bDetectedObjectsValid = false;
             {
                 boost::mutex::scoped_lock lock(_mutexDetectedInfo);
                 update = _resultTimestamp != 0 && _resultTimestamp > lastUpdateTimestamp;
                 vDetectedObject = _vDetectedObject;
                 resultstate = _resultState;
+                bDetectedObjectsValid = _bDetectedObjectsValid;
+                mResultPoints = _mResultPoints;
             }
-        
+
             if (!update) {
                 //VISIONMANAGER_LOG_DEBUG(str(boost::format("have no detector results to update _resultTimestamp (%u) <= lastUpdateTimestamp (%u), waitfor %dms")%_resultTimestamp%lastUpdateTimestamp%waitinterval));
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                 continue;
-            } else {
+            }
+            else {
                 lastUpdateTimestamp = _resultTimestamp;
-                std::vector<BinPickingTaskResource::DetectedObject> detectedobjects;
-                std::vector<Real> totalpoints;
                 VISIONMANAGER_LOG_INFO(str(boost::format("updating environment with %d detected objects")%vDetectedObject.size()));
-                //uint64_t starttime = GetMilliTime();
-                // use the already acquired detection results without locking
-                for (unsigned int i=0; i<vDetectedObject.size(); i++) {
-                    mujinclient::Transform transform;
-                    Transform newtransform = _tWorldResultOffset * _vDetectedObject[i]->transform; // apply offset to result transform
-                    transform.quaternion[0] = newtransform.rot[0];
-                    transform.quaternion[1] = newtransform.rot[1];
-                    transform.quaternion[2] = newtransform.rot[2];
-                    transform.quaternion[3] = newtransform.rot[3];
-                    transform.translate[0] = newtransform.trans[0];
-                    transform.translate[1] = newtransform.trans[1];
-                    transform.translate[2] = newtransform.trans[2];
+                detectedobjects.resize(0);
+                totalpoints.resize(0);
+                if( bDetectedObjectsValid ) {
+                    // use the already acquired detection results without locking
+                    for (unsigned int i=0; i<vDetectedObject.size(); i++) {
+                        mujinclient::Transform transform;
+                        Transform newtransform = _tWorldResultOffset * vDetectedObject[i]->transform; // apply offset to result transform
+                        transform.quaternion[0] = newtransform.rot[0];
+                        transform.quaternion[1] = newtransform.rot[1];
+                        transform.quaternion[2] = newtransform.rot[2];
+                        transform.quaternion[3] = newtransform.rot[3];
+                        transform.translate[0] = newtransform.trans[0];
+                        transform.translate[1] = newtransform.trans[1];
+                        transform.translate[2] = newtransform.trans[2];
 
-                    BinPickingTaskResource::DetectedObject detectedobject;
-                    std::stringstream name_ss;
-                    name_ss << _targetupdatename << i;
-                    detectedobject.name = name_ss.str();
-                    detectedobject.object_uri = _vDetectedObject[i]->objecturi;
-                    detectedobject.transform = transform;
-                    detectedobject.confidence = _vDetectedObject[i]->confidence;
-                    detectedobject.timestamp = _vDetectedObject[i]->timestamp;
-                    detectedobject.extra = _vDetectedObject[i]->extra;
-                    detectedobjects.push_back(detectedobject);
-                }
-                for(unsigned int i=0; i<cameranamestobeused.size(); i++) {
-                    std::string cameraname = cameranamestobeused[i];
-                    // get point cloud obstacle
-                    std::vector<Real> points = _mResultPoints[cameraname];
-                    std::vector<Real> newpoints;
-                    newpoints.resize(points.size());
-                    for (size_t j=0; j<points.size(); j+=3) {
-                        Vector newpoint = _tWorldResultOffset * Vector(points.at(j), points.at(j+1), points.at(j+2));
-                        newpoints[j] = newpoint.x;
-                        newpoints[j+1] = newpoint.y;
-                        newpoints[j+2] = newpoint.z;
+                        BinPickingTaskResource::DetectedObject detectedobject;
+                        std::stringstream name_ss;
+                        name_ss << _targetupdatename << i;
+                        detectedobject.name = name_ss.str();
+                        detectedobject.object_uri = vDetectedObject[i]->objecturi;
+                        detectedobject.transform = transform;
+                        detectedobject.confidence = vDetectedObject[i]->confidence;
+                        detectedobject.timestamp = vDetectedObject[i]->timestamp;
+                        detectedobject.extra = vDetectedObject[i]->extra;
+                        detectedobjects.push_back(detectedobject);
                     }
-                    totalpoints.insert(totalpoints.end(), newpoints.begin(), newpoints.end());
-                }
-                try {
-                    starttime = GetMilliTime();
-                    pBinpickingTask->UpdateEnvironmentState(_targetupdatename, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m");
-                    _tsLastEnvUpdate = _resultTimestamp;
-                    std::stringstream ss;
-                    ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
-                    _SetStatusMessage(TT_UpdateEnvironment, ss.str());
-                } catch(const std::exception& ex) {
-                    if (GetMilliTime() - lastwarnedtimestamp1 > 1000.0) {
-                        lastwarnedtimestamp1 = GetMilliTime();
+                    for(unsigned int i=0; i<cameranamestobeused.size(); i++) {
+                        std::string cameraname = cameranamestobeused[i];
+                        std::map<std::string, std::vector<Real> >::const_iterator itpoints = mResultPoints.find(cameraname);
+                        if( itpoints != mResultPoints.end() ) {
+                            // get point cloud obstacle
+                            newpoints.resize(itpoints->second.size());
+                            for (size_t j=0; j<itpoints->second.size(); j+=3) {
+                                Vector newpoint = _tWorldResultOffset * Vector(itpoints->second.at(j), itpoints->second.at(j+1), itpoints->second.at(j+2));
+                                newpoints[j] = newpoint.x;
+                                newpoints[j+1] = newpoint.y;
+                                newpoints[j+2] = newpoint.z;
+                            }
+                            totalpoints.insert(totalpoints.end(), newpoints.begin(), newpoints.end());
+                        }
+                    }
+                    try {
+                        starttime = GetMilliTime();
+                        pBinpickingTask->UpdateEnvironmentState(_targetupdatename, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m", 10);
                         std::stringstream ss;
-                        ss << "Failed to update environment state: " << ex.what() << ".";
-                        //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_ControllerError), ss.str());
-                        _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
-                        VISIONMANAGER_LOG_WARN(ss.str());
+                        ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
+                        _SetStatusMessage(TT_UpdateEnvironment, ss.str());
                     }
-                    boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                    catch(const std::exception& ex) {
+                        if (GetMilliTime() - lastwarnedtimestamp1 > 1000.0) {
+                            lastwarnedtimestamp1 = GetMilliTime();
+                            std::stringstream ss;
+                            ss << "Failed to update environment state: " << ex.what() << ".";
+                            //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_ControllerError), ss.str());
+                            _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
+                            VISIONMANAGER_LOG_WARN(ss.str());
+                        }
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                    }
+                    _tsLastEnvUpdate = _resultTimestamp;
+                }
+                else {
+                    // only resultstate is valid and shouldn't update the detected objects or pointcloud... (hack for now)
+                    try {
+                        starttime = GetMilliTime();
+                        pBinpickingTask->UpdateObjects("", std::vector<mujinclient::Transform>(), std::vector<std::string>(), resultstate, "m", 10.0);
+                    }
+                    catch(const std::exception& ex) {
+                        if (GetMilliTime() - lastwarnedtimestamp1 > 1000.0) {
+                            lastwarnedtimestamp1 = GetMilliTime();
+                            std::stringstream ss;
+                            ss << "Failed to update objects state: " << ex.what() << ".";
+                            _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
+                            VISIONMANAGER_LOG_WARN(ss.str());
+                        }
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                    }
+                    _tsLastEnvUpdate = _resultTimestamp;
                 }
             }
         }
@@ -1935,7 +1970,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         std::string locale = params.locale;
         std::vector<DetectedObjectPtr> vDetectedObject; ///< latest detection result
         std::string resultstate;
-    
+
 
         //uint64_t lastUpdateTimestamp = GetMilliTime();
         std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
@@ -2429,7 +2464,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             continue;
         } else {
             std::stringstream ss;
-            ss << "got good imagepack. starttime=" << starttime << " endtime=" << endtime << " total=" << (endtime-starttime)/1000.0f << " " << (GetMilliTime()-starttime) / 1000.0f << " secs old" ;
+            ss << "got good imagepack. starttime=" << starttime << " endtime=" << endtime << " total=" << (endtime-starttime)/1000.0f << " " << (GetMilliTime()-starttime) / 1000.0f << " secs old";
             VISIONMANAGER_LOG_DEBUG(ss.str());
             break;
         }
@@ -2438,7 +2473,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
           !_bShutdown &&  // shutdown?
           ((fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime() - start0 < fetchimagetimeout)) && // timeed out?
           (tt != TT_Detector || (tt == TT_Detector && !_bStopDetectionThread)) // canceled detection loop?
-         )) {
+          )) {
         std::stringstream ss;
         ss << "do not use images because we got out of while loop unexpectedly: " << " _bCancelCommand=" << _bCancelCommand << " _bShutdown=" << _bShutdown << " " << GetMilliTime() - start0 << ">" << fetchimagetimeout;
         if (tt == TT_Detector) {
@@ -2478,7 +2513,7 @@ void MujinVisionManager::Initialize(
     const std::string& locale,
     const std::string& slaverequestid,
     const std::string& targetdetectionarchiveurl
-)
+    )
 {
     _locale = locale;
     uint64_t time0 = GetMilliTime();
@@ -2505,7 +2540,7 @@ void MujinVisionManager::Initialize(
     std::string modelurl;
 
     detectionpath = _detectiondir + "/" + targetname;
-    
+
     // fetch or update modelfile
     if (targeturi != "") {
         modelfilename = targeturi.substr(sizeof("mujin:/")-1, std::string::npos);
@@ -2604,7 +2639,7 @@ void MujinVisionManager::Initialize(
     std::vector<std::string> cameranames;
     scene->GetSensorMapping(_mCameraNameHardwareId);
     FOREACH(v, _mCameraNameHardwareId) {
-        if (_mNameCameraParameters.find(v->first) != _mNameCameraParameters.end()){
+        if (_mNameCameraParameters.find(v->first) != _mNameCameraParameters.end()) {
             _mNameCameraParameters[v->first]->id = v->second;
         } else {
             _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
@@ -2641,13 +2676,13 @@ void MujinVisionManager::Initialize(
         CameraParametersPtr pcameraparameters = it->second;
         RobotResource::AttachedSensorResource::SensorData sensordata = resultgetinstobjectandsensorinfo.msensordata[cameraname];
         /*
-        // do not use webapi to get sensordata for speed reason
-        RobotResource::AttachedSensorResource::SensorData sensordata;
-        std::string camerabodyname,sensorname;
-        _ParseCameraName(cameraname, camerabodyname, sensorname);
+           // do not use webapi to get sensordata for speed reason
+           RobotResource::AttachedSensorResource::SensorData sensordata;
+           std::string camerabodyname,sensorname;
+           _ParseCameraName(cameraname, camerabodyname, sensorname);
 
-        utils::GetSensorData(_pControllerClient, _pSceneResource, camerabodyname, sensorname, sensordata);
-        */
+           utils::GetSensorData(_pControllerClient, _pSceneResource, camerabodyname, sensorname, sensordata);
+         */
         CalibrationDataPtr calibrationdata(new CalibrationData());
         calibrationdata->fx           = sensordata.intrinsic[0];
         calibrationdata->fy           = sensordata.intrinsic[4];
@@ -2821,8 +2856,13 @@ void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const
     if (!_pImagesubscriberManager) {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
     }
-    // clear cached detected objects
-    _vDetectedObject.clear();
+    {
+        boost::mutex::scoped_lock lock(_mutexDetectedInfo);
+        // clear cached detected objects
+        _bDetectedObjectsValid = false;
+        _vDetectedObject.resize(0);
+        _resultState = "{}";
+    }
     // do not start capturing here, let the detection thread and env update thread handle this
     _bSendVerificationPointCloud = sendVerificationPointCloud;
     _tWorldResultOffset = worldresultoffsettransform;
@@ -2874,19 +2914,19 @@ void MujinVisionManager::StopVisualizePointCloudThread()
     }
     _SetStatus(TT_Command, MS_Succeeded);
 }
- 
+
 void MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
 {
     /*
-    if (async) {
+       if (async) {
         if (!!_pSendPointCloudObstacleThread) {
             _pSendPointCloudObstacleThread->join();
             _pSendPointCloudObstacleThread.reset();
         }
-    }
-    */
-     ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler(_pImagesubscriberManager, _GetHardwareIds(cameranames)));   
-     _SendPointCloudObstacleToController(regionname, cameranames, detectedobjectsworld, ih, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
+       }
+     */
+    ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler(_pImagesubscriberManager, _GetHardwareIds(cameranames)));
+    _SendPointCloudObstacleToController(regionname, cameranames, detectedobjectsworld, ih, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
 }
 
 void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, ImagesubscriberHandlerPtr ih, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
@@ -3264,13 +3304,15 @@ void MujinVisionManager::GetCameraId(const std::string& cameraname, std::string&
 
 void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectedobjectsworld, std::string& resultstate, std::vector<Real>& points, const bool returnpoints)
 {
-    boost::mutex::scoped_lock lock(_mutexDetectedInfo);
-    detectedobjectsworld = _vDetectedObject;
-    resultstate = _resultState;
-    if (returnpoints) {
-        points.clear();
-        FOREACH(it, _mResultPoints) {
-            points.insert(points.end(), it->second.begin(), it->second.end());
+    {
+        boost::mutex::scoped_lock lock(_mutexDetectedInfo);
+        detectedobjectsworld = _vDetectedObject;
+        resultstate = _resultState;
+        if (returnpoints) {
+            points.clear();
+            FOREACH(it, _mResultPoints) {
+                points.insert(points.end(), it->second.begin(), it->second.end());
+            }
         }
     }
     _SetStatus(TT_Command, MS_Succeeded);

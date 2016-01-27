@@ -36,7 +36,7 @@ cmake_policy(SET CMP0003 NEW)
 
 option(OPT_SAMPLES "Build the samples" ON)
 option(OPT_BUILD_TESTS "Build the tests" OFF)
-option(OPT_BUILD_STATIC "Build static libraries for the library" ON)
+option(OPT_BUILD_STATIC "Build static libraries for the library" OFF)
 
 # Use, i.e. don't skip the full RPATH for the build tree
 set(CMAKE_SKIP_BUILD_RPATH  FALSE)

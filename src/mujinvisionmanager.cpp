@@ -279,7 +279,12 @@ void MujinVisionManager::Shutdown()
     _StopUpdateEnvironmentThread();
     _StopExecutionVerificationPointCloudThread();
     _StopControllerMonitorThread();
+    _StopVisualizePointCloudThread();
+    _StopControllerMonitorThread();
     _StopCommandThread(_commandport);
+    _pDetectorManager.reset();
+    _pDetector.reset();
+    _pImagesubscriberManager.reset();
 }
 
 bool MujinVisionManager::IsShutdown()

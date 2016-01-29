@@ -269,6 +269,7 @@ void MujinVisionManager::Destroy()
 {
     VISIONMANAGER_LOG_DEBUG("Destroying MujinVisionManager");
     Shutdown();
+    _StopCommandThread(_configport);
 }
 
 void MujinVisionManager::Shutdown()

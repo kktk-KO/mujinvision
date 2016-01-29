@@ -92,4 +92,5 @@ ZeroMQ Status Messages
 
 - status - the string part of MujinVisionManager::ManagerStatus
 
+
 - timestamp - linux time in ms

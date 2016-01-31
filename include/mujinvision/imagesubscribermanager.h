@@ -17,7 +17,7 @@
 #ifndef MUJIN_VISION_IMAGE_SUBSCRIBER_MANAGER_H
 #define MUJIN_VISION_IMAGE_SUBSCRIBER_MANAGER_H
 
-#include <mujincontrollerclient/mujinzmq.hpp>
+#include <mujincontrollerclient/mujinzmq.h>
 #include "visionparameters.h"
 
 namespace mujinvision {

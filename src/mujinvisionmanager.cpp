@@ -2359,7 +2359,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         }
 
         // ensure streamer and try to get images again if got fewer than expected images
-        if (colorimages.size() < colorcameranames.size() || depthimages.size() < depthcameranames.size()) {
+        if (resultimages.size() == 0 && (colorimages.size() < colorcameranames.size() || depthimages.size() < depthcameranames.size())) {
             if (GetMilliTime() - lastcouldnotcapturewarnts > 1000.0) {
                 std::stringstream msg_ss;
                 msg_ss << "Could not get all images, ensure capturing thread, will try again"
@@ -2655,7 +2655,7 @@ void MujinVisionManager::Initialize(
         } else {
             _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
         }
-        _mNameCameraParameters[v->first]->isDepthCamera = v->first.find("_l_rectified") != std::string::npos;
+        _mNameCameraParameters[v->first]->isDepthCamera = v->first.find("_l_rectified") != std::string::npos || v->first.find("Projector") != std::string::npos;  // FIXME: hack
         cameranames.push_back(v->first);
     }
 
@@ -2839,7 +2839,7 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
     _GetImages(tt, pBinpickingTask, regionname, colorcameranames, depthcameranames, colorimages, depthimages, resultimages, ignoreocclusion, maxage, fetchimagetimeout, request, useold);
     MUJIN_LOG_INFO("Getting images took " + boost::lexical_cast<std::string>((GetMilliTime() - starttime) / 1000.0f));
     starttime = GetMilliTime();
-    if (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size()) {
+    if (resultimages.size() > 0 || (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size())) {
         for (size_t i=0; i<colorimages.size(); ++i) {
             _pDetector->SetColorImage(colorimages.at(i));
         }
@@ -2852,6 +2852,8 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
         } else {
             _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, resultstate, fastdetection, bindetection, checkcontaineremptyonly);
         }
+    } else {
+        MUJIN_LOG_ERROR("Not enough images, cannot detect! colorimages=" << colorimages.size() << " depthimages=" << depthimages.size() << " resultimages=" << resultimages.size());
     }
     if (resultstate == "") {
         resultstate = "null";

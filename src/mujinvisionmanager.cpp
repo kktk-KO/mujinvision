@@ -2656,6 +2656,9 @@ void MujinVisionManager::Initialize(
             _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
         }
         _mNameCameraParameters[v->first]->isDepthCamera = v->first.find("_l_rectified") != std::string::npos || v->first.find("Projector") != std::string::npos;  // FIXME: hack
+        if (_mNameCameraParameters[v->first]->isDepthCamera) {
+            MUJIN_LOG_DEBUG("camera " << v->first << " is a depth camera");
+        }
         cameranames.push_back(v->first);
     }
 
@@ -3187,10 +3190,13 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
         points.resize(0);
         std::string cameraname = cameranamestobeused.at(i);
         CameraPtr camera = _mNameCamera[cameraname];
+        if (!camera->pCameraParameters->isDepthCamera) {
+            continue;
+        }
         std::vector<ImagePtr> depthimages;
         std::vector<std::string> dcamnames;
         dcamnames.push_back(cameraname);
-
+        MUJIN_LOG_DEBUG("Visualize for depth camera " << cameraname);
         _GetImages(TT_Command, _pBinpickingTask, "", dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, request, false);
         if (depthimages.size() == 0) {
             throw MujinVisionException("failed to get depth image for " + cameraname + ", cannot visualize point cloud", MVE_Failed);

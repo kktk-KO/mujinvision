@@ -2553,6 +2553,7 @@ void MujinVisionManager::Initialize(
 
     // fetch or update modelfile
     if (targeturi != "") {
+        starttime = GetMilliTime();
         modelfilename = targeturi.substr(sizeof("mujin:/")-1, std::string::npos);
         std::string modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + modelfilename;
         MUJIN_LOG_DEBUG("updating " + modelfilename + " from " + modelurl);
@@ -2565,9 +2566,12 @@ void MujinVisionManager::Initialize(
             MUJIN_LOG_ERROR(errss.str());
             throw MujinVisionException(errss.str(), MVE_Failed);
         }
+
+        MUJIN_LOG_DEBUG("fetching model " << modelurl << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
     }
 
     // update target archive if needed
+    starttime = GetMilliTime();
     std::string archiveurl = targetdetectionarchiveurl;
     if (targetdetectionarchiveurl == "") {
         archiveurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/registration/" + targetname + ".tar.gz";
@@ -2581,8 +2585,10 @@ void MujinVisionManager::Initialize(
         MUJIN_LOG_ERROR(errss.str());
         throw MujinVisionException(errss.str(), MVE_Failed);
     }
+    MUJIN_LOG_DEBUG("fetching archive " << archiveurl << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
 
     // extract files if downloaded
+    starttime = GetMilliTime();
     std::string archivefilename = detectionpath + "/" + targetname + ".tar.gz";
     if (boost::filesystem::exists(archivefilename)) {
         try {
@@ -2596,6 +2602,7 @@ void MujinVisionManager::Initialize(
             throw MujinVisionException(errss.str(), MVE_Failed);
         }
     }
+    MUJIN_LOG_DEBUG("extracting archive " << archivefilename << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
 
     // prepare config files
     detectorconfigfilename = detectionpath + "/detector.json";

@@ -2573,37 +2573,41 @@ void MujinVisionManager::Initialize(
     // update target archive if needed
     starttime = GetMilliTime();
     std::string archiveurl = targetdetectionarchiveurl;
-    if (targetdetectionarchiveurl == "") {
+    if (targetdetectionarchiveurl == "auto") {
         archiveurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/registration/" + targetname + ".tar.gz";
     }
-    try {
-        std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + archiveurl + " -P " + detectionpath;
-        system(cmdstr.c_str()); // TODO: check process exit code here
-    } catch (...) {
-        std::stringstream errss;
-        errss << "Failed to prepare config files because " << archiveurl << " could not be fetched.";
-        MUJIN_LOG_ERROR(errss.str());
-        throw MujinVisionException(errss.str(), MVE_Failed);
-    }
-    MUJIN_LOG_DEBUG("fetching archive " << archiveurl << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
 
-    // extract files if downloaded
-    starttime = GetMilliTime();
-    std::string archivefilename = detectionpath + "/" + targetname + ".tar.gz";
-    if (boost::filesystem::exists(archivefilename)) {
+    if( archiveurl.size() > 0 ) {
+        // TODO replace wget calls with controllerclientcpp!
         try {
-            std::stringstream commandss;
-            commandss << "tar xzf " << archivefilename << " -C " << detectionpath;
-            system(commandss.str().c_str()); // TODO: check process exit code here
+            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + archiveurl + " -P " + detectionpath;
+            system(cmdstr.c_str()); // TODO: check process exit code here
         } catch (...) {
             std::stringstream errss;
-            errss << "Failed to prepare config files because " << archivefilename << " could not be decompressed.";
+            errss << "Failed to prepare config files because " << archiveurl << " could not be fetched.";
             MUJIN_LOG_ERROR(errss.str());
             throw MujinVisionException(errss.str(), MVE_Failed);
         }
+        MUJIN_LOG_DEBUG("fetching archive " << archiveurl << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
+    
+        // TODO only extract files if just downloaded
+        starttime = GetMilliTime();
+        std::string archivefilename = detectionpath + "/" + targetname + ".tar.gz";
+        if (boost::filesystem::exists(archivefilename)) {
+            try {
+                std::stringstream commandss;
+                commandss << "tar xzf " << archivefilename << " -C " << detectionpath;
+                system(commandss.str().c_str()); // TODO: check process exit code here
+            } catch (...) {
+                std::stringstream errss;
+                errss << "Failed to prepare config files because " << archivefilename << " could not be decompressed.";
+                MUJIN_LOG_ERROR(errss.str());
+                throw MujinVisionException(errss.str(), MVE_Failed);
+            }
+        }
+        MUJIN_LOG_DEBUG("extracting archive " << archivefilename << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
     }
-    MUJIN_LOG_DEBUG("extracting archive " << archivefilename << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
-
+    
     // prepare config files
     detectorconfigfilename = detectionpath + "/detector.json";
     if (boost::filesystem::exists(detectorconfigfilename)) {

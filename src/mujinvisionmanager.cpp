@@ -2548,14 +2548,14 @@ void MujinVisionManager::Initialize(
     std::string detectorconfigfilename;
     std::string detectionpath;
     std::string modelfilename;
-    std::string modelurl;
 
     detectionpath = _detectiondir + "/" + targetname;
 
     // fetch or update modelfile
     if (targeturi != "") {
+        starttime = GetMilliTime();
         modelfilename = targeturi.substr(sizeof("mujin:/")-1, std::string::npos);
-        modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + modelfilename;
+        std::string modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + modelfilename;
         MUJIN_LOG_DEBUG("updating " + modelfilename + " from " + modelurl);
         try {
             std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + modelurl + " -P " + _detectiondir;
@@ -2566,35 +2566,48 @@ void MujinVisionManager::Initialize(
             MUJIN_LOG_ERROR(errss.str());
             throw MujinVisionException(errss.str(), MVE_Failed);
         }
+
+        MUJIN_LOG_DEBUG("fetching model " << modelurl << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
     }
 
     // update target archive if needed
-    if (targetdetectionarchiveurl != "") {
-        // fetch archive
+    starttime = GetMilliTime();
+    std::string archiveurl = targetdetectionarchiveurl;
+    if (targetdetectionarchiveurl == "auto") {
+        archiveurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/registration/" + targetname + ".tar.gz";
+    }
+
+    if( archiveurl.size() > 0 ) {
+        // TODO replace wget calls with controllerclientcpp!
         try {
-            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + targetdetectionarchiveurl + " -P " + detectionpath;
+            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + archiveurl + " -P " + detectionpath;
             system(cmdstr.c_str()); // TODO: check process exit code here
         } catch (...) {
             std::stringstream errss;
-            errss << "Failed to prepare config files because " << targetdetectionarchiveurl << " could not be fetched.";
+            errss << "Failed to prepare config files because " << archiveurl << " could not be fetched.";
             MUJIN_LOG_ERROR(errss.str());
             throw MujinVisionException(errss.str(), MVE_Failed);
         }
-
-        // extract files
+        MUJIN_LOG_DEBUG("fetching archive " << archiveurl << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
+    
+        // TODO only extract files if just downloaded
+        starttime = GetMilliTime();
         std::string archivefilename = detectionpath + "/" + targetname + ".tar.gz";
-        try {
-            std::stringstream commandss;
-            commandss << "tar xzf " << archivefilename << " -C " << detectionpath;
-            system(commandss.str().c_str()); // TODO: check process exit code here
-        } catch (...) {
-            std::stringstream errss;
-            errss << "Failed to prepare config files because " << archivefilename << " could not be decompressed.";
-            MUJIN_LOG_ERROR(errss.str());
-            throw MujinVisionException(errss.str(), MVE_Failed);
+        if (boost::filesystem::exists(archivefilename)) {
+            try {
+                std::stringstream commandss;
+                commandss << "tar xzf " << archivefilename << " -C " << detectionpath;
+                system(commandss.str().c_str()); // TODO: check process exit code here
+            } catch (...) {
+                std::stringstream errss;
+                errss << "Failed to prepare config files because " << archivefilename << " could not be decompressed.";
+                MUJIN_LOG_ERROR(errss.str());
+                throw MujinVisionException(errss.str(), MVE_Failed);
+            }
         }
+        MUJIN_LOG_DEBUG("extracting archive " << archivefilename << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
     }
-
+    
     // prepare config files
     detectorconfigfilename = detectionpath + "/detector.json";
     if (boost::filesystem::exists(detectorconfigfilename)) {

@@ -2548,24 +2548,27 @@ void MujinVisionManager::Initialize(
 
     // fetch or update modelfile
     std::string modelfilename;
-    if (targeturi != "") {
+    if (targeturi != "" && boost::starts_with(targeturi, "mujin:/")) {
+        modelfilename = targeturi.substr(sizeof("mujin:/")-1, std::string::npos);
+
         starttime = GetMilliTime();
-        long localtimeval = 0;
-        long remotetimeval = 0;
-        std::vector<unsigned char> data;
 
         // get local modified time
-        modelfilename = _detectiondir + "/" + targetname + ".mujin.dae";
+        std::string modelfilepath = _detectiondir + "/" + modelfilename;
         struct stat filestat;
-        if (stat(modelfilename.c_str(), &filestat) == 0) {
+        long localtimeval = 0;
+        if (stat(modelfilepath.c_str(), &filestat) == 0) {
             localtimeval = mktime(localtime(&filestat.st_mtime));
         }
 
+        // do the fetch
+        long remotetimeval = 0;
+        std::vector<unsigned char> data;
         _pControllerClient->DownloadFileFromControllerIfModifiedSince_UTF8(targeturi, localtimeval, remotetimeval, data);
         if (remotetimeval > 0) {
             // write file
             {
-                std::ofstream outfile(modelfilename.c_str(), std::ios::out | std::ios::binary); 
+                std::ofstream outfile(modelfilepath.c_str(), std::ios::out | std::ios::binary);
                 outfile.write(reinterpret_cast<char *>(&data[0]), data.size());
                 outfile.close();
             }
@@ -2575,7 +2578,7 @@ void MujinVisionManager::Initialize(
                 struct utimbuf newtimes;
                 newtimes.actime = filestat.st_atime;
                 newtimes.modtime = remotetimeval;
-                utime(modelfilename.c_str(), &newtimes);
+                utime(modelfilepath.c_str(), &newtimes);
             }
         }
 
@@ -2584,24 +2587,25 @@ void MujinVisionManager::Initialize(
 
     // update target archive if needed
     std::string detectionpath = _detectiondir + "/" + targetname;
-    if (targetdetectionarchiveurl != "") {
+    if (targetdetectionarchiveurl != "" && boost::starts_with(targetdetectionarchiveurl, "mujin:/")) {
         starttime = GetMilliTime();
-        long localtimeval = 0;
-        long remotetimeval = 0;
-        std::vector<unsigned char> data;
 
         // get local modified time
         std::string archivefilename = detectionpath + "/" + targetname + ".tar.gz";
         struct stat filestat;
+        long localtimeval = 0;
         if (stat(archivefilename.c_str(), &filestat) == 0) {
             localtimeval = mktime(localtime(&filestat.st_mtime));
         }
 
+        long remotetimeval = 0;
+        std::vector<unsigned char> data;
         _pControllerClient->DownloadFileFromControllerIfModifiedSince_UTF8(targetdetectionarchiveurl, localtimeval, remotetimeval, data);
         if (remotetimeval > 0) {
             // write file
             {
-                std::ofstream outfile(archivefilename.c_str(), std::ios::out | std::ios::binary); 
+                boost::filesystem::create_directory(detectionpath);
+                std::ofstream outfile(archivefilename.c_str(), std::ios::out | std::ios::binary);
                 outfile.write(reinterpret_cast<char *>(&data[0]), data.size());
                 outfile.close();
             }

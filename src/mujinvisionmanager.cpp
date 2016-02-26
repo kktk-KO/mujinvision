@@ -14,6 +14,7 @@
 #include "mujinvision/mujinvisionmanager.h"
 #include <boost/algorithm/string.hpp>
 #include <stdlib.h>
+#include <utime.h>
 
 #include "logging.h"
 
@@ -2545,55 +2546,80 @@ void MujinVisionManager::Initialize(
     ControllerClientPtr controller = CreateControllerClient(controllerUsernamePass, url_ss.str());
     _pControllerClient = controller;
 
-    std::string detectorconfigfilename;
-    std::string detectionpath;
-    std::string modelfilename;
-
-    detectionpath = _detectiondir + "/" + targetname;
-
     // fetch or update modelfile
+    std::string modelfilename;
     if (targeturi != "") {
         starttime = GetMilliTime();
-        modelfilename = targeturi.substr(sizeof("mujin:/")-1, std::string::npos);
-        std::string modelurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/" + modelfilename;
-        MUJIN_LOG_DEBUG("updating " + modelfilename + " from " + modelurl);
-        try {
-            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + modelurl + " -P " + _detectiondir;
-            system(cmdstr.c_str()); // TODO: check process exit code
-        } catch (...) {
-            std::stringstream errss;
-            errss << "Failed to fetch model file from controller.";
-            MUJIN_LOG_ERROR(errss.str());
-            throw MujinVisionException(errss.str(), MVE_Failed);
+        long localtimeval = 0;
+        long remotetimeval = 0;
+        std::vector<unsigned char> data;
+
+        // get local modified time
+        modelfilename = _detectiondir + "/" + targetname + ".mujin.dae";
+        struct stat filestat;
+        if (stat(modelfilename.c_str(), &filestat) == 0) {
+            localtimeval = mktime(localtime(&filestat.st_mtime));
         }
 
-        MUJIN_LOG_DEBUG("fetching model " << modelurl << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
+        _pControllerClient->DownloadFileFromControllerIfModifiedSince_UTF8(targeturi, localtimeval, remotetimeval, data);
+        if (remotetimeval > 0) {
+            // write file
+            {
+                std::ofstream outfile(modelfilename.c_str(), std::ios::out | std::ios::binary); 
+                outfile.write(reinterpret_cast<char *>(&data[0]), data.size());
+                outfile.close();
+            }
+
+            // set file modification time
+            {
+                struct utimbuf newtimes;
+                newtimes.actime = filestat.st_atime;
+                newtimes.modtime = remotetimeval;
+                utime(modelfilename.c_str(), &newtimes);
+            }
+        }
+
+        MUJIN_LOG_DEBUG("fetching model " << targeturi << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs, downloaded " << data.size() << " bytes");
     }
 
     // update target archive if needed
-    starttime = GetMilliTime();
-    std::string archiveurl = targetdetectionarchiveurl;
-    if (targetdetectionarchiveurl == "auto") {
-        archiveurl = "http://" + controllerUsernamePass + "@" + controllerIp + "/u/" + _pControllerClient->GetUserName() + "/registration/" + targetname + ".tar.gz";
-    }
-
-    if( archiveurl.size() > 0 ) {
-        // TODO replace wget calls with controllerclientcpp!
-        try {
-            std::string cmdstr = "wget --quiet --timestamping --timeout=0.5 --tries=1 " + archiveurl + " -P " + detectionpath;
-            system(cmdstr.c_str()); // TODO: check process exit code here
-        } catch (...) {
-            std::stringstream errss;
-            errss << "Failed to prepare config files because " << archiveurl << " could not be fetched.";
-            MUJIN_LOG_ERROR(errss.str());
-            throw MujinVisionException(errss.str(), MVE_Failed);
-        }
-        MUJIN_LOG_DEBUG("fetching archive " << archiveurl << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
-    
-        // TODO only extract files if just downloaded
+    std::string detectionpath = _detectiondir + "/" + targetname;
+    if (targetdetectionarchiveurl != "") {
         starttime = GetMilliTime();
+        long localtimeval = 0;
+        long remotetimeval = 0;
+        std::vector<unsigned char> data;
+
+        // get local modified time
         std::string archivefilename = detectionpath + "/" + targetname + ".tar.gz";
-        if (boost::filesystem::exists(archivefilename)) {
+        struct stat filestat;
+        if (stat(archivefilename.c_str(), &filestat) == 0) {
+            localtimeval = mktime(localtime(&filestat.st_mtime));
+        }
+
+        _pControllerClient->DownloadFileFromControllerIfModifiedSince_UTF8(targetdetectionarchiveurl, localtimeval, remotetimeval, data);
+        if (remotetimeval > 0) {
+            // write file
+            {
+                std::ofstream outfile(archivefilename.c_str(), std::ios::out | std::ios::binary); 
+                outfile.write(reinterpret_cast<char *>(&data[0]), data.size());
+                outfile.close();
+            }
+
+            // set file modification time
+            {
+                struct utimbuf newtimes;
+                newtimes.actime = filestat.st_atime;
+                newtimes.modtime = remotetimeval;
+                utime(archivefilename.c_str(), &newtimes);
+            }
+        }
+
+        MUJIN_LOG_DEBUG("fetching archive " << targetdetectionarchiveurl << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs, downloaded " << data.size() << " bytes");
+
+        if (remotetimeval > 0) {
+            // extract files if downloaded
+            starttime = GetMilliTime();
             try {
                 std::stringstream commandss;
                 commandss << "tar xzf " << archivefilename << " -C " << detectionpath;
@@ -2604,12 +2630,12 @@ void MujinVisionManager::Initialize(
                 MUJIN_LOG_ERROR(errss.str());
                 throw MujinVisionException(errss.str(), MVE_Failed);
             }
+            MUJIN_LOG_DEBUG("extracting archive " << archivefilename << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
         }
-        MUJIN_LOG_DEBUG("extracting archive " << archivefilename << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
     }
-    
+
     // prepare config files
-    detectorconfigfilename = detectionpath + "/detector.json";
+    std::string detectorconfigfilename = detectionpath + "/detector.json";
     if (boost::filesystem::exists(detectorconfigfilename)) {
         MUJIN_LOG_INFO("getting detector config file");
         MUJIN_LOG_DEBUG("using detectionpath " + detectionpath + " as path to detectorconfig, ignoring detectorconfigname");

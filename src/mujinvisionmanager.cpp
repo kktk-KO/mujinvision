@@ -2536,6 +2536,7 @@ void MujinVisionManager::Initialize(
     const std::string& targetdetectionarchiveurl
     )
 {
+    _mNameCommand.clear();
     _locale = locale;
     uint64_t time0 = GetMilliTime();
     uint64_t starttime = GetMilliTime();
@@ -2654,6 +2655,7 @@ void MujinVisionManager::Initialize(
     }
 
     // prepare config files
+    _mDetectorExtraInitializationOptions.clear();
     if (boost::filesystem::exists(detectorconfigfilename)) {
         MUJIN_LOG_INFO("using detectionpath " << detectionpath << " as path to detectorconfig, ignoring detectorconfigname");
         _mDetectorExtraInitializationOptions["templateDir"] = detectionpath;
@@ -2681,6 +2683,7 @@ void MujinVisionManager::Initialize(
     }
 
     // set up regions
+    _mNameRegion.clear();
     std::vector<std::string> regionnames;
     std::vector<RegionParametersPtr > vRegionParameters;
     RegionParametersPtr pRegionParameters;
@@ -2705,7 +2708,9 @@ void MujinVisionManager::Initialize(
 
     _SetStatusMessage(TT_Command, "Syncing cameras");
     std::vector<std::string> cameranames;
+    _mCameraNameHardwareId.clear();
     scene->GetSensorMapping(_mCameraNameHardwareId);
+    _mNameCameraParameters.clear();
     FOREACH(v, _mCameraNameHardwareId) {
         if (_mNameCameraParameters.find(v->first) != _mNameCameraParameters.end()) {
             _mNameCameraParameters[v->first]->id = v->second;
@@ -2742,6 +2747,7 @@ void MujinVisionManager::Initialize(
     // set up cameras
     starttime = GetMilliTime();
     _SetStatusMessage(TT_Command, "Setting up cameras.");
+    _mNameCamera.clear();
     FOREACH(it, _mNameCameraParameters) {
         std::string cameraname = it->first;
         CameraParametersPtr pcameraparameters = it->second;
@@ -2783,6 +2789,9 @@ void MujinVisionManager::Initialize(
         _mNameCamera[cameraname] = CameraPtr(new Camera(cameraname, pcameraparameters, calibrationdata));
     }
     std::vector<std::string> syncedcamera;
+    _mCameranameRegionname.clear();
+    _mRegionColorCameraMap.clear();
+    _mRegionDepthCameraMap.clear();
     FOREACH(itr, _mNameRegion) {
         std::string regionname = itr->first;
         std::map<std::string, CameraPtr> mNameColorCamera, mNameDepthCamera;

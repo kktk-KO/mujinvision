@@ -2596,6 +2596,7 @@ void MujinVisionManager::Initialize(
 
     // update target archive if needed
     std::string detectionpath = _detectiondir + "/" + targetname;
+    std::string detectorconfigfilename = detectionpath + "/detector.json";
     if (targetdetectionarchiveurl != "" && boost::starts_with(targetdetectionarchiveurl, "mujin:/")) {
         starttime = GetMilliTime();
 
@@ -2645,15 +2646,19 @@ void MujinVisionManager::Initialize(
             }
             MUJIN_LOG_DEBUG("extracting archive " << archivefilename << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
         }
+
+        // when target archive uri is supplied, the detector.json should always exists
+        if (!boost::filesystem::exists(detectorconfigfilename)) {
+            throw MujinVisionException("Failed to sync target detection archive. Detector conf " + detectorconfigfilename + " does not exist!", MVE_InvalidArgument);
+        }
     }
 
     // prepare config files
-    std::string detectorconfigfilename = detectionpath + "/detector.json";
     if (boost::filesystem::exists(detectorconfigfilename)) {
-        MUJIN_LOG_INFO("getting detector config file");
-        MUJIN_LOG_DEBUG("using detectionpath " + detectionpath + " as path to detectorconfig, ignoring detectorconfigname");
+        MUJIN_LOG_INFO("using detectionpath " << detectionpath << " as path to detectorconfig, ignoring detectorconfigname");
         _mDetectorExtraInitializationOptions["templateDir"] = detectionpath;
     } else {
+        MUJIN_LOG_INFO("could not find detector conf at " << detectorconfigfilename << ", will attempt default config location");
         detectorconfigfilename = "";
     }
 
@@ -2827,6 +2832,7 @@ void MujinVisionManager::Initialize(
     std::string detectorconfig;
     if (detectorconfigfilename.size() == 0) {
         detectorconfigfilename = _GetConfigFileName("detector", detectorconfigname);
+        MUJIN_LOG_INFO("using default detector conf at " << detectorconfigfilename);
     }
     _LoadConfig(detectorconfigfilename, detectorconfig);
 

@@ -252,8 +252,8 @@ public:
     /** \brief Whether visionmanager is shut down
      */
     bool IsShutdown();
-
-    virtual void GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectobjectsworld, std::string& resultstate, std::vector<Real>& points, const bool returnpoints=false);
+    
+    virtual void GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectobjectsworld, std::string& resultstate, std::vector<Real>& points, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, const bool returnpoints=false);
 
     virtual void GetConfig(const std::string& type, std::string& config);
     virtual void SaveConfig(const std::string& type, const std::string& configname, const std::string& config="");
@@ -421,12 +421,16 @@ private:
     void _StopStatusThread();
     void _StartStatusPublisher(const unsigned int port);
 
+    /// \param imageStartTimestamp for all captured images, the starttime in ms of the image capture
+    /// \param imageEndTimestamp for all captured images, the endtime in ms of the image capture
     void _DetectObjects(ThreadType tt,
                         BinPickingTaskResourcePtr pBinpickingTask,
                         const std::string& regionname,
                         const std::vector<std::string>& cameranames,
                         std::vector<DetectedObjectPtr>& detectedobjectsworld,
                         std::string& resultstate,
+                        unsigned long long& imageStartTimestamp,
+                        unsigned long long& imageEndTimestamp, 
                         const bool ignoreocclusion=false,
                         const unsigned int maxage=0,
                         const unsigned int fetchimagetimeout=0,
@@ -484,7 +488,9 @@ private:
     void _SyncCamera(const std::string& cameraname);
     void _SyncCamera(const std::string& cameraname, const mujinclient::Transform& t);
 
-    void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const bool ignoreocclusion, const unsigned int maxage=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
+    /// \param imageStartTimestamp for all captured images, the starttime in ms of the image capture
+    /// \param imageEndTimestamp for all captured images, the endtime in ms of the image capture
+    void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, const bool ignoreocclusion, const unsigned int maxage=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -588,7 +594,8 @@ private:
     unsigned long long _tsStartDetection; ///< timestamp when start detection loop was first called
     unsigned long long _tsLastEnvUpdate; ///< timestamp when binpickingtask->UpdateEnvironmentState was called
     std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
-    unsigned long long _resultTimestamp; ///< timestamp of latest detection result. protected by _mutexDetectedInfo
+    unsigned long long _resultTimestamp; ///< ms timestamp of latest detection result. protected by _mutexDetectedInfo
+    unsigned long long _resultImageStartTimestamp, _resultImageEndTimestamp; ///< ms timestamps for the latest detection result, the image start and end timestamps.
     boost::mutex _mutexControllerBinpickingState; ///< lock for controller binpicking state
     unsigned long long _lastocclusionTimestamp;
     std::vector<ImagePtr> _lastcolorimages; ///< last color images used for detection

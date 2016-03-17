@@ -218,6 +218,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _tsStartDetection = 0;
     _tsLastEnvUpdate = 0;
     _resultTimestamp = 0;
+    _resultImageStartTimestamp = _resultImageEndTimestamp = 0;
     _resultState = "{}";
     _pImagesubscriberManager = imagesubscribermanager;
     _pImagesubscriberManager->SetPreemptFn(boost::bind(&MujinVisionManager::_PreemptSubscriber, this));
@@ -653,7 +654,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             std::string resultstate;
             std::vector<Real> points;
             bool returnpoints = command_pt.get<bool>("returnpoints", false);
-            GetLatestDetectedObjects(detectedobjectsworld, resultstate, points, returnpoints);
+            unsigned long long imageStartTimestamp, imageEndTimestamp;
+            GetLatestDetectedObjects(detectedobjectsworld, resultstate, points, imageStartTimestamp, imageEndTimestamp, returnpoints);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("detectedobjects") << ": [";
             for (unsigned int i=0; i<detectedobjectsworld.size(); ++i) {
@@ -672,7 +674,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             if (returnpoints) {
                 result_ss << ParametersBase::GetJsonString("points") << ": " << ParametersBase::GetJsonString(points) << ", ";
             }
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime << ", ";
+            result_ss << ParametersBase::GetJsonString("imageStartTimestamp") << ": " << imageStartTimestamp << ", ";
+            result_ss << ParametersBase::GetJsonString("imageEndTimestamp") << ": " << imageEndTimestamp;
             result_ss << "}";
         } else if (command == "GetCameraId") {
             if (!_pDetector || !_pBinpickingTask) {
@@ -783,7 +787,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             bool bindetection = command_pt.get("bindetection", false);
             std::vector<DetectedObjectPtr> detectedobjects;
             std::string resultstate;
-            _DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection);
+            unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
+            _DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection);
             result_ss << "{";
             result_ss << _GetJsonString(detectedobjects) << ", ";
             result_ss << ParametersBase::GetJsonString("state") << ": " << resultstate << ", ";
@@ -1558,6 +1563,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         time0 = GetMilliTime();
         std::string resultstate;
         detectedobjects.resize(0);
+        unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
         try {
             {
                 boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
@@ -1657,11 +1663,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
             if (detectcontaineronly) {
                 MUJIN_LOG_DEBUG("detect to check if container is empty");
-                _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, false, false, false, false, true);
+                _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, false, false, false, false, true);
             } else if (numfastdetection > 0) {
                 while (!_bStopDetectionThread && detectedobjects.size() == 0 && numfastdetection > 0) {
                     MUJIN_LOG_DEBUG("DetectObjects() in fast mode");
-                    _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, true, true);
+                    _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, true, true);
                     if (detectedobjects.size() == 0) {
                         numfastdetection -= 1;
                     } else {
@@ -1670,12 +1676,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 }
                 if (!_bStopDetectionThread && detectedobjects.size() == 0 && numfastdetection == 0) {
                     MUJIN_LOG_DEBUG("DetectObjects() in fast mode found no object, detect in normal mode");
-                    _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, false, false, false, true);
+                    _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, false, false, false, true);
                 }
                 numfastdetection -= 1;
             } else {
                 MUJIN_LOG_DEBUG("detect normally");
-                _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, false, false);
+                _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, false, false);
             }
             if (_bStopDetectionThread) {
                 break;
@@ -1744,7 +1750,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
             _resultState = resultstate;
             _resultTimestamp = GetMilliTime();
-            MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp));
+            _resultImageStartTimestamp = imageStartTimestamp;
+            _resultImageEndTimestamp = imageEndTimestamp;
+            MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp));
         } else {
             MUJIN_LOG_INFO("resultstate is null, do not update result");
         }
@@ -2306,7 +2314,7 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
     }
 }
 
-void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& resultcolorimages, std::vector<ImagePtr>& resultdepthimages, std::vector<ImagePtr>& resultresultimages, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval)
+void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& resultcolorimages, std::vector<ImagePtr>& resultdepthimages, std::vector<ImagePtr>& resultresultimages, unsigned long long& starttime, unsigned long long& endtime, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval)
 {
     if (useold && _lastcolorimages.size() == colorcameranames.size() && _lastdepthimages.size() == depthcameranames.size()) {
         MUJIN_LOG_INFO("using last images");
@@ -2331,7 +2339,8 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     std::vector<ImagePtr> colorimages, depthimages, resultimages;
 
     uint64_t start0 = GetMilliTime();
-    unsigned long long starttime = 0, endtime = 0;
+    //unsigned long long starttime = 0, endtime = 0;
+    starttime = 0; endtime = 0;
     std::string cameraname;
     uint64_t lastimageagecheckfailurets = 0;
     uint64_t lastfirstimagecheckfailurewarnts = 0;
@@ -2360,7 +2369,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         }
 
         // ensure streamer and try to get images again if got fewer than expected images
-        if (colorimages.size() < colorcameranames.size() || depthimages.size() < depthcameranames.size()) {
+        if (resultimages.size() == 0 && (colorimages.size() < colorcameranames.size() || depthimages.size() < depthcameranames.size())) {
             if (GetMilliTime() - lastcouldnotcapturewarnts > 1000.0) {
                 std::stringstream msg_ss;
                 msg_ss << "Could not get all images, ensure capturing thread, will try again"
@@ -2698,7 +2707,10 @@ void MujinVisionManager::Initialize(
         } else {
             _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
         }
-        _mNameCameraParameters[v->first]->isDepthCamera = v->first.find("_l_rectified") != std::string::npos;
+        _mNameCameraParameters[v->first]->isDepthCamera = v->first.find("_l_rectified") != std::string::npos || v->first.find("Projector") != std::string::npos;  // FIXME: hack
+        if (_mNameCameraParameters[v->first]->isDepthCamera) {
+            MUJIN_LOG_DEBUG("camera " << v->first << " is a depth camera");
+        }
         cameranames.push_back(v->first);
     }
 
@@ -2866,10 +2878,11 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
     }
     _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames));
-    _DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold);
+    unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
+    _DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold);
 }
 
-void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request, const bool useold, const bool checkcontaineremptyonly)
+void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request, const bool useold, const bool checkcontaineremptyonly)
 {
     boost::mutex::scoped_lock lock(_mutexDetector);
     uint64_t starttime = GetMilliTime();
@@ -2879,10 +2892,10 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
 
     // set up images
     std::vector<ImagePtr> colorimages, depthimages, resultimages;
-    _GetImages(tt, pBinpickingTask, regionname, colorcameranames, depthcameranames, colorimages, depthimages, resultimages, ignoreocclusion, maxage, fetchimagetimeout, request, useold);
+    _GetImages(tt, pBinpickingTask, regionname, colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, request, useold);
     MUJIN_LOG_INFO("Getting images took " + boost::lexical_cast<std::string>((GetMilliTime() - starttime) / 1000.0f));
     starttime = GetMilliTime();
-    if (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size()) {
+    if (resultimages.size() > 0 || (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size())) {
         for (size_t i=0; i<colorimages.size(); ++i) {
             _pDetector->SetColorImage(colorimages.at(i));
         }
@@ -2895,6 +2908,8 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
         } else {
             _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, detectedobjects, resultstate, fastdetection, bindetection, checkcontaineremptyonly);
         }
+    } else {
+        MUJIN_LOG_ERROR("Not enough images, cannot detect! colorimages=" << colorimages.size() << " depthimages=" << depthimages.size() << " resultimages=" << resultimages.size());
     }
     if (resultstate == "") {
         resultstate = "null";
@@ -2996,7 +3011,8 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
         // set up images
         std::vector<ImagePtr> depthimages;
         bool ignoreocclusion = true;
-        _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, request, false);
+        unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
+        _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, request, false);
         if (depthimages.size() == depthcameranames.size()) {
             for (size_t i=0; i<depthimages.size(); ++i) {
                 std::string cameraname = depthcameranames.at(i);
@@ -3017,7 +3033,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                     while (numretries > 0 && points.size() / 3 == 0) {
                         points.clear();
                         _SetStatusMessage(TT_Command, "re-try getting depthimage and pointcloudobstacle");
-                        _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, request, false);
+                        _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, request, false);
                         {
                             boost::mutex::scoped_lock lock(_mutexDetector);
                             _pDetector->SetDepthImage(depthimages1.at(0));
@@ -3100,7 +3116,8 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
         std::vector<ImagePtr> dummyimages;
         std::vector<std::string> dummycameranames;
         //_GetDepthImages(TT_SendPointcloudObstacle, regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, true);
-        _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, true, false);
+        unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
+        _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, true, false);
         MUJIN_LOG_DEBUG(str(boost::format("got images %d in SendPointCloudObstacleToControllerThread")%depthimages.size()));
         if (depthimages.size() == depthcameranames.size()) {
             for (size_t i=0; i<depthimages.size(); ++i) {
@@ -3126,7 +3143,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                         points.clear();
                         _SetStatusMessage(TT_SendPointcloudObstacle, "re-try getting depthimage and pointcloudobstacle");
                         //_GetDepthImages(TT_SendPointcloudObstacle, regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, true);
-                        _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, true, false);
+                        _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, true, false);
                         if (!!_pDetector) {
                             boost::mutex::scoped_lock lock(_mutexDetector);
                             _pDetector->SetDepthImage(depthimages1.at(0));
@@ -3181,7 +3198,8 @@ void MujinVisionManager::_DetectRegionTransform(const std::string& regionname, c
     //_GetDepthImages(TT_Command, regionname, dcamnames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, request);
     std::vector<ImagePtr> dummyimages;
     std::vector<std::string> dummycameranames;
-    _GetImages(TT_Command, _pBinpickingTask, regionname, ccamnames, dcamnames, colorimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, request, false);
+    unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
+    _GetImages(TT_Command, _pBinpickingTask, regionname, ccamnames, dcamnames, colorimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, request, false);
     mujinvision::Transform regiontransform0 = regiontransform;
     {
         boost::mutex::scoped_lock lock(_mutexDetector);
@@ -3228,11 +3246,15 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
         points.resize(0);
         std::string cameraname = cameranamestobeused.at(i);
         CameraPtr camera = _mNameCamera[cameraname];
+        if (!camera->pCameraParameters->isDepthCamera) {
+            continue;
+        }
         std::vector<ImagePtr> depthimages;
         std::vector<std::string> dcamnames;
         dcamnames.push_back(cameraname);
-
-        _GetImages(TT_Command, _pBinpickingTask, "", dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, ignoreocclusion, maxage, fetchimagetimeout, request, false);
+        MUJIN_LOG_DEBUG("Visualize for depth camera " << cameraname);
+        unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
+        _GetImages(TT_Command, _pBinpickingTask, "", dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, request, false);
         if (depthimages.size() == 0) {
             throw MujinVisionException("failed to get depth image for " + cameraname + ", cannot visualize point cloud", MVE_Failed);
         }
@@ -3356,12 +3378,14 @@ void MujinVisionManager::GetCameraId(const std::string& cameraname, std::string&
     _SetStatus(TT_Command, MS_Succeeded);
 }
 
-void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectedobjectsworld, std::string& resultstate, std::vector<Real>& points, const bool returnpoints)
+void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectedobjectsworld, std::string& resultstate, std::vector<Real>& points, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, const bool returnpoints)
 {
     {
         boost::mutex::scoped_lock lock(_mutexDetectedInfo);
         detectedobjectsworld = _vDetectedObject;
         resultstate = _resultState;
+        imageStartTimestamp = _resultImageStartTimestamp;
+        imageEndTimestamp = _resultImageEndTimestamp;
         if (returnpoints) {
             points.clear();
             FOREACH(it, _mResultPoints) {

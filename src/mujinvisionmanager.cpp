@@ -2717,7 +2717,7 @@ void MujinVisionManager::Initialize(
         } else {
             _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
         }
-        _mNameCameraParameters[v->first]->isDepthCamera = v->first.find("_l_rectified") != std::string::npos || v->first.find("Projector") != std::string::npos;  // FIXME: hack
+        _mNameCameraParameters[v->first]->isDepthCamera = v->first.find("_l_rectified") != std::string::npos || v->first.find("Projector") != std::string::npos  || v->first.find("projector") != std::string::npos;  // FIXME: hack
         if (_mNameCameraParameters[v->first]->isDepthCamera) {
             MUJIN_LOG_DEBUG("camera " << v->first << " is a depth camera");
         }

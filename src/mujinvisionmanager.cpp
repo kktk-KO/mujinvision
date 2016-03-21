@@ -2874,7 +2874,10 @@ void MujinVisionManager::_DeInitialize()
         _SetStatusMessage(TT_Command, "Stopped sendpointcloudobstacle thread.");
     }
     _StopDetectionThread();
-
+    _StopUpdateEnvironmentThread();
+    _StopExecutionVerificationPointCloudThread();
+    _StopControllerMonitorThread();
+    _StopVisualizePointCloudThread();
     std::string regionname;
     if (!!_pDetector) {
         _pDetector.reset();

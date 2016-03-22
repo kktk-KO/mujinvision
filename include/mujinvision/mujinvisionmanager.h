@@ -389,11 +389,12 @@ private:
     class ImagesubscriberHandler
     {
     public:
-        ImagesubscriberHandler(ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids);
+        ImagesubscriberHandler(ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const ptree& visionserverpt);
         virtual ~ImagesubscriberHandler();
         ImageSubscriberManagerPtr _pManager;
         std::vector<std::string> _vIds;
         uint64_t _ts;
+        ptree _visionserverpt;
     };
 
     typedef boost::shared_ptr<ImagesubscriberHandler> ImagesubscriberHandlerPtr;
@@ -534,6 +535,9 @@ private:
 
     bool _PreemptSubscriber();
 
+    void _StartCapture(const std::vector<std::string>& cameranames);
+    void _StopCapture(const std::vector<std::string>& cameranames);
+
     unsigned int _statusport, _commandport, _configport;
     std::string _configdir;
     std::string _detectiondir;
@@ -605,6 +609,7 @@ private:
     boost::mutex _mutexDetector; ///< lock for detector
     boost::mutex _mutexThreadResourceSync; ///< mutex for syncing resources when threads are being created
 
+    ptree _visionserverpt; ///< ptree storing visionserver params
     std::vector<std::string> _vCameranames; ///< cameranames passed in for start detection loop
     std::vector<std::string> _vExecutionVerificationCameraNames; ///< names of cameras for exec verification
     double _filteringvoxelsize;  ///< point cloud filting param for exec verification

@@ -2362,7 +2362,6 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             MUJIN_LOG_WARN("snapping is not supported, using cache");
             _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, starttime, endtime, fetchimagetimeout / 1000.0);
         }
-
         // if called by detection thread, break if it is being stopped
         if (tt == TT_Detector && _bStopDetectionThread) {
             break;
@@ -2484,6 +2483,14 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             resultimages.clear();
             continue;
         } else {
+            // capture again for result images, assuming 1, the previous result image was a dummy 2, it is generated using the verified color/depth pair
+            if (resultimages.size() > 0) {
+                MUJIN_LOG_DEBUG("color/depth pair (starttime=" << starttime << " endtime=" << endtime << ") passed occlusion and age checks, get result image");
+                std::string resultcameraname = depthcameranames.at(0); // assuming that the first depth camera provides the result image
+                std::vector<ImagePtr> dummycolorimages, dummydepthimages; // do not override verified color/depth images
+                resultimages.clear();
+                resultimages.push_back(_pImagesubscriberManager->SnapDetectionResult(resultcameraname, fetchimagetimeout / 1000.0));
+            }
             std::stringstream ss;
             ss << "got good imagepack. starttime=" << starttime << " endtime=" << endtime << " total=" << (endtime-starttime)/1000.0f << " " << (GetMilliTime()-starttime) / 1000.0f << " secs old";
             MUJIN_LOG_DEBUG(ss.str());
@@ -2718,6 +2725,7 @@ void MujinVisionManager::Initialize(
             _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
         }
         _mNameCameraParameters[v->first]->isDepthCamera = v->first.find("_l_rectified") != std::string::npos || v->first.find("Projector") != std::string::npos  || v->first.find("projector") != std::string::npos;  // FIXME: hack
+        _mNameCameraParameters[v->first]->isColorCamera = v->first.find("projector") == std::string::npos;  // FIXME: hack
         if (_mNameCameraParameters[v->first]->isDepthCamera) {
             MUJIN_LOG_DEBUG("camera " << v->first << " is a depth camera");
         }

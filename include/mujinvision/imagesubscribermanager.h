@@ -80,6 +80,10 @@ public:
      */
     virtual ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0/*sec*/, const int numimages=-1) = 0;
 
+    /** \brief gets detection result
+     */
+    virtual ImagePtr SnapDetectionResult(const std::string& cameraname, const double& timeout=20.0/*sec*/) = 0;
+
     virtual void StartCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0, const int numimages=-1) = 0;
     virtual void StopCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0) = 0;
 

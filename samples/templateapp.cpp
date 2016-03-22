@@ -34,7 +34,10 @@ public:
     {
         return ImagePtr();
     }
-
+    ImagePtr SnapDetectionResult(const std::string& cameraname, const double& timeout=20.0/*sec*/)
+    {
+        return ImagePtr();
+    }
     void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, const double& timeout)
     {
     }

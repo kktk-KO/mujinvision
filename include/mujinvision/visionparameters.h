@@ -28,6 +28,7 @@
 
 #include "geometry.h"
 #include "visionexceptions.h"
+#include "mujinimage.h"
 
 #define FOREACH(it, v) for(typeof((v).begin())it = (v).begin(); it != (v).end(); (it)++)
 #define FOREACH_NOINC(it, v) for(typeof((v).begin())it = (v).begin(); it != (v).end(); )
@@ -270,12 +271,6 @@ struct MUJINVISION_API ConnectionParameters : public ParametersBase
 typedef boost::shared_ptr<ConnectionParameters> ConnectionParametersPtr;
 typedef boost::shared_ptr<ConnectionParameters const> ConnectionParametersConstPtr;
 typedef boost::weak_ptr<ConnectionParameters> ConnectionParametersWeakPtr;
-
-/// \brief image data structure
-class Image;
-typedef boost::shared_ptr<Image> ImagePtr;
-typedef boost::shared_ptr<Image const> ImageConstPtr;
-typedef boost::weak_ptr<Image> ImageWeakPtr;
 
 /// \brief information about camera
 struct MUJINVISION_API CameraParameters : public ParametersBase

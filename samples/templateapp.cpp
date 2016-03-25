@@ -38,6 +38,11 @@ public:
     {
         return ImagePtr();
     }
+    std::vector<ImagePtr> SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0, const int numimages=-1)
+    {
+        std::vector<ImagePtr> resultimages;
+        return resultimages;
+    }
     void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, const double& timeout)
     {
     }

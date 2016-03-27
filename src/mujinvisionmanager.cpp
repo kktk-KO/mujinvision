@@ -2524,7 +2524,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 resultimages.clear();
                 ImagePtr image = _pImagesubscriberManager->SnapDetectionResult(resultcameraname, fetchimagetimeout / 1000.0);
                 // _StartCapture(cameranames); // need to start publishing thread so that we can new images
-                if (image->timestamp == starttime) {
+                if (image->timestamp - starttime < 1000.0) {  // FIXME in theory they should be the same, need this for simulation to work
                     resultimages.push_back(image);
                 } else {
                     MUJIN_LOG_WARN("got new images, have to verify again. image->timestamp=" << image->timestamp << " starttime=" << starttime);

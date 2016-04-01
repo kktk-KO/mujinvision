@@ -1674,6 +1674,24 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     MUJIN_LOG_DEBUG("DetectObjects() in fast mode");
                     _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, true, true);
                     if (detectedobjects.size() == 0) {
+                        // have to do again, so publish the current result. even if no detected objects, resultstate can have info about the container (like empty)
+                        if (resultstate != "null") {
+                            boost::mutex::scoped_lock lock(_mutexDetectedInfo);
+                            if( !detectcontaineronly ) {
+                                // only update the objects if detector actually returned them, otherwise will be erasing previously sent good results
+                                _vDetectedObject.swap(detectedobjects);
+                                _bDetectedObjectsValid = true;
+                            }
+                            else {
+                                _bDetectedObjectsValid = false;
+                            }
+                            _resultState = resultstate;
+                            _resultTimestamp = GetMilliTime();
+                            _resultImageStartTimestamp = imageStartTimestamp;
+                            _resultImageEndTimestamp = imageEndTimestamp;
+                            MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp));
+                        }
+                        
                         numfastdetection -= 1;
                     } else {
                         numfastdetection = 0;

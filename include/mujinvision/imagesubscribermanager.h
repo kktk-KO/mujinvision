@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// Copyright (C) 2012-2015 MUJIN Inc.
+// Copyright (C) 2012-2016 MUJIN Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ public:
      */
     virtual ImagePtr SnapDetectionResult(const std::string& cameraname, const double& timeout=20.0/*sec*/) = 0;
 
-    virtual void StartCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0, const int numimages=-1) = 0;
+    virtual void StartCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0, const int numimages=-1, const std::string& extraoptions="") = 0;
     virtual void StopCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0) = 0;
 
     /** \brief Writes color image to disk.

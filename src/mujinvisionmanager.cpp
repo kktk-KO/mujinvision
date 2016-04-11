@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// Copyright (C) 2012-2015 MUJIN Inc.
+// Copyright (C) 2012-2016 MUJIN Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -2338,7 +2338,7 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
     }
 }
 
-void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& resultcolorimages, std::vector<ImagePtr>& resultdepthimages, std::vector<ImagePtr>& resultresultimages, unsigned long long& starttime, unsigned long long& endtime, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval)
+void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& resultcolorimages, std::vector<ImagePtr>& resultdepthimages, std::vector<ImagePtr>& resultresultimages, unsigned long long& starttime, unsigned long long& endtime, bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval)
 {
     if (useold && _lastcolorimages.size() == colorcameranames.size() && _lastdepthimages.size() == depthcameranames.size()) {
         MUJIN_LOG_INFO("using last images");
@@ -2472,6 +2472,11 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // skip images and try to get them again if failed to check for occlusion
         bool isoccluding = false;
+        if (!ignoreocclusion) {
+            if (_visionserverpt.get<std::string>("occlusioncheckcommandtemplate", "").size()>0) {
+                ignoreocclusion = true;
+            }
+        }
         if (!ignoreocclusion && regionname != "") {
             try {
                 std::vector<std::string> checkedcameranames;
@@ -3615,14 +3620,17 @@ std::string MujinVisionManager::_GetExtraCaptureOptions(const std::string& regio
 {
     std::string controllerclientconnectionstring = str(boost::format("tcp://%s:%d") % _controllerIp % _visionserverpt.get<int>("planningserverport", 11000));
     std::string occlusioncheckcommandtemplate = _visionserverpt.get<std::string>("occlusioncheckcommandtemplate", "");
-    ptree cameraidfullnamemappt;
+    boost::replace_all(occlusioncheckcommandtemplate, "dummyslaverequestid", _slaverequestid);
+    ptree cameraidfullnamemappt, cameraidregionnamept;
     FOREACH(v, _mCameraNameHardwareId) {
         cameraidfullnamemappt.put<std::string>(v->second, v->first);
+        cameraidregionnamept.put<std::string>(v->second, _mCameranameRegionname[v->first]);
     }
     ptree extraoptionspt;
     extraoptionspt.put<std::string>("controllerclientconnectionstring", controllerclientconnectionstring);
     extraoptionspt.put<std::string>("occlusioncheckcommandtemplate", occlusioncheckcommandtemplate);
     extraoptionspt.put_child("cameraidfullnamemap", cameraidfullnamemappt);
+    extraoptionspt.put_child("cameraidregionnamemap", cameraidregionnamept);
     std::stringstream ss;
     write_json(ss, extraoptionspt);
     return ss.str();

@@ -162,14 +162,22 @@ namespace mujinvision {
     _pManager = pImagesubscriberManager;
     _vIds = ids;
     if (_visionserverpt.get<bool>("runpublisher", true)) {
-        _pManager->StartCaptureThread(ids);
+        try {
+            _pManager->StartCaptureThread(ids);
+        } catch (...) {
+            MUJIN_LOG_ERROR("Failed to start captrue thread");
+        }
     }
 }
 
 MujinVisionManager::ImagesubscriberHandler::~ImagesubscriberHandler() {
     MUJIN_LOG_DEBUG("in ImagesubscriberHandler destructor " +  boost::lexical_cast<std::string>(_ts));
     if (_visionserverpt.get<bool>("runpublisher", true)) {
-        _pManager->StopCaptureThread(_vIds);
+        try {
+            _pManager->StopCaptureThread(_vIds);
+        } catch (...) {
+            MUJIN_LOG_ERROR("Failed to stop captrue thread");
+        }
     }
 }
 
@@ -3639,14 +3647,22 @@ std::string MujinVisionManager::_GetExtraCaptureOptions(const std::string& regio
 void MujinVisionManager::_StartCapture(const std::string& regionname, const std::vector<std::string>& cameranames, const double& timeout, const int numimages)
 {
     if (_visionserverpt.get<bool>("runpublisher", true)) {
-        _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames), timeout, numimages, _GetExtraCaptureOptions(regionname));
+        try {
+            _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames), timeout, numimages, _GetExtraCaptureOptions(regionname));
+        } catch (...) {
+            MUJIN_LOG_ERROR("Failed to start capture thread.");
+        }
     }
 }
 
 void MujinVisionManager::_StopCapture(const std::vector<std::string>& cameranames)
 {
     if (_visionserverpt.get<bool>("runpublisher", true)) {
-        _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
+        try {
+            _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
+        } catch (...) {
+            MUJIN_LOG_ERROR("Failed to stop capture thread.");
+        }
     }
 }
 

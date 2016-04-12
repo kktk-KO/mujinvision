@@ -471,6 +471,7 @@ private:
 
     void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, ImagesubscriberHandlerPtr ih, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01, const double pointsize=0.005, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
     void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread);
+    void _StopSendPointCloudObstacleToControllerThread();
 
     void _DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, ImagesubscriberHandlerPtr ih, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=false);
     void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, ImagesubscriberHandlerPtr ih, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
@@ -573,6 +574,13 @@ private:
     boost::shared_ptr<boost::thread> _pControllerMonitorThread;
     boost::shared_ptr<boost::thread> _pSendPointCloudObstacleThread;
     boost::shared_ptr<boost::thread> _pVisualizePointCloudThread;
+    boost::mutex _mutexStatusThread;
+    boost::mutex _mutexDetectionThread;
+    boost::mutex _mutexUpdateEnvironmentThread;
+    boost::mutex _mutexExecutionVerificationPointCloudThread;
+    boost::mutex _mutexControllerMonitorThread;
+    boost::mutex _mutexSendPointCloudObstacleThread;
+    boost::mutex _mutexVisualizePointCloudThread;
 
     boost::mutex _mutexCancelCommand;
     std::map<unsigned int, CommandServerPtr> _mPortCommandServer; ///< port -> server
@@ -590,6 +598,7 @@ private:
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
     std::map<std::string, boost::shared_ptr<CustomCommand> > _mNameCommand; ///< all registered commands, command name -> custom command
     std::map<std::string, std::string> _mCameraNameHardwareId; ///< camera name -> camera hardware id
+    std::map<std::string, std::string> _mHardwareIdCameraName; ///< camera hardware id -> name
     std::map<std::string, std::string> _mDetectorExtraInitializationOptions; ///< extra init options for detector
     ImageSubscriberManagerPtr _pImagesubscriberManager;
 

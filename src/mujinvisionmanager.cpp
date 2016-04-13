@@ -3571,7 +3571,7 @@ std::vector<std::string> MujinVisionManager::_GetColorCameraNames(const std::str
         if (_mNameCameraParameters.find(cameraname) == _mNameCameraParameters.end()) {
             throw MujinVisionException(cameraname + " is not in camera parameters map.", MVE_ConfigurationFileError);
         }
-        if(_mNameCameraParameters[cameraname]->isColorCamera) {
+        if (std::find(colorcameranames.begin(), colorcameranames.end(), cameraname)==colorcameranames.end() && _mNameCameraParameters[cameraname]->isColorCamera) {
             colorcameranames.push_back(cameraname);
         }
     }
@@ -3587,7 +3587,7 @@ std::vector<std::string> MujinVisionManager::_GetDepthCameraNames(const std::str
         if (_mNameCameraParameters.find(cameraname) == _mNameCameraParameters.end()) {
             throw MujinVisionException(cameraname + " is not in camera parameters map.", MVE_ConfigurationFileError);
         }
-        if (_mNameCameraParameters[cameraname]->isDepthCamera) {
+        if (std::find(depthcameranames.begin(), depthcameranames.end(), cameraname)==depthcameranames.end() && _mNameCameraParameters[cameraname]->isDepthCamera) {
             depthcameranames.push_back(cameraname);
         }
     }

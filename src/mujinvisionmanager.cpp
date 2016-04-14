@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// Copyright (C) 2012-2015 MUJIN Inc.
+// Copyright (C) 2012-2016 MUJIN Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1881,6 +1881,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                 totalpoints.resize(0);
                 if( bDetectedObjectsValid ) {
                     // use the already acquired detection results without locking
+                    unsigned int nameind = 0;
                     for (unsigned int i=0; i<vDetectedObject.size(); i++) {
                         mujinclient::Transform transform;
                         Transform newtransform = _tWorldResultOffset * vDetectedObject[i]->transform; // apply offset to result transform
@@ -1893,9 +1894,15 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                         transform.translate[2] = newtransform.trans[2];
 
                         BinPickingTaskResource::DetectedObject detectedobject;
-                        std::stringstream name_ss;
-                        name_ss << _targetupdatename << i;
-                        detectedobject.name = name_ss.str();
+                        if (vDetectedObject[i]->type == "container") {
+                            detectedobject.name = regionname;
+                        } else {
+                            std::stringstream name_ss;
+                            name_ss << _targetupdatename << nameind;
+                            detectedobject.name = name_ss.str();
+                            nameind++;
+                        }
+                        MUJIN_LOG_ERROR(detectedobject.name);
                         detectedobject.object_uri = vDetectedObject[i]->objecturi;
                         detectedobject.transform = transform;
                         detectedobject.confidence = vDetectedObject[i]->confidence;
@@ -2999,9 +3006,9 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
     if (resultstate == "") {
         resultstate = "null";
     }
-    std::stringstream msgss;
-    msgss << "Detected " << detectedobjects.size() << " objects, state: " << resultstate <<". Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
-    _SetStatusMessage(tt, msgss.str());
+    //std::stringstream msgss;
+    //msgss << "Detected " << detectedobjects.size() << " objects, state: " << resultstate <<". Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
+    //_SetStatusMessage(tt, msgss.str());
     _SetStatus(tt, MS_Succeeded);
 }
 

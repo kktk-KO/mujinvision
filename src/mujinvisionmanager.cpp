@@ -1601,6 +1601,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         time0 = GetMilliTime();
         std::string resultstate;
         detectedobjects.resize(0);
+        int numresults = 0;
         unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
         try {
             {
@@ -1701,12 +1702,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
             if (detectcontaineronly) {
                 MUJIN_LOG_DEBUG("detect to check if container is empty");
-                _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, false, false, false, false, true);
+                numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, false, false, false, false, true);
             } else if (numfastdetection > 0) {
-                while (!_bStopDetectionThread && detectedobjects.size() == 0 && numfastdetection > 0) {
+                while (!_bStopDetectionThread && numresults == 0 && numfastdetection > 0) {
                     MUJIN_LOG_DEBUG("DetectObjects() in fast mode");
-                    _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, true, true);
-                    if (detectedobjects.size() == 0) {
+                    numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, true, true);
+                    if (numresults == 0) {
                         // have to do again, so publish the current result. even if no detected objects, resultstate can have info about the container (like empty)
                         if (resultstate != "null") {
                             boost::mutex::scoped_lock lock(_mutexDetectedInfo);
@@ -1730,7 +1731,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                         numfastdetection = 0;
                     }
                 }
-                if (!_bStopDetectionThread && detectedobjects.size() == 0 && numfastdetection == 0) {
+                if (!_bStopDetectionThread && numresults == 0 && numfastdetection == 0) {
                     MUJIN_LOG_DEBUG("DetectObjects() in fast mode found no object, detect in normal mode");
                     _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, false, false, false, true);
                 }
@@ -1764,7 +1765,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
 
             lastDetectedId = numPickAttempt;
-            if (isControllerPickPlaceRunning && !forceRequestDetectionResults && detectedobjects.size() > 0) {
+            if (isControllerPickPlaceRunning && !forceRequestDetectionResults && numresults > 0) {
                 MUJIN_LOG_INFO("detected at least 1 object, stop image capturing...");
                 _StopCapture(cameranames);
                 MUJIN_LOG_INFO("capturing stopped");
@@ -1914,6 +1915,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                 totalpoints.resize(0);
                 if( bDetectedObjectsValid ) {
                     // use the already acquired detection results without locking
+                    unsigned int nameind = 0;
                     for (unsigned int i=0; i<vDetectedObject.size(); i++) {
                         mujinclient::Transform transform;
                         Transform newtransform = _tWorldResultOffset * vDetectedObject[i]->transform; // apply offset to result transform
@@ -1926,9 +1928,14 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                         transform.translate[2] = newtransform.trans[2];
 
                         BinPickingTaskResource::DetectedObject detectedobject;
-                        std::stringstream name_ss;
-                        name_ss << _targetupdatename << i;
-                        detectedobject.name = name_ss.str();
+                        if (vDetectedObject[i]->type == "container") {
+                            detectedobject.name = regionname;
+                        } else {
+                            std::stringstream name_ss;
+                            name_ss << _targetupdatename << nameind;
+                            detectedobject.name = name_ss.str();
+                            nameind++;
+                        }
                         detectedobject.object_uri = vDetectedObject[i]->objecturi;
                         detectedobject.transform = transform;
                         detectedobject.confidence = vDetectedObject[i]->confidence;
@@ -3022,7 +3029,7 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
     _DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold);
 }
 
-void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request, const bool useold, const bool checkcontaineremptyonly)
+int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request, const bool useold, const bool checkcontaineremptyonly)
 {
     boost::mutex::scoped_lock lock(_mutexDetector);
     uint64_t starttime = GetMilliTime();
@@ -3051,13 +3058,24 @@ void MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr
     } else {
         MUJIN_LOG_ERROR("Not enough images, cannot detect! colorimages=" << colorimages.size() << " depthimages=" << depthimages.size() << " resultimages=" << resultimages.size());
     }
+    int numresults = 0;
     if (resultstate == "") {
         resultstate = "null";
+    } else {
+        ptree pt;
+        std::stringstream ss;
+        ss << resultstate;
+        read_json(ss, pt);
+        if (pt.count("numDetectedParts") == 0) {
+            MUJIN_LOG_WARN("numDetectedObjects is not in resultstate");
+        }
+        numresults = pt.get<int>("numDetectedParts", detectedobjects.size());
     }
-    std::stringstream msgss;
-    msgss << "Detected " << detectedobjects.size() << " objects, state: " << resultstate <<". Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
-    _SetStatusMessage(tt, msgss.str());
+    //std::stringstream msgss;
+    //msgss << "Detected " << detectedobjects.size() << " objects, state: " << resultstate <<". Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
+    //_SetStatusMessage(tt, msgss.str());
     _SetStatus(tt, MS_Succeeded);
+    return numresults;
 }
 
 void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long& starttime, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool sendVerificationPointCloud, const bool stopOnLeftInOrder)

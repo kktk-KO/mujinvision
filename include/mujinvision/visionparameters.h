@@ -479,6 +479,7 @@ inline Transform GetTransform(const ptree& pt) {
 struct MUJINVISION_API DetectedObject : public ParametersBase
 {
     DetectedObject() {
+        type = "part";
         confidence = "0";
         extra = "null";
     }
@@ -487,6 +488,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
     DetectedObject(const ptree& pt) {
         _pt = pt;
         name = pt.get<std::string>("name");
+        type = pt.get<std::string>("type", "part");
         objecturi = pt.get<std::string>("object_uri");
         unsigned int i=0;
         FOREACH(v, pt.get_child("translation_")) {
@@ -516,7 +518,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
     }
 
     /// assume input is in meter
-    DetectedObject(const std::string& n, const std::string& u, const Transform& t, const std::string& c, const uint64_t ts, const std::string& e)
+    DetectedObject(const std::string& n, const std::string& u, const Transform& t, const std::string& c, const uint64_t ts, const std::string& e, const std::string& ty="part")
     {
         name = n;
         objecturi = u;
@@ -524,17 +526,19 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
         confidence = c;
         timestamp = ts;
         extra = e;
+        type = ty;
     }
 
     virtual ~DetectedObject() {
     }
 
     std::string name;
-    std::string objecturi;
+    std::string type; ///< default is "part", could be "container"
+    std::string objecturi;  ///< could be empty for "container" type
     Transform transform; ///< in meter
     std::string confidence; ///< detection confidence
     uint64_t timestamp; ///< timestamp of the detection
-    std::string extra;
+    std::string extra; ///< could be used to define random box dimensions
 
     std::string GetJsonString()
     {
@@ -542,9 +546,10 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
         ss << std::setprecision(std::numeric_limits<double>::digits10+1);
         //"{\"name\": \"obj\",\"translation_\":[100,200,300],\"quat_\":[1,0,0,0],\"confidence\":{}}"
         ss << "{";
-        ss << "\"name\": \"" << name << "\", ";
-        ss << "\"object_uri\": \"" << objecturi << "\", ";
-        ss << "\"translation_\": [";
+        ss << ParametersBase::GetJsonString("name") << ": " << ParametersBase::GetJsonString(name) << ", ";
+        ss << ParametersBase::GetJsonString("type") << ": " << ParametersBase::GetJsonString(type) << ", ";
+        ss << ParametersBase::GetJsonString("object_uri") << ": " << ParametersBase::GetJsonString(objecturi) << ", ";
+        ss << ParametersBase::GetJsonString("translation_") << ": [";
         for (unsigned int i=0; i<3; i++) {
             ss << transform.trans[i];
             if (i!=3-1) {
@@ -552,7 +557,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
             }
         }
         ss << "], ";
-        ss << "\"quat_\": [";
+        ss << ParametersBase::GetJsonString("quat_") << ": [";
         for (unsigned int i=0; i<4; i++) {
             ss << transform.rot[i];
             if (i!=4-1) {
@@ -560,9 +565,9 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
             }
         }
         ss << "], ";
-        ss << "\"confidence\": " << confidence;
-        ss << ",\"timestamp\": " << timestamp;
-        ss << "," << ParametersBase::GetJsonString("extra") << ": " << ParametersBase::GetJsonString(extra);
+        ss << ParametersBase::GetJsonString("confidence") << ": " << confidence << ", ";
+        ss << ParametersBase::GetJsonString("timestamp") << ": " << timestamp << ", ";
+        ss << ParametersBase::GetJsonString("extra") << ": " << ParametersBase::GetJsonString(extra);
         ss << "}";
         return ss.str();
     }
@@ -571,6 +576,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
     {
         if (_pt.empty()) {
             _pt.put<std::string>("name", name);
+            _pt.put<std::string>("type", type);
             _pt.put<std::string>("object_uri", objecturi);
             ptree translation_pt;
             for (unsigned int i=0; i<3; i++) {

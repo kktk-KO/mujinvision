@@ -422,24 +422,27 @@ private:
     void _StopStatusThread();
     void _StartStatusPublisher(const unsigned int port);
 
-    /// \param imageStartTimestamp for all captured images, the starttime in ms of the image capture
-    /// \param imageEndTimestamp for all captured images, the endtime in ms of the image capture
-    void _DetectObjects(ThreadType tt,
-                        BinPickingTaskResourcePtr pBinpickingTask,
-                        const std::string& regionname,
-                        const std::vector<std::string>& cameranames,
-                        std::vector<DetectedObjectPtr>& detectedobjectsworld,
-                        std::string& resultstate,
-                        unsigned long long& imageStartTimestamp,
-                        unsigned long long& imageEndTimestamp, 
-                        const bool ignoreocclusion=false,
-                        const unsigned int maxage=0,
-                        const unsigned int fetchimagetimeout=0,
-                        const bool fastdetection=false,
-                        const bool bindetection=false,
-                        const bool request=false,
-                        const bool useold=false,
-                        const bool checkcontaineremptyonly=false);
+    /**
+       \param imageStartTimestamp for all captured images, the starttime in ms of the image capture
+       \param imageEndTimestamp for all captured images, the endtime in ms of the image capture
+       \returns number of detected objects
+    */
+    int _DetectObjects(ThreadType tt,
+                       BinPickingTaskResourcePtr pBinpickingTask,
+                       const std::string& regionname,
+                       const std::vector<std::string>& cameranames,
+                       std::vector<DetectedObjectPtr>& detectedobjectsworld,
+                       std::string& resultstate,
+                       unsigned long long& imageStartTimestamp,
+                       unsigned long long& imageEndTimestamp,
+                       const bool ignoreocclusion=false,
+                       const unsigned int maxage=0,
+                       const unsigned int fetchimagetimeout=0,
+                       const bool fastdetection=false,
+                       const bool bindetection=false,
+                       const bool request=false,
+                       const bool useold=false,
+                       const bool checkcontaineremptyonly=false);
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread);
     void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder, ImagesubscriberHandlerPtr ih);
     void _StopDetectionThread();

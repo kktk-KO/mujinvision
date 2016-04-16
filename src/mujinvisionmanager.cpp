@@ -1916,9 +1916,39 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                 if( bDetectedObjectsValid ) {
                     // use the already acquired detection results without locking
                     unsigned int nameind = 0;
+                    DetectedObjectPtr detectedobject;
+                    RegionPtr region;
+                    TransformMatrix O_T_region, O_T_firstlinkcenter, firstlinkcenter_T_region;
+                    unsigned int numContainers = 0;
                     for (unsigned int i=0; i<vDetectedObject.size(); i++) {
-                        mujinclient::Transform transform;
                         Transform newtransform = _tWorldResultOffset * vDetectedObject[i]->transform; // apply offset to result transform
+                        BinPickingTaskResource::DetectedObject detectedobject;
+                        if (vDetectedObject[i]->type == "container") {
+                            if (numContainers > 0) {
+                                MUJIN_LOG_WARN("more than 1 container is returned in detectedobjects, do not update this object!");
+                                continue;
+                            }
+                            if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
+                                MUJIN_LOG_WARN("container " << regionname << " is unknown, do not update this object");
+                                continue;
+                            }
+                            detectedobject.name = regionname;
+                            // convert O_T_firstlinkcenter to O_T_region, because detector assumes O_T_firstlinkcenter, controller asumes O_T_region
+                            region = _mNameRegion[detectedobject.name];
+                            firstlinkcenter_T_region = region->pRegionParameters->firstlinkcenter_T_region;
+                            O_T_firstlinkcenter = newtransform;
+                            O_T_region = O_T_firstlinkcenter * firstlinkcenter_T_region;
+                            newtransform = O_T_region;
+                            numContainers++;
+                        } else {
+                            std::stringstream name_ss;
+                            name_ss << _targetupdatename << nameind;
+                            detectedobject.name = name_ss.str();
+                            nameind++;
+                        }
+
+                        // convert to mujinclient format
+                        mujinclient::Transform transform;
                         transform.quaternion[0] = newtransform.rot[0];
                         transform.quaternion[1] = newtransform.rot[1];
                         transform.quaternion[2] = newtransform.rot[2];
@@ -1927,15 +1957,6 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                         transform.translate[1] = newtransform.trans[1];
                         transform.translate[2] = newtransform.trans[2];
 
-                        BinPickingTaskResource::DetectedObject detectedobject;
-                        if (vDetectedObject[i]->type == "container") {
-                            detectedobject.name = regionname;
-                        } else {
-                            std::stringstream name_ss;
-                            name_ss << _targetupdatename << nameind;
-                            detectedobject.name = name_ss.str();
-                            nameind++;
-                        }
                         detectedobject.object_uri = vDetectedObject[i]->objecturi;
                         detectedobject.transform = transform;
                         detectedobject.confidence = vDetectedObject[i]->confidence;
@@ -2321,42 +2342,46 @@ void MujinVisionManager::_SyncCamera(const std::string& cameraname, const mujinc
 
 void MujinVisionManager::_SyncRegion(const std::string& regionname)
 {
-    if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
-        throw MujinVisionException("Region "+regionname+ " is unknown!", MVE_InvalidArgument);
-    }
     mujinvision::Transform regiontransform = _GetTransform(regionname);
-    _SyncRegion(regionname, regiontransform);
+    MUJIN_LOG_DEBUG("Computing globalroi3d from mujin controller.");
+    // get axis aligned bounding box for region
+    BinPickingTaskResource::ResultOBB obb;
+    _pBinpickingTask->GetOBB(obb, regionname, "base", "m");
+    // get inner obb from mujin controller
+    MUJIN_LOG_DEBUG("getting obb from mujin controller.");
+    BinPickingTaskResource::ResultOBB innerobb;
+    _pBinpickingTask->GetInnerEmptyRegionOBB(innerobb, regionname, "base", "m");
+    _SyncRegion(regionname, regiontransform, obb, innerobb);
 }
 
-
-void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinclient::Transform& t)
-{
-    if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
-        throw MujinVisionException("Region "+regionname+ " is unknown!", MVE_InvalidArgument);
-    }
-    mujinvision::Transform regiontransform = _GetTransform(t);
-    _SyncRegion(regionname, regiontransform);
-}
-
-void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinvision::Transform& regiontransform)
+void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinvision::Transform& regiontransform, const BinPickingTaskResource::ResultOBB& obb, const BinPickingTaskResource::ResultOBB& innerobb)
 {
     _mNameRegion[regionname]->SetWorldTransform(regiontransform);
     MUJIN_LOG_DEBUG("setting region transform to:\n" + _GetString(_mNameRegion[regionname]->GetWorldTransform()));
     // update globalroi3d from mujin controller
-    MUJIN_LOG_DEBUG("Computing globalroi3d from mujin controller.");
-    // get axis aligned bounding box for region
-    BinPickingTaskResource::ResultOBB robbe;
-    _pBinpickingTask->GetOBB(robbe, regionname, "base", "m");
-    _mNameRegion[regionname]->pRegionParameters->outerTranslation = robbe.translation;
-    _mNameRegion[regionname]->pRegionParameters->outerExtents = robbe.extents;
-    _mNameRegion[regionname]->pRegionParameters->outerRotationmat = robbe.rotationmat;
-    // get inner obb from mujin controller
-    MUJIN_LOG_DEBUG("getting obb from mujin controller.");
-    BinPickingTaskResource::ResultOBB robb;
-    _pBinpickingTask->GetInnerEmptyRegionOBB(robb, regionname, "base", "m");
-    _mNameRegion[regionname]->pRegionParameters->innerTranslation = robb.translation;
-    _mNameRegion[regionname]->pRegionParameters->innerExtents = robb.extents;
-    _mNameRegion[regionname]->pRegionParameters->innerRotationmat = robb.rotationmat;
+    _mNameRegion[regionname]->pRegionParameters->outerTranslation = obb.translation;
+    _mNameRegion[regionname]->pRegionParameters->outerExtents = obb.extents;
+    _mNameRegion[regionname]->pRegionParameters->outerRotationmat = obb.rotationmat;
+    _mNameRegion[regionname]->pRegionParameters->innerTranslation = innerobb.translation;
+    _mNameRegion[regionname]->pRegionParameters->innerExtents = innerobb.extents;
+    _mNameRegion[regionname]->pRegionParameters->innerRotationmat = innerobb.rotationmat;
+    Transform O_T_region = regiontransform;
+    Transform O_T_firstlinkcenter;
+    O_T_firstlinkcenter.trans[0] = obb.translation[0];
+    O_T_firstlinkcenter.trans[1] = obb.translation[1];
+    O_T_firstlinkcenter.trans[2] = obb.translation[2];
+    TransformMatrix matrix;
+    for (unsigned int r = 0; r < 3; ++r) {
+        for (unsigned int c = 0; c < 3; ++c) {
+            matrix.m[r*4+c] = obb.rotationmat[r*3+c];
+        }
+    }
+    Vector quat = quatFromMatrix(matrix);
+    O_T_firstlinkcenter.rot[0] = quat[0];
+    O_T_firstlinkcenter.rot[1] = quat[1];
+    O_T_firstlinkcenter.rot[2] = quat[2];
+    O_T_firstlinkcenter.rot[3] = quat[3];
+    _mNameRegion[regionname]->pRegionParameters->firstlinkcenter_T_region = O_T_firstlinkcenter.inverse() * O_T_region;
 }
 
 void MujinVisionManager::RegisterCustomCommand(const std::string& cmdname, CustomCommandFn fncmd)
@@ -2873,8 +2898,10 @@ void MujinVisionManager::Initialize(
     // sync regions
     starttime = GetMilliTime();
     _SetStatusMessage(TT_Command, "Syncing regions.");
-    FOREACH(it, resultgetinstobjectandsensorinfo.minstobjecttransform) {
-        _SyncRegion(it->first, it->second);
+    mujinvision::Transform regiontransform;
+    for (size_t i=0; i<regionnames.size(); ++i) {
+        regiontransform = _GetTransform(resultgetinstobjectandsensorinfo.minstobjecttransform[regionnames[i]]);
+        _SyncRegion(regionnames[i], regiontransform, resultgetinstobjectandsensorinfo.minstobjectobb[regionnames[i]], resultgetinstobjectandsensorinfo.minstobjectinnerobb[regionnames[i]]);
     }
     MUJIN_LOG_DEBUG("sync regions took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
 

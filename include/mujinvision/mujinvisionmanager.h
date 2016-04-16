@@ -485,8 +485,7 @@ private:
     /** \brief Updates the world transform of region from the mujin controller.
      */
     void _SyncRegion(const std::string& regionname);
-    void _SyncRegion(const std::string& regionname, const mujinclient::Transform& t);
-    void _SyncRegion(const std::string& regionname, const mujinvision::Transform& t);
+    void _SyncRegion(const std::string& regionname, const Transform& regiontransform, const BinPickingTaskResource::ResultOBB& obb, const BinPickingTaskResource::ResultOBB& innerobb);
 
     /** \brief Updates the world transform of camera from the mujin controller.
      */

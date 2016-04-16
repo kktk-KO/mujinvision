@@ -662,7 +662,8 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     std::vector<double> outerTranslation;
     std::vector<double> outerExtents;
     std::vector<double> outerRotationmat; // row major
-    
+
+    Transform firstlinkcenter_T_region; ///< region origin in the frame of the first link center
     std::string GetJsonString()
     {
         std::stringstream ss;

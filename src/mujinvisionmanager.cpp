@@ -2288,42 +2288,29 @@ void MujinVisionManager::_SyncCamera(const std::string& cameraname, const mujinc
 
 void MujinVisionManager::_SyncRegion(const std::string& regionname)
 {
-    if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
-        throw MujinVisionException("Region "+regionname+ " is unknown!", MVE_InvalidArgument);
-    }
     mujinvision::Transform regiontransform = _GetTransform(regionname);
-    _SyncRegion(regionname, regiontransform);
+    MUJIN_LOG_DEBUG("Computing globalroi3d from mujin controller.");
+    // get axis aligned bounding box for region
+    BinPickingTaskResource::ResultOBB obb;
+    _pBinpickingTask->GetOBB(obb, regionname, "base", "m");
+    // get inner obb from mujin controller
+    MUJIN_LOG_DEBUG("getting obb from mujin controller.");
+    BinPickingTaskResource::ResultOBB innerobb;
+    _pBinpickingTask->GetInnerEmptyRegionOBB(innerobb, regionname, "base", "m");
+    _SyncRegion(regionname, regiontransform, obb, innerobb);
 }
 
-
-void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinclient::Transform& t)
-{
-    if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
-        throw MujinVisionException("Region "+regionname+ " is unknown!", MVE_InvalidArgument);
-    }
-    mujinvision::Transform regiontransform = _GetTransform(t);
-    _SyncRegion(regionname, regiontransform);
-}
-
-void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinvision::Transform& regiontransform)
+void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinvision::Transform& regiontransform, const BinPickingTaskResource::ResultOBB& obb, const BinPickingTaskResource::ResultOBB& innerobb)
 {
     _mNameRegion[regionname]->SetWorldTransform(regiontransform);
     MUJIN_LOG_DEBUG("setting region transform to:\n" + _GetString(_mNameRegion[regionname]->GetWorldTransform()));
     // update globalroi3d from mujin controller
-    MUJIN_LOG_DEBUG("Computing globalroi3d from mujin controller.");
-    // get axis aligned bounding box for region
-    BinPickingTaskResource::ResultOBB robbe;
-    _pBinpickingTask->GetOBB(robbe, regionname, "base", "m");
-    _mNameRegion[regionname]->pRegionParameters->outerTranslation = robbe.translation;
-    _mNameRegion[regionname]->pRegionParameters->outerExtents = robbe.extents;
-    _mNameRegion[regionname]->pRegionParameters->outerRotationmat = robbe.rotationmat;
-    // get inner obb from mujin controller
-    MUJIN_LOG_DEBUG("getting obb from mujin controller.");
-    BinPickingTaskResource::ResultOBB robb;
-    _pBinpickingTask->GetInnerEmptyRegionOBB(robb, regionname, "base", "m");
-    _mNameRegion[regionname]->pRegionParameters->innerTranslation = robb.translation;
-    _mNameRegion[regionname]->pRegionParameters->innerExtents = robb.extents;
-    _mNameRegion[regionname]->pRegionParameters->innerRotationmat = robb.rotationmat;
+    _mNameRegion[regionname]->pRegionParameters->outerTranslation = obb.translation;
+    _mNameRegion[regionname]->pRegionParameters->outerExtents = obb.extents;
+    _mNameRegion[regionname]->pRegionParameters->outerRotationmat = obb.rotationmat;
+    _mNameRegion[regionname]->pRegionParameters->innerTranslation = innerobb.translation;
+    _mNameRegion[regionname]->pRegionParameters->innerExtents = innerobb.extents;
+    _mNameRegion[regionname]->pRegionParameters->innerRotationmat = innerobb.rotationmat;
 }
 
 void MujinVisionManager::RegisterCustomCommand(const std::string& cmdname, CustomCommandFn fncmd)
@@ -2813,8 +2800,10 @@ void MujinVisionManager::Initialize(
     // sync regions
     starttime = GetMilliTime();
     _SetStatusMessage(TT_Command, "Syncing regions.");
-    FOREACH(it, resultgetinstobjectandsensorinfo.minstobjecttransform) {
-        _SyncRegion(it->first, it->second);
+    mujinvision::Transform regiontransform;
+    for (size_t i=0; i<regionnames.size(); ++i) {
+        regiontransform = _GetTransform(resultgetinstobjectandsensorinfo.minstobjecttransform[regionnames[i]]);
+        _SyncRegion(regionnames[i], regiontransform, resultgetinstobjectandsensorinfo.minstobjectobb[regionnames[i]], resultgetinstobjectandsensorinfo.minstobjectinnerobb[regionnames[i]]);
     }
     MUJIN_LOG_DEBUG("sync regions took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
 

@@ -533,13 +533,13 @@ private:
      */
     void _ParseCameraName(const std::string& cameraname, std::string& camerabodyname, std::string& sensorname);
 
-    std::string _GetExtraCaptureOptions(const std::string& regionname);
+    std::string _GetExtraCaptureOptions(const std::string& regionname, const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion);
     std::string _GetConfigFileName(const std::string& type, const std::string& configname);
     void _LoadConfig(const std::string& filename, std::string& content);
 
     bool _PreemptSubscriber();
 
-    void _StartCapture(const std::string& regionname, const std::vector<std::string>& cameranames, const double& timeout=5.0, const int numimages=-1);
+    void _StartCapture(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion=std::vector<std::string>(), const double& timeout=5.0, const int numimages=-1);
     void _StopCapture(const std::vector<std::string>& cameranames);
 
     unsigned int _statusport, _commandport, _configport;

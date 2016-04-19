@@ -1563,7 +1563,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     unsigned long long lastGrabbedTargetTimeStamp = 0;
     unsigned int numdetection = 0;
     std::vector<DetectedObjectPtr> detectedobjects;
-    while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimeStamp > _tsStartDetection && _tsLastEnvUpdate > 0 && lastGrabbedTargetTimeStamp < _tsLastEnvUpdate)) {
+    while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimeStamp > _tsStartDetection && _tsLastEnvUpdate > 0 && lastGrabbedTargetTimeStamp < _resultImageEndTimestamp)) {
         detectcontaineronly = false;
         time0 = GetMilliTime();
         std::string resultstate;
@@ -1575,7 +1575,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
                 if (binpickingstateTimestamp != _binpickingstateTimestamp) {
                     std::stringstream ss;
-                    ss << "DetectionThread binpickingstate: ts=" << _binpickingstateTimestamp << " numPickAttempt=" << _numPickAttempt << " isControllerPickPlaceRunning=" << _bIsControllerPickPlaceRunning << " isRobotOccludingContainer=" << _bIsRobotOccludingSourceContainer << " forceRequestDetectionResults=" << forceRequestDetectionResults << " numLeftInOrder=" << numLeftInOrder << " lastGrabbedTargetTimeStamp=" << _lastGrabbedTargetTimestamp << " _tsLastEnvUpdate=" << _tsLastEnvUpdate;
+                    ss << "DetectionThread binpickingstate: ts=" << _binpickingstateTimestamp << " numPickAttempt=" << _numPickAttempt << " isControllerPickPlaceRunning=" << _bIsControllerPickPlaceRunning << " isRobotOccludingContainer=" << _bIsRobotOccludingSourceContainer << " forceRequestDetectionResults=" << forceRequestDetectionResults << " numLeftInOrder=" << numLeftInOrder << " lastGrabbedTargetTimeStamp=" << _lastGrabbedTargetTimestamp << " _tsLastEnvUpdate=" << _tsLastEnvUpdate << " _resultImageEndTimestamp" << _resultImageEndTimestamp;
                     MUJIN_LOG_DEBUG(ss.str());
                 }
                 binpickingstateTimestamp = _binpickingstateTimestamp;
@@ -1690,7 +1690,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             _resultTimestamp = GetMilliTime();
                             _resultImageStartTimestamp = imageStartTimestamp;
                             _resultImageEndTimestamp = imageEndTimestamp;
-                            MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp));
+                            MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
                         }
                         
                         numfastdetection -= 1;
@@ -1776,7 +1776,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             _resultTimestamp = GetMilliTime();
             _resultImageStartTimestamp = imageStartTimestamp;
             _resultImageEndTimestamp = imageEndTimestamp;
-            MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp));
+            MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
         } else {
             MUJIN_LOG_INFO("resultstate is null, do not update result");
         }

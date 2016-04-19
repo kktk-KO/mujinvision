@@ -2550,7 +2550,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                         read_json(ss, tmppt);
                         int occlusionchecked = tmppt.get<int>("occlusionchecked", 0);
                         if (occlusionchecked == 0) {
-                            MUJIN_LOG_ERROR(image->metadata);
+                            //MUJIN_LOG_ERROR(image->metadata);
                             pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, image->timestamp, image->endtimestamp, isoccluding);
                             checkedcameranames.push_back(cameraname);
                         } else {

@@ -484,7 +484,15 @@ private:
     /** \brief Updates the world transform of region from the mujin controller.
      */
     void _SyncRegion(const std::string& regionname);
-    void _SyncRegion(const std::string& regionname, const Transform& regiontransform, const BinPickingTaskResource::ResultOBB& obb, const BinPickingTaskResource::ResultOBB& innerobb);
+
+    /** \brief Updates the world transform of region from the mujin controller.
+
+        \param regionname the container name that can be queried via the controller api
+        \param regiontransform the transform of the container origin that can be queried via the controller api
+        \param baselinkobb the obb of just the link whose name is "base" of the container defined by regionname. obb is in world frame.
+        \param innerobb the inner extents of the empty region where parts can be placed. obb is in world frame.
+     */
+    void _SyncRegion(const std::string& regionname, const Transform& regiontransform, const BinPickingTaskResource::ResultOBB& baselinkobb, const BinPickingTaskResource::ResultOBB& innerobb);
 
     /** \brief Updates the world transform of camera from the mujin controller.
      */

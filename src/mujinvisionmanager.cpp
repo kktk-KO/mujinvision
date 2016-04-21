@@ -793,7 +793,8 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             std::vector<DetectedObjectPtr> detectedobjects;
             std::string resultstate;
             unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
-            _DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection);
+            int isContainerPresent=-1;
+            _DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection);
             result_ss << "{";
             result_ss << _GetJsonString(detectedobjects) << ", ";
             result_ss << ParametersBase::GetJsonString("state") << ": " << resultstate << ", ";
@@ -1544,6 +1545,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
     uint64_t time0;
     int numfastdetection = maxnumfastdetection; // max num of times to run fast detection
+    bool bindetectiononly = false;
+    if (numfastdetection == 0) {
+        MUJIN_LOG_INFO("maxnumfastdetection is set to 0, need to do bin detection for at least once");
+        bindetectiononly = true;
+    }
     int lastDetectedId = 0;
     int lastPickedId = -1;
     uint64_t lastocclusionwarningts = 0;
@@ -1570,6 +1576,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         detectedobjects.resize(0);
         int numresults = 0;
         unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
+        int isContainerPresent=-1;
         try {
             {
                 boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
@@ -1669,43 +1676,73 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
             if (detectcontaineronly) {
                 MUJIN_LOG_DEBUG("detect to check if container is empty");
-                numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, false, false, false, false, true);
-            } else if (numfastdetection > 0) {
-                while (!_bStopDetectionThread && numresults == 0 && numfastdetection > 0) {
-                    MUJIN_LOG_DEBUG("DetectObjects() in fast mode");
-                    numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, true, true);
-                    if (numresults == 0) {
-                        // have to do again, so publish the current result. even if no detected objects, resultstate can have info about the container (like empty)
-                        if (resultstate != "null") {
-                            boost::mutex::scoped_lock lock(_mutexDetectedInfo);
-                            if( !detectcontaineronly ) {
-                                // only update the objects if detector actually returned them, otherwise will be erasing previously sent good results
-                                _vDetectedObject.swap(detectedobjects);
-                                _bDetectedObjectsValid = true;
-                            }
-                            else {
-                                _bDetectedObjectsValid = false;
-                            }
-                            _resultState = resultstate;
-                            _resultTimestamp = GetMilliTime();
-                            _resultImageStartTimestamp = imageStartTimestamp;
-                            _resultImageEndTimestamp = imageEndTimestamp;
-                            MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
-                        }
-                        
-                        numfastdetection -= 1;
+                bool fastdetection=false;
+                bool bindetection=false;
+                bool request=false;
+                bool useold=false;
+                bool checkcontaineremptyonly=true;
+                numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
+            } else if (numfastdetection > 0 || bindetectiononly) {
+                while (!_bStopDetectionThread && numresults == 0 && (numfastdetection > 0 || bindetectiononly)) {
+                    bool fastdetection=true;
+                    bool bindetection=true;
+                    bool request=false;
+                    bool useold=false;
+                    bool checkcontaineremptyonly=false;
+                    if (bindetectiononly) {
+                        fastdetection = false;
+                        bindetectiononly = false;
+                        MUJIN_LOG_DEBUG("DetectObjects() in normal mode for bindetection only");
                     } else {
-                        numfastdetection = 0;
+                        MUJIN_LOG_DEBUG("DetectObjects() in fast mode and for bindetection");
+                    }
+                    numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
+                    if (isContainerPresent == 0) {
+                        numresults = 0;
+                        MUJIN_LOG_WARN("container is not present, detect again");
+                    } else {
+                        if (numresults == 0) {
+                            // have to do again, so publish the current result. even if no detected objects, resultstate can have info about the container (like empty)
+                            if (resultstate != "null") {
+                                boost::mutex::scoped_lock lock(_mutexDetectedInfo);
+                                if( !detectcontaineronly ) {
+                                    // only update the objects if detector actually returned them, otherwise will be erasing previously sent good results
+                                    _vDetectedObject.swap(detectedobjects);
+                                    _bDetectedObjectsValid = true;
+                                }
+                                else {
+                                    _bDetectedObjectsValid = false;
+                                }
+                                _resultState = resultstate;
+                                _resultTimestamp = GetMilliTime();
+                                _resultImageStartTimestamp = imageStartTimestamp;
+                                _resultImageEndTimestamp = imageEndTimestamp;
+                                MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
+                            }
+                        
+                            numfastdetection -= 1;
+                        } else {
+                            numfastdetection = 0;
+                        }
                     }
                 }
                 if (!_bStopDetectionThread && numresults == 0 && numfastdetection == 0) {
                     MUJIN_LOG_DEBUG("DetectObjects() in fast mode found no object, detect in normal mode");
-                    _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, false, false, false, true);
+                    bool fastdetection=false;
+                    bool bindetection=false;
+                    bool request=false;
+                    bool useold=true;
+                    bool checkcontaineremptyonly=false;
+                    _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
                 }
-                numfastdetection -= 1;
             } else {
                 MUJIN_LOG_DEBUG("detect normally");
-                _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, false, false);
+                bool fastdetection=false;
+                bool bindetection=false;
+                bool request=false;
+                bool useold=false;
+                bool checkcontaineremptyonly=false;
+                _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
             }
             if (_bStopDetectionThread) {
                 break;
@@ -1899,7 +1936,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                             // a region is being updated
                             //MUJIN_LOG_WARN("container " << regionname << " is unknown, do not update this object");
                             //continue;
-                            
+                            // use detected object name for regionname
                             detectedobject.name = vDetectedObject[i]->name;
                             // convert O_T_baselinkcenter to O_T_region, because detector assumes O_T_baselinkcenter, controller asumes O_T_region
                             region = _mNameRegion[detectedobject.name];
@@ -1909,6 +1946,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                             newtransform = O_T_region;
                             numUpdatedRegions++;
                         } else {
+                            // overwrite name because we need to add id to the end
                             std::stringstream name_ss;
                             name_ss << _targetupdatename << nameind;
                             detectedobject.name = name_ss.str();
@@ -3004,10 +3042,11 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
     }
     _StartCapture(cameranames);
     unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
-    _DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold);
+    int isContainerPresent=-1;
+    _DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold);
 }
 
-int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request, const bool useold, const bool checkcontaineremptyonly)
+int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, int& isContainerPresent, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request, const bool useold, const bool checkcontaineremptyonly)
 {
     boost::mutex::scoped_lock lock(_mutexDetector);
     uint64_t starttime = GetMilliTime();
@@ -3048,6 +3087,10 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
             MUJIN_LOG_WARN("numDetectedObjects is not in resultstate");
         }
         numresults = pt.get<int>("numDetectedParts", detectedobjects.size());
+        if (pt.count("isContainerPresent") == 0) {
+            MUJIN_LOG_WARN("isContainerPresent is not in resultstate");
+        }
+        isContainerPresent = pt.get<int>("isContainerPresent", -1);
     }
     //std::stringstream msgss;
     //msgss << "Detected " << detectedobjects.size() << " objects, state: " << resultstate <<". Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";

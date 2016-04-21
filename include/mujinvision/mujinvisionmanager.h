@@ -435,6 +435,7 @@ private:
                        std::string& resultstate,
                        unsigned long long& imageStartTimestamp,
                        unsigned long long& imageEndTimestamp,
+                       int& isContainerPresent,
                        const bool ignoreocclusion=false,
                        const unsigned int maxage=0,
                        const unsigned int fetchimagetimeout=0,

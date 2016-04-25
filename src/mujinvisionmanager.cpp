@@ -2142,7 +2142,9 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 unsigned long long cloudstarttime, cloudendtime;
 
                 _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn);
-                if (cloudstarttime > lastsentcloudtime) {
+                if (points.size() == 0) {
+                    //MUJIN_LOG_WARN("got 0 points from camera " << cameraname << ", do not send to controller");
+                } else if (cloudstarttime > lastsentcloudtime) {
                     lastsentcloudtime = cloudstarttime;
                     try {
                         uint64_t starttime = GetMilliTime();
@@ -2162,6 +2164,8 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                             MUJIN_LOG_WARN(ss.str());
                         }
                     }
+                } else {
+                    //MUJIN_LOG_DEBUG("got old point cloud from camera " << cameraname << ", do not send to controller");
                 }
             }
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));

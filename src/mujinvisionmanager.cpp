@@ -1928,7 +1928,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                     TransformMatrix O_T_region, O_T_baselinkcenter, tBaseLinkInInnerRegionTopCenter;
                     unsigned int numUpdatedRegions = 0;
                     for (unsigned int i=0; i<vDetectedObject.size(); i++) {
-                        Transform newtransform = _tWorldResultOffset * vDetectedObject[i]->transform; // apply offset to result transform
+                        Transform newtransform;
                         BinPickingTaskResource::DetectedObject detectedobject;
 //                        if (vDetectedObject[i]->type == "container") {
 //                            if (numUpdatedRegions > 0) {
@@ -1936,6 +1936,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
 //                                continue;
 //                            }
                         if (_mNameRegion.find(vDetectedObject[i]->name) != _mNameRegion.end()) {
+                            newtransform = vDetectedObject[i]->transform; // use result directly for container
                             // a region is being updated
                             //MUJIN_LOG_WARN("container " << regionname << " is unknown, do not update this object");
                             //continue;
@@ -1949,6 +1950,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                             newtransform = O_T_region;
                             numUpdatedRegions++;
                         } else {
+                            newtransform = _tWorldResultOffset * vDetectedObject[i]->transform; // apply offset to result transform
                             // overwrite name because we need to add id to the end
                             std::stringstream name_ss;
                             name_ss << _targetupdatename << nameind;

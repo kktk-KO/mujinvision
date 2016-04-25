@@ -684,6 +684,7 @@ private:
     bool _bIsEnvironmentUpdateRunning; ///< whether env update thread is running
     bool _bSendVerificationPointCloud; ///< whether send verification point cloud or not
     bool _bDetectedObjectsValid; ///< if true, then _vDetectedObject is valid and should be updated to the scene. if false, then not valid and UpdateEnvironmentState should not update the objects. protected by _mutexDetectedInfo
+    bool _bDetectBin; ///< whether to detect bin
     std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether to stop the command thread of specified port
 
 };

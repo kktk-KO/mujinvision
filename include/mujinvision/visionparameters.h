@@ -479,7 +479,7 @@ inline Transform GetTransform(const ptree& pt) {
 struct MUJINVISION_API DetectedObject : public ParametersBase
 {
     DetectedObject() {
-        type = "part";
+        //type = "part";
         confidence = "0";
         extra = "null";
     }
@@ -488,7 +488,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
     DetectedObject(const ptree& pt) {
         _pt = pt;
         name = pt.get<std::string>("name");
-        type = pt.get<std::string>("type", "part");
+        //type = pt.get<std::string>("type", "part");
         objecturi = pt.get<std::string>("object_uri");
         unsigned int i=0;
         FOREACH(v, pt.get_child("translation_")) {
@@ -518,7 +518,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
     }
 
     /// assume input is in meter
-    DetectedObject(const std::string& n, const std::string& u, const Transform& t, const std::string& c, const uint64_t ts, const std::string& e, const std::string& ty="part")
+    DetectedObject(const std::string& n, const std::string& u, const Transform& t, const std::string& c, const uint64_t ts, const std::string& e)
     {
         name = n;
         objecturi = u;
@@ -526,14 +526,14 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
         confidence = c;
         timestamp = ts;
         extra = e;
-        type = ty;
+        //type = ty;
     }
 
     virtual ~DetectedObject() {
     }
 
     std::string name;
-    std::string type; ///< default is "part", could be "container"
+    //std::string type; ///< default is "part", could be "container"
     std::string objecturi;  ///< could be empty for "container" type
     Transform transform; ///< in meter
     std::string confidence; ///< detection confidence
@@ -547,7 +547,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
         //"{\"name\": \"obj\",\"translation_\":[100,200,300],\"quat_\":[1,0,0,0],\"confidence\":{}}"
         ss << "{";
         ss << ParametersBase::GetJsonString("name") << ": " << ParametersBase::GetJsonString(name) << ", ";
-        ss << ParametersBase::GetJsonString("type") << ": " << ParametersBase::GetJsonString(type) << ", ";
+        //ss << ParametersBase::GetJsonString("type") << ": " << ParametersBase::GetJsonString(type) << ", ";
         ss << ParametersBase::GetJsonString("object_uri") << ": " << ParametersBase::GetJsonString(objecturi) << ", ";
         ss << ParametersBase::GetJsonString("translation_") << ": [";
         for (unsigned int i=0; i<3; i++) {
@@ -576,7 +576,7 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
     {
         if (_pt.empty()) {
             _pt.put<std::string>("name", name);
-            _pt.put<std::string>("type", type);
+            //_pt.put<std::string>("type", type);
             _pt.put<std::string>("object_uri", objecturi);
             ptree translation_pt;
             for (unsigned int i=0; i<3; i++) {
@@ -656,14 +656,14 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     std::string visualizationuri; ///< visualiation URI for the container for debugging purposes.
 
     // the following params are initialized later during visionmanager initialization
-    std::vector<double> innerTranslation;
-    std::vector<double> innerExtents;
-    std::vector<double> innerRotationmat; // row major
-    std::vector<double> outerTranslation;
-    std::vector<double> outerExtents;
-    std::vector<double> outerRotationmat; // row major
+    std::vector<double> innerTranslation; ///< the center of the box defining the inner region in the world frame
+    std::vector<double> innerExtents; ///< the half extents inner region where parts can be found
+    std::vector<double> innerRotationmat; ///< defining rotation of inner box in the world frame, 3x3 row major
+    std::vector<double> outerTranslation; ///< the center of the box defining the outer extents of the base link (physical) in the world frame
+    std::vector<double> outerExtents; ///< the outer extents of the region defining the outer walls of container (physical).
+    std::vector<double> outerRotationmat; ///< defining rotation of outer box (physical) in the world frame, 3x3 row major
 
-    Transform firstlinkcenter_T_region; ///< region origin in the frame of the first link center
+    Transform tBaseLinkInInnerRegionTopCenter; ///< transform of the container link's coordinate system with respect to the inner region's center top face (firstlinkcenter_T_region)
     std::string GetJsonString()
     {
         std::stringstream ss;
@@ -804,22 +804,22 @@ public:
 
     void SetWorldTransform(const Transform& t)
     {
-        worldTransform = t;
-        toRegionTransform = worldTransform.inverse();
+        //worldTransform = t;
+        //toRegionTransform = worldTransform.inverse();
     }
 
-    const Transform& GetWorldTransform() const
-    {
-        return worldTransform;
-    }
+//    const Transform& GetWorldTransform() const
+//    {
+//        return worldTransform;
+//    }
 
     RegionParametersPtr pRegionParameters;
 
 private:
 
     /// \brief used to transform a point in the world frame to the box frame
-    Transform toRegionTransform;
-    Transform worldTransform;
+    //Transform toRegionTransform;
+    //Transform worldTransform;
 
 };
 typedef boost::shared_ptr<Region> RegionPtr;

@@ -1546,7 +1546,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     uint64_t time0;
     int numfastdetection = maxnumfastdetection; // max num of times to run fast detection
     bool bindetectiononly = false;
-    if (numfastdetection == 0) {
+    if (numfastdetection == 0 && _bDetectBin) {
         MUJIN_LOG_INFO("maxnumfastdetection is set to 0, need to do bin detection for at least once");
         bindetectiononly = true;
     }
@@ -1685,7 +1685,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             } else if (numfastdetection > 0 || bindetectiononly) {
                 while (!_bStopDetectionThread && numresults == 0 && (numfastdetection > 0 || bindetectiononly)) {
                     bool fastdetection=true;
-                    bool bindetection=true;
+                    bool bindetection=_bDetectBin;
                     bool request=false;
                     bool useold=false;
                     bool checkcontaineremptyonly=false;
@@ -1694,7 +1694,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                         bindetectiononly = false;
                         MUJIN_LOG_DEBUG("DetectObjects() in normal mode for bindetection only");
                     } else {
-                        MUJIN_LOG_DEBUG("DetectObjects() in fast mode and for bindetection");
+                        MUJIN_LOG_DEBUG("DetectObjects() in fast mode");
+                    }
+                    if (_bDetectBin) {
+                        MUJIN_LOG_DEBUG("call DetectObjects() with bindetection=true");
                     }
                     numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
                     if (isContainerPresent == 0) {
@@ -2816,7 +2819,7 @@ void MujinVisionManager::Initialize(
     _filteringvoxelsize = _visionserverpt.get<double>("filteringvoxelsize", 0.01);
     _filteringstddev = _visionserverpt.get<double>("filteringstddev", 0.01);
     _filteringnumnn = _visionserverpt.get<int>("filteringnumnn", 80);
-
+    _bDetectBin = _visionserverpt.get<bool>("detectbin", true);
     std::string detectormodulename = _visionserverpt.get<std::string>("modulename", "");
     std::string detectorclassname = _visionserverpt.get<std::string>("classname", "");
     if (detectormodulename.size() > 0 && detectorclassname.size() > 0) {

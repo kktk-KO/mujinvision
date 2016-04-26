@@ -389,7 +389,7 @@ private:
     class ImagesubscriberHandler
     {
     public:
-        ImagesubscriberHandler(ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const ptree& visionserverpt);
+        ImagesubscriberHandler(const std::string& regionname, ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const std::vector<std::string>& occlusioncheckids, const ptree& visionserverpt, const std::string& controllerip, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname);
         virtual ~ImagesubscriberHandler();
         ImageSubscriberManagerPtr _pManager;
         std::vector<std::string> _vIds;
@@ -542,7 +542,6 @@ private:
      */
     void _ParseCameraName(const std::string& cameraname, std::string& camerabodyname, std::string& sensorname);
 
-    std::string _GetExtraCaptureOptions(const std::string& regionname, const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion);
     std::string _GetConfigFileName(const std::string& type, const std::string& configname);
     void _LoadConfig(const std::string& filename, std::string& content);
 

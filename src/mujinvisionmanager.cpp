@@ -1568,12 +1568,13 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     unsigned long long binpickingstateTimestamp = 0;
     unsigned long long lastGrabbedTargetTimeStamp = 0;
     unsigned int numdetection = 0;
-    std::vector<DetectedObjectPtr> detectedobjects;
+    std::vector<DetectedObjectPtr> detectedobjects, detectedparts;
     while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimeStamp > _tsStartDetection && _tsLastEnvUpdate > 0 && lastGrabbedTargetTimeStamp < _resultImageEndTimestamp)) {
         detectcontaineronly = false;
         time0 = GetMilliTime();
         std::string resultstate;
         detectedobjects.resize(0);
+        detectedparts.resize(0);
         int numresults = 0;
         unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
         int isContainerPresent=-1;
@@ -1750,6 +1751,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             if (_bStopDetectionThread) {
                 break;
             }
+            // call GetPointCloudObstacle on parts only
+            for (size_t i=0; i<detectedobjects.size(); ++i) {
+                if (_mNameRegion.find(detectedobjects[i]->name) == _mNameRegion.end()) {
+                    detectedparts.push_back(detectedobjects[i]);
+                }
+            }
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
             for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
                 std::string cameraname = cameranamestobeused[i];
@@ -1758,7 +1765,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 uint64_t starttime = GetMilliTime();
                 {
                     boost::mutex::scoped_lock lock(_mutexDetector);
-                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjects, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
+                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedparts, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
                 }
                 ss << "GetPointCloudObstacle() took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                 MUJIN_LOG_INFO(ss.str());

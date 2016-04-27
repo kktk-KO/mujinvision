@@ -152,6 +152,15 @@ void __GetMachineName(char* machineName)
     strncpy(machineName, Name, 150);
 }
 
+std::string __GetString(const std::vector<std::string>& strings)
+{
+    std::stringstream ss;
+    for (size_t i=0; i<strings.size(); ++i) {
+        ss << strings[i] << " ";
+    }
+    return ss.str();
+}
+
 namespace mujinvision {
 
 std::string _GetExtraCaptureOptions(const std::string& regionname, const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const ptree& visionserverpt, const std::string& controllerip, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname)
@@ -180,7 +189,7 @@ std::string _GetExtraCaptureOptions(const std::string& regionname, const std::ve
     extraoptionspt.put_child("cameraidcheckocclusionmap", cameraidcheckocclusionpt);
     std::stringstream ss;
     write_json(ss, extraoptionspt);
-    MUJIN_LOG_DEBUG(ss.str());
+    //MUJIN_LOG_DEBUG(ss.str());
     return ss.str();
 }
 
@@ -2172,7 +2181,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         std::map<std::string, uint64_t> mCameranameLastsentcloudtime;
         while (!_bStopExecutionVerificationPointCloudThread && evcamnames.size() > 0) {
             // ensure publishing
-            _StartCapture(regionname, evcamnames);
+            _StartCapture(regionname, evcamnames, evcamnames);
 
             // send latest pointcloud for execution verification
             for (unsigned int i=0; i<evcamnames.size(); ++i) {
@@ -2183,7 +2192,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn);
                 if (points.size() == 0) {
                     MUJIN_LOG_WARN("got 0 points from camera " << cameraname << ", do not send to controller");
-                } else if (mCameranameLastsentcloudtime.find(cameraname) == mCameranameLastsentcloudtime.end() || cloudstarttime >= mCameranameLastsentcloudtime[cameraname]) {
+                } else if (mCameranameLastsentcloudtime.find(cameraname) == mCameranameLastsentcloudtime.end() || cloudstarttime > mCameranameLastsentcloudtime[cameraname]) {
                     mCameranameLastsentcloudtime[cameraname] = cloudstarttime;
                     try {
                         uint64_t starttime = GetMilliTime();
@@ -3157,7 +3166,7 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
     // set up images
     std::vector<ImagePtr> colorimages, depthimages, resultimages;
     _GetImages(tt, pBinpickingTask, regionname, colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, request, useold);
-    MUJIN_LOG_INFO("Getting images took " + boost::lexical_cast<std::string>((GetMilliTime() - starttime) / 1000.0f));
+    MUJIN_LOG_INFO("Getting images took " << ((GetMilliTime() - starttime) / 1000.0f) << " for " << __GetString(colorcameranames) << " " << __GetString(depthcameranames));
     starttime = GetMilliTime();
     if (resultimages.size() > 0 || (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size())) {
         for (size_t i=0; i<colorimages.size(); ++i) {

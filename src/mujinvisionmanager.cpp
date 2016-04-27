@@ -3094,6 +3094,11 @@ void MujinVisionManager::Initialize(
     _SetStatusMessage(TT_Command, "Setting up image manager.");
     _pImagesubscriberManager->Initialize(_mNameCamera, streamerIp, streamerPort, imagesubscriberpt.get_child("zmq_subscriber"), _zmqcontext);
 
+    // start capturing for all cameras to speed up initial cycle
+    //for (size_t i=0; i<regionnames.size(); ++i) {
+        //_StartCapture(regionnames[i], _mNameRegion[regionnames[i]]->pRegionParameters->cameranames, _mNameRegion[regionnames[i]]->pRegionParameters->cameranames);
+    //}
+
     // set up detectors
     starttime = GetMilliTime();
     _SetStatusMessage(TT_Command, "Setting up detector.");
@@ -3249,6 +3254,7 @@ void MujinVisionManager::StopDetectionLoop()
     _StopUpdateEnvironmentThread();
     _StopExecutionVerificationPointCloudThread();
     _StopControllerMonitorThread();
+    _StopSendPointCloudObstacleToControllerThread();
     _SetStatus(TT_Command, MS_Succeeded);
 }
 
@@ -3755,6 +3761,8 @@ std::vector<std::string> MujinVisionManager::_GetHardwareIds(const std::vector<s
         std::string cameraname = cameranames.at(i);
         if (_mCameraNameHardwareId.find(cameraname) != _mCameraNameHardwareId.end()) {
             hardwareids.push_back(_mCameraNameHardwareId[cameraname]);
+        } else {
+            MUJIN_LOG_WARN("cameraname " << cameraname << " is not in _mCameraNameHardwareId");
         }
     }
     return hardwareids;

@@ -389,11 +389,12 @@ private:
     class ImagesubscriberHandler
     {
     public:
-        ImagesubscriberHandler(const std::string& regionname, ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const std::vector<std::string>& occlusioncheckids, const ptree& visionserverpt, const std::string& controllerip, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname);
+        ImagesubscriberHandler(const std::string& desc, const std::string& regionname, ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const std::vector<std::string>& occlusioncheckids, const ptree& visionserverpt, const std::string& controllerip, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname);
         virtual ~ImagesubscriberHandler();
+        std::string _description; ///< description
         ImageSubscriberManagerPtr _pManager;
-        std::vector<std::string> _vIds;
-        uint64_t _ts;
+        std::vector<std::string> _vIds;  ///< vector of camera ids
+        uint64_t _ts; ///< creation timestamp
         ptree _visionserverpt;
     };
 

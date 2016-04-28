@@ -1546,7 +1546,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     uint64_t time0;
     int numfastdetection = maxnumfastdetection; // max num of times to run fast detection
     bool bindetectiononly = false;
-    if (numfastdetection == 0) {
+    if (numfastdetection == 0 && _bDetectBin) {
         MUJIN_LOG_INFO("maxnumfastdetection is set to 0, need to do bin detection for at least once");
         bindetectiononly = true;
     }
@@ -1568,12 +1568,13 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     unsigned long long binpickingstateTimestamp = 0;
     unsigned long long lastGrabbedTargetTimeStamp = 0;
     unsigned int numdetection = 0;
-    std::vector<DetectedObjectPtr> detectedobjects;
+    std::vector<DetectedObjectPtr> detectedobjects, detectedparts;
     while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimeStamp > _tsStartDetection && _tsLastEnvUpdate > 0 && _resultImageEndTimestamp > 0 && lastGrabbedTargetTimeStamp < _resultImageEndTimestamp)) {
         detectcontaineronly = false;
         time0 = GetMilliTime();
         std::string resultstate;
         detectedobjects.resize(0);
+        detectedparts.resize(0);
         int numresults = 0;
         unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
         int isContainerPresent=-1;
@@ -1685,7 +1686,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             } else if (numfastdetection > 0 || bindetectiononly) {
                 while (!_bStopDetectionThread && numresults == 0 && (numfastdetection > 0 || bindetectiononly)) {
                     bool fastdetection=true;
-                    bool bindetection=true;
+                    bool bindetection=_bDetectBin;
                     bool request=false;
                     bool useold=false;
                     bool checkcontaineremptyonly=false;
@@ -1694,7 +1695,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                         bindetectiononly = false;
                         MUJIN_LOG_DEBUG("DetectObjects() in normal mode for bindetection only");
                     } else {
-                        MUJIN_LOG_DEBUG("DetectObjects() in fast mode and for bindetection");
+                        MUJIN_LOG_DEBUG("DetectObjects() in fast mode");
+                    }
+                    if (_bDetectBin) {
+                        MUJIN_LOG_DEBUG("call DetectObjects() with bindetection=true");
                     }
                     numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
                     if (isContainerPresent == 0) {
@@ -1747,6 +1751,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             if (_bStopDetectionThread) {
                 break;
             }
+            // call GetPointCloudObstacle on parts only
+            for (size_t i=0; i<detectedobjects.size(); ++i) {
+                if (_mNameRegion.find(detectedobjects[i]->name) == _mNameRegion.end()) {
+                    detectedparts.push_back(detectedobjects[i]);
+                }
+            }
             std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
             for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
                 std::string cameraname = cameranamestobeused[i];
@@ -1755,7 +1765,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 uint64_t starttime = GetMilliTime();
                 {
                     boost::mutex::scoped_lock lock(_mutexDetector);
-                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjects, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
+                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedparts, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
                 }
                 ss << "GetPointCloudObstacle() took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                 MUJIN_LOG_INFO(ss.str());
@@ -1925,7 +1935,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                     TransformMatrix O_T_region, O_T_baselinkcenter, tBaseLinkInInnerRegionTopCenter;
                     unsigned int numUpdatedRegions = 0;
                     for (unsigned int i=0; i<vDetectedObject.size(); i++) {
-                        Transform newtransform = _tWorldResultOffset * vDetectedObject[i]->transform; // apply offset to result transform
+                        Transform newtransform;
                         BinPickingTaskResource::DetectedObject detectedobject;
 //                        if (vDetectedObject[i]->type == "container") {
 //                            if (numUpdatedRegions > 0) {
@@ -1933,6 +1943,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
 //                                continue;
 //                            }
                         if (_mNameRegion.find(vDetectedObject[i]->name) != _mNameRegion.end()) {
+                            newtransform = vDetectedObject[i]->transform; // use result directly for container
                             // a region is being updated
                             //MUJIN_LOG_WARN("container " << regionname << " is unknown, do not update this object");
                             //continue;
@@ -1946,6 +1957,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                             newtransform = O_T_region;
                             numUpdatedRegions++;
                         } else {
+                            newtransform = _tWorldResultOffset * vDetectedObject[i]->transform; // apply offset to result transform
                             // overwrite name because we need to add id to the end
                             std::stringstream name_ss;
                             name_ss << _targetupdatename << nameind;
@@ -2816,7 +2828,7 @@ void MujinVisionManager::Initialize(
     _filteringvoxelsize = _visionserverpt.get<double>("filteringvoxelsize", 0.01);
     _filteringstddev = _visionserverpt.get<double>("filteringstddev", 0.01);
     _filteringnumnn = _visionserverpt.get<int>("filteringnumnn", 80);
-
+    _bDetectBin = _visionserverpt.get<bool>("detectbin", true);
     std::string detectormodulename = _visionserverpt.get<std::string>("modulename", "");
     std::string detectorclassname = _visionserverpt.get<std::string>("classname", "");
     if (detectormodulename.size() > 0 && detectorclassname.size() > 0) {

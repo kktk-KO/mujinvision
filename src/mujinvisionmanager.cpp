@@ -173,7 +173,7 @@ std::string _GetExtraCaptureOptions(const std::string& regionname, const std::ve
         cameraidfullnamemappt.put<std::string>(v->second, v->first);
         cameraidregionnamept.put<std::string>(v->second, mCameranameRegionname[v->first]);
     }
-    BOOST_ASSERT(cameraids.size() >= cameraidstocheckocclusion.size());
+    BOOST_ASSERT(cameraids.size() <= cameraidstocheckocclusion.size());
     for (size_t i=0; i<cameraids.size(); ++i) {
         if (std::find(cameraidstocheckocclusion.begin(), cameraidstocheckocclusion.end(), cameraids[i]) == cameraidstocheckocclusion.end()) {
             cameraidcheckocclusionpt.put<bool>(cameraids[i], false);
@@ -208,22 +208,24 @@ MujinVisionManager::ImagesubscriberHandler::ImagesubscriberHandler(const std::st
             double timeout = 5.0;
             int numimages = -1;
             std::map<std::string, int> map;
-            for (size_t i=0; i<ids.size(); ++i) {
-                map[ids[i]] = 1;
+            for (size_t i=0; i<_vIds.size(); ++i) {
+                map[_vIds[i]] = 1;
             }
             updateCameraidCountFn(map);
             map = _getCameraidCountFn();
             std::vector<std::string> tostart;
+            std::stringstream debugss;
             for (size_t i=0; i<_vIds.size(); ++i) {
-                if (map.find(_vIds[i]) == map.end() || (map[_vIds[i]] > 0 && map[_vIds[i]] < 2)) {
+                if (map[_vIds[i]] == 1) {
                     tostart.push_back(_vIds[i]);
                 }
+                debugss << _vIds[i] << " " << map[_vIds[i]] << " ";
             }
             if (tostart.size() > 0) {
-                MUJIN_LOG_INFO("Start capturing of cameras " << __GetString(_vIds) << " " << _description);
+                MUJIN_LOG_INFO("Start capturing of cameras " << __GetString(tostart) << " " << debugss.str() << " " << _description);
                 _pManager->StartCaptureThread(tostart, timeout, numimages, _GetExtraCaptureOptions(regionname, ids, occlusioncheckids, visionserverpt, controllerip, slaverequestid, mCameraNameHardwareId, mCameranameRegionname));
             } else {
-                MUJIN_LOG_INFO("capturing of cameras " << __GetString(_vIds) << " have already been started" << _description);
+                MUJIN_LOG_INFO("capturing of cameras " << debugss.str() << " have already been started " << _description);
                 // TODO verify occlusion check status
             }
         } catch (...) {
@@ -237,23 +239,25 @@ MujinVisionManager::ImagesubscriberHandler::~ImagesubscriberHandler() {
     if (_visionserverpt.get<bool>("runpublisher", true)) {
         try {
             std::map<std::string, int> map;
-            for (size_t i=0; i<_vIds.size(); ++i) {
-                map[_vIds[i]] = -1;
-            }
-            _updateCameraidCountFn(map);
             map = _getCameraidCountFn();
             std::vector<std::string> toremove;
+            std::stringstream debugss;
             for (size_t i=0; i<_vIds.size(); ++i) {
-                if (map.find(_vIds[i]) == map.end() || map[_vIds[i]] < 1) {
+                if (map[_vIds[i]] > 0) {
                     toremove.push_back(_vIds[i]);
                 }
+                debugss << _vIds[i] << " " << map[_vIds[i]] << " ";
             }
             if (toremove.size() > 0) {
-                MUJIN_LOG_INFO("Stop capturing of cameras " << __GetString(toremove) << " " << _description);
+                MUJIN_LOG_INFO("Stop capturing of cameras " << __GetString(toremove) << " " << debugss.str() << " " << _description);
                 _pManager->StopCaptureThread(toremove);
             } else {
-                MUJIN_LOG_INFO("capturing of cameras " << __GetString(_vIds) << " have already been stopped " << _description);
+                MUJIN_LOG_INFO("capturing of cameras " << __GetString(_vIds) << " " << debugss.str() << " have already been stopped " << _description);
             }
+            for (size_t i=0; i<_vIds.size(); ++i) {
+                map[_vIds[i]] = 0;
+            }
+            _updateCameraidCountFn(map);
         } catch (...) {
             MUJIN_LOG_ERROR("Failed to stop captrue thread " << _description);
         }
@@ -287,7 +291,11 @@ void MujinVisionManager::_UpdateCameraidCount(std::map<std::string, int> map)
         if (_mCameraidCount.find(iter->first) == _mCameraidCount.end()) {
             _mCameraidCount[iter->first] = iter->second;
         } else {
-            _mCameraidCount[iter->first] += iter->second;
+            if (iter->second > 0) {
+                _mCameraidCount[iter->first] += 1;
+            } else {
+                _mCameraidCount[iter->first] = 0;
+            }
         }
     }
 }
@@ -2625,7 +2633,6 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 MUJIN_LOG_WARN(msg_ss.str());
                 lastcouldnotcapturewarnts = GetMilliTime();
             }
-            //_pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames));
 
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             colorimages.clear();
@@ -2654,7 +2661,6 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 lastimageagecheckfailurets = GetMilliTime();
                 MUJIN_LOG_DEBUG("start image capturing, in case streamer was reset");
             }
-            //_pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames));
 
             colorimages.clear();
             depthimages.clear();
@@ -2756,25 +2762,11 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         } else {
             // capture again for result images, assuming 1, the previous result image was a dummy 2, it is generated using the verified color/depth pair
             if (_visionserverpt.get<bool>("rv", false)) {
-            //if (resultimages.size() > 0 && resultimages[0]->timestamp == 0) {
-                // std::vector<std::string> cameranames;
-                // for (size_t i=0; i<colorcameranames.size(); ++i) {
-                //     if (std::find(cameranames.begin(), cameranames.end(), colorcameranames.at(i)) == cameranames.end()) {
-                //         cameranames.push_back(colorcameranames.at(i));
-                //     }
-                // }
-                // for (size_t i=0; i<depthcameranames.size(); ++i) {
-                //     if (std::find(cameranames.begin(), cameranames.end(), depthcameranames.at(i)) == cameranames.end()) {
-                //         cameranames.push_back(depthcameranames.at(i));
-                //     }
-                // }
-                // _StopCapture(cameranames); // need to stop publishing thread so that we call detect with verified images
                 MUJIN_LOG_DEBUG("color/depth pair (starttime=" << starttime << " endtime=" << endtime << ") passed occlusion and age checks, get result image");
                 std::string resultcameraname = depthcameranames.at(0); // assuming that the first depth camera provides the result image
                 std::vector<ImagePtr> dummycolorimages, dummydepthimages; // do not override verified color/depth images
                 resultimages.clear();
                 ImagePtr image = _pImagesubscriberManager->SnapDetectionResult(resultcameraname, fetchimagetimeout / 1000.0);
-                // _StartCapture(cameranames); // need to start publishing thread so that we can new images
                 if (image->timestamp - starttime < 1000.0) {  // FIXME in theory they should be the same, need this for simulation to work
                     resultimages.push_back(image);
                 } else {
@@ -3139,11 +3131,6 @@ void MujinVisionManager::Initialize(
     // set up image subscriber manager
     _SetStatusMessage(TT_Command, "Setting up image manager.");
     _pImagesubscriberManager->Initialize(_mNameCamera, streamerIp, streamerPort, imagesubscriberpt.get_child("zmq_subscriber"), _zmqcontext);
-
-    // start capturing for all cameras to speed up initial cycle
-    //for (size_t i=0; i<regionnames.size(); ++i) {
-        //_StartCapture(regionnames[i], _mNameRegion[regionnames[i]]->pRegionParameters->cameranames, _mNameRegion[regionnames[i]]->pRegionParameters->cameranames);
-    //}
 
     // set up detectors
     starttime = GetMilliTime();
@@ -3871,22 +3858,20 @@ void MujinVisionManager::_StartCapture(const std::string& regionname, const std:
             std::string _description = "";
             std::vector<std::string> ids = _GetHardwareIds(cameranames);
             std::map<std::string, int> map;
-            for (size_t i=0; i<ids.size(); ++i) {
-                map[ids[i]] = 1;
-            }
-            _UpdateCameraidCount(map);
             map = _GetCameraidCount();
             std::vector<std::string> tostart;
+            std::stringstream debugss;
             for (size_t i=0; i<ids.size(); ++i) {
-                if (map.find(ids[i]) == map.end() || (map[ids[i]] > 0 && map[ids[i]] < 2)) {
+                if (map.find(ids[i]) == map.end() || map[ids[i]] == 0) {
                     tostart.push_back(ids[i]);
                 }
+                debugss << ids[i] << " " << map[ids[i]] << " ";
             }
             if (tostart.size() > 0) {
-                MUJIN_LOG_INFO("Start capturing of cameras " << __GetString(ids) << " " << _description);
+                MUJIN_LOG_INFO("Start capturing of cameras " << __GetString(tostart) << " " << debugss.str() << " " << _description);
                 _pImagesubscriberManager->StartCaptureThread(tostart, timeout, numimages, _GetExtraCaptureOptions(regionname, tostart, _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname));
             } else {
-                MUJIN_LOG_INFO("capturing of cameras " << __GetString(ids) << " have already been started" << _description);
+                MUJIN_LOG_INFO("capturing of cameras " << debugss.str() << " have already been started " << _description);
                 // TODO verify occlusion check status
             }
         } catch (...) {
@@ -3902,27 +3887,24 @@ void MujinVisionManager::_StopCapture(const std::vector<std::string>& cameraname
             std::string _description = "";
             std::vector<std::string> ids = _GetHardwareIds(cameranames);
             std::map<std::string, int> map;
-            for (size_t i=0; i<ids.size(); ++i) {
-                map[ids[i]] = -1;
-            }
-            _UpdateCameraidCount(map);
             map = _GetCameraidCount();
             std::vector<std::string> toremove;
+            std::stringstream debugss;
             for (size_t i=0; i<ids.size(); ++i) {
-                if (map.find(ids[i]) == map.end() || map[ids[i]] < 1) {
+                if (map.find(ids[i]) != map.end() && map[ids[i]] > 0) {
                     toremove.push_back(ids[i]);
                 }
+                debugss << ids[i] << " " << map[ids[i]] << " ";
             }
             if (toremove.size() > 0) {
-                MUJIN_LOG_INFO("Stop capturing of cameras " << __GetString(toremove) << " " << _description);
+                MUJIN_LOG_INFO("Stop capturing of cameras " << __GetString(toremove) << " " << debugss.str() << " " << _description);
                 _pImagesubscriberManager->StopCaptureThread(toremove);
             } else {
-                MUJIN_LOG_INFO("capturing of cameras " << __GetString(ids) << " have already been stopped " << _description);
+                MUJIN_LOG_INFO("capturing of cameras " << debugss.str() << " have already been stopped " << _description);
             }
         } catch (...) {
             MUJIN_LOG_ERROR("Failed to stop capture thread.");
         }
     }
 }
-
 } // namespace mujinvision

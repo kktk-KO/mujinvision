@@ -389,13 +389,15 @@ private:
     class ImagesubscriberHandler
     {
     public:
-        ImagesubscriberHandler(const std::string& desc, const std::string& regionname, ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const std::vector<std::string>& occlusioncheckids, const ptree& visionserverpt, const std::string& controllerip, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname);
+        ImagesubscriberHandler(const std::string& desc, const std::string& regionname, ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const std::vector<std::string>& occlusioncheckids, const ptree& visionserverpt, const std::string& controllerip, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname, const boost::function<std::map<std::string, int>()>& getCameraidCountFn, const boost::function<void(std::map<std::string, int>)>& setCameraidCountFn);
         virtual ~ImagesubscriberHandler();
         std::string _description; ///< description
         ImageSubscriberManagerPtr _pManager;
-        std::vector<std::string> _vIds;  ///< vector of camera ids
+        std::vector<std::string> _vIds;  ///< camera ids
         uint64_t _ts; ///< creation timestamp
         ptree _visionserverpt;
+        boost::function<std::map<std::string, int>()> _getCameraidCountFn;
+        boost::function<void(std::map<std::string, int>)> _setCameraidCountFn;
     };
 
     typedef boost::shared_ptr<ImagesubscriberHandler> ImagesubscriberHandlerPtr;
@@ -547,6 +549,8 @@ private:
     void _LoadConfig(const std::string& filename, std::string& content);
 
     bool _PreemptSubscriber();
+    std::map<std::string, int> _GetCameraidCount();
+    void _SetCameraidCount(std::map<std::string, int> map);
 
     void _StartCapture(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion=std::vector<std::string>(), const double& timeout=5.0, const int numimages=-1);
     void _StopCapture(const std::vector<std::string>& cameranames);
@@ -646,6 +650,9 @@ private:
     std::string _resultState; ///< additional information about the detection result. protected by _mutexDetectedInfo
     std::map<std::string, std::vector<Real> > _mResultPoints; ///< result pointcloud obstacle, cameraname -> points. protected by _mutexDetectedInfo
     //@}
+
+    boost::mutex _mutexPublishingCount; ///< lock for _mCameraidCount
+    std::map<std::string, int> _mCameraidCount; ///< camera hardware id -> number of ImagesubscriberHandler using it
     
     double _controllerCommandTimeout; ///< controller command timeout in seconds
     std::string _userinfo_json; ///< userinfo json

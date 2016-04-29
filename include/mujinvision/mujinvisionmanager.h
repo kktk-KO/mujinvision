@@ -389,7 +389,7 @@ private:
     class ImagesubscriberHandler
     {
     public:
-        ImagesubscriberHandler(const std::string& desc, const std::string& regionname, ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const std::vector<std::string>& occlusioncheckids, const ptree& visionserverpt, const std::string& controllerip, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname, const boost::function<std::map<std::string, int>()>& getCameraidCountFn, const boost::function<void(std::map<std::string, int>)>& updateCameraidCountFn);
+        ImagesubscriberHandler(const std::string& desc, const std::string& regionname, ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const std::vector<std::string>& occlusioncheckids, const ptree& visionserverpt, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname, const boost::function<std::map<std::string, int>()>& getCameraidCountFn, const boost::function<void(std::map<std::string, int>)>& updateCameraidCountFn);
         virtual ~ImagesubscriberHandler();
         std::string _description; ///< description
         ImageSubscriberManagerPtr _pManager;
@@ -397,7 +397,7 @@ private:
         uint64_t _ts; ///< creation timestamp
         ptree _visionserverpt;
         boost::function<std::map<std::string, int>()> _getCameraidCountFn;
-        boost::function<void(std::map<std::string, int>)> _updateCameraidCountFn;
+        boost::function<void(std::map<std::string, int>)> _updateCameraidCountFn; ///< 
     };
 
     typedef boost::shared_ptr<ImagesubscriberHandler> ImagesubscriberHandlerPtr;
@@ -447,6 +447,11 @@ private:
                        const bool request=false,
                        const bool useold=false,
                        const bool checkcontaineremptyonly=false);
+
+    /** \brief runs detection in a loop
+
+        \param ihraw reference to a valid handle of ImagesubscriberHandlerPtr. Once the thread copies the shared pointer, have to lock _mutexThreadResourceSync and signal condrunningthread so that the function creating the thread can release the handle on the image subscriber.
+    */
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread);
     void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder, ImagesubscriberHandlerPtr ih);
     void _StopDetectionThread();
@@ -552,7 +557,8 @@ private:
     std::map<std::string, int> _GetCameraidCount();
     void _UpdateCameraidCount(std::map<std::string, int> map);
 
-    void _StartCapture(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion=std::vector<std::string>(), const double& timeout=5.0, const int numimages=-1);
+    void _StartAndGetCaptureHandle(const std::vector<std::string>& camreaids, const std::vector<std::string>& cameranamestocheckocclusion, const std::string& regionname, std::vector<CameraCaptureHandlePtr>& capturehandles);
+    //void _StartCapture(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion=std::vector<std::string>(), const double& timeout=5.0, const int numimages=-1);
     void _StopCapture(const std::vector<std::string>& cameranames);
 
     unsigned int _statusport, _commandport, _configport;
@@ -645,7 +651,21 @@ private:
     //@}
 
     boost::mutex _mutexPublishingCount; ///< lock for _mCameraidCount
-    std::map<std::string, int> _mCameraidCount; ///< camera hardware id -> number of ImagesubscriberHandler using it
+    //std::map<std::string, int> _mCameraidCount; ///< camera hardware id -> number of ImagesubscriberHandler using it
+
+    class CameraCaptureHandle
+    {
+        CameraCaptureHandle(ImageSubscriberManagerPtr pImagesubscriberManager, const std::string& cameraid);
+        ~CameraCaptureHandle();
+    private:
+        ImageSubscriberManagerPtr _pImagesubscriberManager;
+        std::string _cameraid;
+    };
+    typedef boost::shared_ptr<CameraCaptureHandle> CameraCaptureHandlePtr;
+    typedef boost::weak_ptr<CameraCaptureHandle> CameraCaptureHandleWeakPtr;
+    
+    std::map<std::string, CameraCaptureHandleWeakPtr> _mCameraidCaptureHandles; ///< list of handles that maintain the runtime capture state of cameras
+    
     
     double _controllerCommandTimeout; ///< controller command timeout in seconds
     std::string _userinfo_json; ///< userinfo json

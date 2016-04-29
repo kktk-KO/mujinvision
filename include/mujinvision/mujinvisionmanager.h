@@ -389,7 +389,7 @@ private:
     class ImagesubscriberHandler
     {
     public:
-        ImagesubscriberHandler(const std::string& desc, const std::string& regionname, ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const std::vector<std::string>& occlusioncheckids, const ptree& visionserverpt, const std::string& controllerip, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname, const boost::function<std::map<std::string, int>()>& getCameraidCountFn, const boost::function<void(std::map<std::string, int>)>& setCameraidCountFn);
+        ImagesubscriberHandler(const std::string& desc, const std::string& regionname, ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const std::vector<std::string>& occlusioncheckids, const ptree& visionserverpt, const std::string& controllerip, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname, const boost::function<std::map<std::string, int>()>& getCameraidCountFn, const boost::function<void(std::map<std::string, int>)>& updateCameraidCountFn);
         virtual ~ImagesubscriberHandler();
         std::string _description; ///< description
         ImageSubscriberManagerPtr _pManager;
@@ -397,7 +397,7 @@ private:
         uint64_t _ts; ///< creation timestamp
         ptree _visionserverpt;
         boost::function<std::map<std::string, int>()> _getCameraidCountFn;
-        boost::function<void(std::map<std::string, int>)> _setCameraidCountFn;
+        boost::function<void(std::map<std::string, int>)> _updateCameraidCountFn;
     };
 
     typedef boost::shared_ptr<ImagesubscriberHandler> ImagesubscriberHandlerPtr;
@@ -550,7 +550,7 @@ private:
 
     bool _PreemptSubscriber();
     std::map<std::string, int> _GetCameraidCount();
-    void _SetCameraidCount(std::map<std::string, int> map);
+    void _UpdateCameraidCount(std::map<std::string, int> map);
 
     void _StartCapture(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion=std::vector<std::string>(), const double& timeout=5.0, const int numimages=-1);
     void _StopCapture(const std::vector<std::string>& cameranames);

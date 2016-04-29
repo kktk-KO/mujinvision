@@ -193,7 +193,7 @@ std::string _GetExtraCaptureOptions(const std::string& regionname, const std::ve
     return ss.str();
 }
 
-MujinVisionManager::ImagesubscriberHandler::ImagesubscriberHandler(const std::string& desc, const std::string& regionname, ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const std::vector<std::string>& occlusioncheckids, const ptree& visionserverpt, const std::string& controllerip, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname, const boost::function<std::map<std::string, int>()>& getCameraidCountFn, const boost::function<void(std::map<std::string, int>)>& setCameraidCountFn)
+MujinVisionManager::ImagesubscriberHandler::ImagesubscriberHandler(const std::string& desc, const std::string& regionname, ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const std::vector<std::string>& occlusioncheckids, const ptree& visionserverpt, const std::string& controllerip, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname, const boost::function<std::map<std::string, int>()>& getCameraidCountFn, const boost::function<void(std::map<std::string, int>)>& updateCameraidCountFn)
 {
     _description = desc;
     _ts = GetMilliTime();
@@ -201,20 +201,33 @@ MujinVisionManager::ImagesubscriberHandler::ImagesubscriberHandler(const std::st
     MUJIN_LOG_DEBUG("in ImagesubscriberHandler constructor " <<_ts << " " << desc);
     _pManager = pImagesubscriberManager;
     _vIds = ids;
-    _setCameraidCountFn = setCameraidCountFn;
+    _updateCameraidCountFn = updateCameraidCountFn;
     _getCameraidCountFn = getCameraidCountFn;
     if (_visionserverpt.get<bool>("runpublisher", true)) {
         try {
             double timeout = 5.0;
             int numimages = -1;
-            _pManager->StartCaptureThread(ids, timeout, numimages, _GetExtraCaptureOptions(regionname, ids, occlusioncheckids, visionserverpt, controllerip, slaverequestid, mCameraNameHardwareId, mCameranameRegionname));
             std::map<std::string, int> map;
             for (size_t i=0; i<ids.size(); ++i) {
                 map[ids[i]] = 1;
             }
-            setCameraidCountFn(map);
+            updateCameraidCountFn(map);
+            map = _getCameraidCountFn();
+            std::vector<std::string> tostart;
+            for (size_t i=0; i<_vIds.size(); ++i) {
+                if (map.find(_vIds[i]) == map.end() || (map[_vIds[i]] > 0 && map[_vIds[i]] < 2)) {
+                    tostart.push_back(_vIds[i]);
+                }
+            }
+            if (tostart.size() > 0) {
+                MUJIN_LOG_INFO("Start capturing of cameras " << __GetString(_vIds) << " " << _description);
+                _pManager->StartCaptureThread(tostart, timeout, numimages, _GetExtraCaptureOptions(regionname, ids, occlusioncheckids, visionserverpt, controllerip, slaverequestid, mCameraNameHardwareId, mCameranameRegionname));
+            } else {
+                MUJIN_LOG_INFO("capturing of cameras " << __GetString(_vIds) << " have already been started" << _description);
+                // TODO verify occlusion check status
+            }
         } catch (...) {
-            MUJIN_LOG_ERROR("Failed to start captrue thread");
+            MUJIN_LOG_ERROR("Failed to start captrue thread " << _description);
         }
     }
 }
@@ -227,7 +240,7 @@ MujinVisionManager::ImagesubscriberHandler::~ImagesubscriberHandler() {
             for (size_t i=0; i<_vIds.size(); ++i) {
                 map[_vIds[i]] = -1;
             }
-            _setCameraidCountFn(map);
+            _updateCameraidCountFn(map);
             map = _getCameraidCountFn();
             std::vector<std::string> toremove;
             for (size_t i=0; i<_vIds.size(); ++i) {
@@ -235,9 +248,14 @@ MujinVisionManager::ImagesubscriberHandler::~ImagesubscriberHandler() {
                     toremove.push_back(_vIds[i]);
                 }
             }
-            _pManager->StopCaptureThread(toremove);
+            if (toremove.size() > 0) {
+                MUJIN_LOG_INFO("Stop capturing of cameras " << __GetString(toremove) << " " << _description);
+                _pManager->StopCaptureThread(toremove);
+            } else {
+                MUJIN_LOG_INFO("capturing of cameras " << __GetString(_vIds) << " have already been stopped " << _description);
+            }
         } catch (...) {
-            MUJIN_LOG_ERROR("Failed to stop captrue thread");
+            MUJIN_LOG_ERROR("Failed to stop captrue thread " << _description);
         }
     }
 }
@@ -262,7 +280,7 @@ std::map<std::string, int> MujinVisionManager::_GetCameraidCount()
     return _mCameraidCount;
 }
 
-void MujinVisionManager::_SetCameraidCount(std::map<std::string, int> map)
+void MujinVisionManager::_UpdateCameraidCount(std::map<std::string, int> map)
 {
     boost::mutex::scoped_lock lock(_mutexPublishingCount);
     FOREACH(iter, map) {
@@ -660,6 +678,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
     if (command == "StartDetectionLoop" ||
         command == "StopDetectionLoop" ||
         command == "IsDetectionRunning" ||
+        command == "SendPointCloudObstacleToController" ||
         (command.size() >= 3 && command.substr(0,3) == "Get")) {
         // these commands can be called at any time
 
@@ -809,8 +828,44 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << ParametersBase::GetJsonString("statusport") << ": " << port << ",";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
-        }
+        } else if (command == "SendPointCloudObstacleToController") {
+            if (command_pt.count("regionname") == 0) {
+                throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
+            }
+            std::string regionname = command_pt.get<std::string>("regionname");
+            if (!_pDetector || !_pBinpickingTask) {
+                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
+            }
 
+            std::vector<std::string> cameranames;
+            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
+            if (!!cameranames_pt) {
+                FOREACH(v, *cameranames_pt) {
+                    cameranames.push_back(v->second.get<std::string>(""));
+                }
+            }
+            std::vector<DetectedObjectPtr> detectedobjects;
+            boost::optional<const ptree&> detectedobjects_pt(command_pt.get_child_optional("detectedobjects"));
+            if (!!detectedobjects_pt) {
+                FOREACH(v, *detectedobjects_pt) {
+                    detectedobjects.push_back(DetectedObjectPtr(new DetectedObject(v->second.get_child(""))));
+                }
+            }
+            unsigned int maxage = command_pt.get("maxage", 0);
+            unsigned int fetchimagetimeout = command_pt.get("fetchimagetimeout", 0);
+            double voxelsize = command_pt.get("voxelsize", 0.01);
+            double pointsize = command_pt.get("pointsize", 0.005);
+            std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
+            bool fast = command_pt.get("fast", false);
+            bool request = command_pt.get("request", true);
+            bool async = command_pt.get("async", false);
+            std::string locale = command_pt.get("locale", "en_US");
+            _locale = locale;
+            SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
+            result_ss << "{";
+            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
+            result_ss << "}";
+        }
     } else if (!!_pDetectionThread && !_bStopDetectionThread) {
         throw MujinVisionException("Cannot execute " + command + " while detection thread is running, please stop it first.", MVE_Busy);
     } else {
@@ -878,43 +933,6 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << "{";
             result_ss << _GetJsonString(detectedobjects) << ", ";
             result_ss << ParametersBase::GetJsonString("state") << ": " << resultstate << ", ";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
-        } else if (command == "SendPointCloudObstacleToController") {
-            if (command_pt.count("regionname") == 0) {
-                throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
-            }
-            std::string regionname = command_pt.get<std::string>("regionname");
-            if (!_pDetector || !_pBinpickingTask) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
-            }
-
-            std::vector<std::string> cameranames;
-            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-            if (!!cameranames_pt) {
-                FOREACH(v, *cameranames_pt) {
-                    cameranames.push_back(v->second.get<std::string>(""));
-                }
-            }
-            std::vector<DetectedObjectPtr> detectedobjects;
-            boost::optional<const ptree&> detectedobjects_pt(command_pt.get_child_optional("detectedobjects"));
-            if (!!detectedobjects_pt) {
-                FOREACH(v, *detectedobjects_pt) {
-                    detectedobjects.push_back(DetectedObjectPtr(new DetectedObject(v->second.get_child(""))));
-                }
-            }
-            unsigned int maxage = command_pt.get("maxage", 0);
-            unsigned int fetchimagetimeout = command_pt.get("fetchimagetimeout", 0);
-            double voxelsize = command_pt.get("voxelsize", 0.01);
-            double pointsize = command_pt.get("pointsize", 0.005);
-            std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
-            bool fast = command_pt.get("fast", false);
-            bool request = command_pt.get("request", true);
-            bool async = command_pt.get("async", false);
-            std::string locale = command_pt.get("locale", "en_US");
-            _locale = locale;
-            SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
-            result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "VisualizePointCloudOnController") {
@@ -3265,7 +3283,7 @@ void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const
             }
         }
     }
-    ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler("DetectionThread", regionname, _pImagesubscriberManager, ids, ids, _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname, boost::bind(&MujinVisionManager::_GetCameraidCount, this), boost::bind(&MujinVisionManager::_SetCameraidCount, this, _1)));
+    ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler("DetectionThread", regionname, _pImagesubscriberManager, ids, ids, _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname, boost::bind(&MujinVisionManager::_GetCameraidCount, this), boost::bind(&MujinVisionManager::_UpdateCameraidCount, this, _1)));
     _StartDetectionThread(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, starttime, maxnumfastdetection, maxnumdetection, stopOnLeftInOrder, ih);
     _StartUpdateEnvironmentThread(regionname, cameranames, voxelsize, pointsize, obstaclename, ih, 50, locale);
     if( _bSendVerificationPointCloud ) {
@@ -3292,7 +3310,7 @@ void MujinVisionManager::StartVisualizePointCloudThread(const std::string& regio
     }
     _vCameranames = cameranames;
     std::vector<std::string> occlusioncheckids;
-    ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler("VisualizePointcloudThread", regionname, _pImagesubscriberManager, _GetHardwareIds(cameranames), occlusioncheckids, _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname, boost::bind(&MujinVisionManager::_GetCameraidCount, this), boost::bind(&MujinVisionManager::_SetCameraidCount, this, _1)));
+    ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler("VisualizePointcloudThread", regionname, _pImagesubscriberManager, _GetHardwareIds(cameranames), occlusioncheckids, _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname, boost::bind(&MujinVisionManager::_GetCameraidCount, this), boost::bind(&MujinVisionManager::_UpdateCameraidCount, this, _1)));
     _StartVisualizePointCloudThread(regionname, cameranames, ih, pointsize, ignoreocclusion, maxage, fetchimagetimeout, request, voxelsize);
     _SetStatus(TT_Command, MS_Succeeded);
 }
@@ -3309,7 +3327,7 @@ void MujinVisionManager::StopVisualizePointCloudThread()
 void MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
 {
     std::vector<std::string> occlusioncheckids = _GetHardwareIds(cameranames);
-    ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler("SendPointCloudObstacleToController", regionname, _pImagesubscriberManager, _GetHardwareIds(cameranames), occlusioncheckids, _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname, boost::bind(&MujinVisionManager::_GetCameraidCount, this), boost::bind(&MujinVisionManager::_SetCameraidCount, this, _1)));
+    ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler("SendPointCloudObstacleToController", regionname, _pImagesubscriberManager, _GetHardwareIds(cameranames), occlusioncheckids, _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname, boost::bind(&MujinVisionManager::_GetCameraidCount, this), boost::bind(&MujinVisionManager::_UpdateCameraidCount, this, _1)));
     _SendPointCloudObstacleToController(regionname, cameranames, detectedobjectsworld, ih, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
 }
 
@@ -3495,7 +3513,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
 void MujinVisionManager::DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request)
 {
 
-    ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler("DetectRegionTransform", regionname, _pImagesubscriberManager, _GetHardwareIds(cameranames), _GetHardwareIds(cameranames), _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname, boost::bind(&MujinVisionManager::_GetCameraidCount, this), boost::bind(&MujinVisionManager::_SetCameraidCount, this, _1)));
+    ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler("DetectRegionTransform", regionname, _pImagesubscriberManager, _GetHardwareIds(cameranames), _GetHardwareIds(cameranames), _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname, boost::bind(&MujinVisionManager::_GetCameraidCount, this), boost::bind(&MujinVisionManager::_UpdateCameraidCount, this, _1)));
     _DetectRegionTransform(regionname, cameranames, regiontransform, ignoreocclusion, ih, maxage, fetchimagetimeout, request);
 }
 
@@ -3541,7 +3559,7 @@ void MujinVisionManager::_DetectRegionTransform(const std::string& regionname, c
 void MujinVisionManager::VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const double voxelsize)
 {
     std::vector<std::string> occlusioncheckids;
-    ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler("VisualizePointCloudOnController", regionname, _pImagesubscriberManager, _GetHardwareIds(cameranames), occlusioncheckids, _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname, boost::bind(&MujinVisionManager::_GetCameraidCount, this), boost::bind(&MujinVisionManager::_SetCameraidCount, this, _1)));
+    ImagesubscriberHandlerPtr ih(new ImagesubscriberHandler("VisualizePointCloudOnController", regionname, _pImagesubscriberManager, _GetHardwareIds(cameranames), occlusioncheckids, _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname, boost::bind(&MujinVisionManager::_GetCameraidCount, this), boost::bind(&MujinVisionManager::_UpdateCameraidCount, this, _1)));
     _VisualizePointCloudOnController(regionname, cameranames, ih, pointsize, ignoreocclusion, maxage, fetchimagetimeout, request, voxelsize);
 }
 
@@ -3850,7 +3868,27 @@ void MujinVisionManager::_StartCapture(const std::string& regionname, const std:
 {
     if (_visionserverpt.get<bool>("runpublisher", true)) {
         try {
-            _pImagesubscriberManager->StartCaptureThread(_GetHardwareIds(cameranames), timeout, numimages, _GetExtraCaptureOptions(regionname, _GetHardwareIds(cameranames), _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname));
+            std::string _description = "";
+            std::vector<std::string> ids = _GetHardwareIds(cameranames);
+            std::map<std::string, int> map;
+            for (size_t i=0; i<ids.size(); ++i) {
+                map[ids[i]] = 1;
+            }
+            _UpdateCameraidCount(map);
+            map = _GetCameraidCount();
+            std::vector<std::string> tostart;
+            for (size_t i=0; i<ids.size(); ++i) {
+                if (map.find(ids[i]) == map.end() || (map[ids[i]] > 0 && map[ids[i]] < 2)) {
+                    tostart.push_back(ids[i]);
+                }
+            }
+            if (tostart.size() > 0) {
+                MUJIN_LOG_INFO("Start capturing of cameras " << __GetString(ids) << " " << _description);
+                _pImagesubscriberManager->StartCaptureThread(tostart, timeout, numimages, _GetExtraCaptureOptions(regionname, tostart, _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname));
+            } else {
+                MUJIN_LOG_INFO("capturing of cameras " << __GetString(ids) << " have already been started" << _description);
+                // TODO verify occlusion check status
+            }
         } catch (...) {
             MUJIN_LOG_ERROR("Failed to start capture thread.");
         }
@@ -3861,7 +3899,26 @@ void MujinVisionManager::_StopCapture(const std::vector<std::string>& cameraname
 {
     if (_visionserverpt.get<bool>("runpublisher", true)) {
         try {
-            _pImagesubscriberManager->StopCaptureThread(_GetHardwareIds(cameranames));
+            std::string _description = "";
+            std::vector<std::string> ids = _GetHardwareIds(cameranames);
+            std::map<std::string, int> map;
+            for (size_t i=0; i<ids.size(); ++i) {
+                map[ids[i]] = -1;
+            }
+            _UpdateCameraidCount(map);
+            map = _GetCameraidCount();
+            std::vector<std::string> toremove;
+            for (size_t i=0; i<ids.size(); ++i) {
+                if (map.find(ids[i]) == map.end() || map[ids[i]] < 1) {
+                    toremove.push_back(ids[i]);
+                }
+            }
+            if (toremove.size() > 0) {
+                MUJIN_LOG_INFO("Stop capturing of cameras " << __GetString(toremove) << " " << _description);
+                _pImagesubscriberManager->StopCaptureThread(toremove);
+            } else {
+                MUJIN_LOG_INFO("capturing of cameras " << __GetString(ids) << " have already been stopped " << _description);
+            }
         } catch (...) {
             MUJIN_LOG_ERROR("Failed to stop capture thread.");
         }

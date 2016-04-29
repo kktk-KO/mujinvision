@@ -589,13 +589,6 @@ private:
     boost::shared_ptr<boost::thread> _pControllerMonitorThread;
     boost::shared_ptr<boost::thread> _pSendPointCloudObstacleThread;
     boost::shared_ptr<boost::thread> _pVisualizePointCloudThread;
-    boost::mutex _mutexStatusThread;
-    boost::mutex _mutexDetectionThread;
-    boost::mutex _mutexUpdateEnvironmentThread;
-    boost::mutex _mutexExecutionVerificationPointCloudThread;
-    boost::mutex _mutexControllerMonitorThread;
-    boost::mutex _mutexSendPointCloudObstacleThread;
-    boost::mutex _mutexVisualizePointCloudThread;
 
     boost::mutex _mutexCancelCommand;
     std::map<unsigned int, CommandServerPtr> _mPortCommandServer; ///< port -> server

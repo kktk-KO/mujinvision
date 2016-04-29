@@ -374,16 +374,10 @@ void MujinVisionManager::Shutdown()
 {
     _bShutdown=true;
     _StopStatusThread();
-    _StopDetectionThread();
-    _StopUpdateEnvironmentThread();
-    _StopExecutionVerificationPointCloudThread();
-    _StopControllerMonitorThread();
-    _StopVisualizePointCloudThread();
-    _StopControllerMonitorThread();
     _StopCommandThread(_commandport);
-    _pDetectorManager.reset();
-    _pDetector.reset();
-    _pImagesubscriberManager.reset();
+    // do not stop config command thread here as this method can be called from there
+    // Destroy() will stop config command thread
+    // do not stop threads started by the command thread
 }
 
 bool MujinVisionManager::IsShutdown()
@@ -572,14 +566,12 @@ void MujinVisionManager::_StartStatusPublisher(const unsigned int port)
 
 void MujinVisionManager::_StartStatusThread(const unsigned int port, const unsigned int ms)
 {
-    boost::mutex::scoped_lock lock(_mutexStatusThread);
     _bStopStatusThread = false;
     _pStatusThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_StatusThread, this, port, ms)));
 }
 
 void MujinVisionManager::_StopStatusThread()
 {
-    boost::mutex::scoped_lock lock(_mutexStatusThread);
     if (!!_pStatusThread) {
         {
             boost::mutex::scoped_lock lock(_mutexStatusQueue);
@@ -1383,11 +1375,22 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
             }
         }
     }
+    if (port == _commandport) {
+        MUJIN_LOG_INFO("stopping threads started by command thread");
+        _StopDetectionThread();
+        _StopUpdateEnvironmentThread();
+        _StopExecutionVerificationPointCloudThread();
+        _StopControllerMonitorThread();
+        _StopVisualizePointCloudThread();
+        _StopControllerMonitorThread();
+        _pDetectorManager.reset();
+        _pDetector.reset();
+        _pImagesubscriberManager.reset();
+    }
 }
 
 void MujinVisionManager::_StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder, ImagesubscriberHandlerPtr ih)
 {
-    boost::mutex::scoped_lock lock(_mutexDetectionThread);
     if (starttime > 0) {
         _tsStartDetection = starttime;
     } else {
@@ -1436,7 +1439,6 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
 
 void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, ImagesubscriberHandlerPtr ih, const unsigned int waitinterval, const std::string& locale)
 {
-    boost::mutex::scoped_lock lock(_mutexUpdateEnvironmentThread);
     if (!!_pUpdateEnvironmentThread && !_bStopUpdateEnvironmentThread) {
         _SetStatusMessage(TT_Command, "UpdateEnvironment thread is already running, do nothing.");
     } else {
@@ -1462,7 +1464,6 @@ void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& region
 
 void MujinVisionManager::_StartExecutionVerificationPointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const std::string& obstaclename, ImagesubscriberHandlerPtr ih, const unsigned int waitinterval, const std::string& locale)
 {
-    boost::mutex::scoped_lock lock(_mutexExecutionVerificationPointCloudThread);
     if (!!_pExecutionVerificationPointCloudThread && !_bStopExecutionVerificationPointCloudThread) {
         _SetStatusMessage(TT_Command, "ExecutionVerificationPointCloud thread is already running, do nothing.");
     } else {
@@ -1489,7 +1490,6 @@ void MujinVisionManager::_StartExecutionVerificationPointCloudThread(const std::
 
 void MujinVisionManager::_StartControllerMonitorThread(const unsigned int waitinterval, const std::string& locale)
 {
-    boost::mutex::scoped_lock lock(_mutexControllerMonitorThread);
     if (!!_pControllerMonitorThread && !_bStopControllerMonitorThread) {
         _SetStatusMessage(TT_Command, "ControllerMonitor thread is already running, do nothing.");
     } else {
@@ -1500,7 +1500,6 @@ void MujinVisionManager::_StartControllerMonitorThread(const unsigned int waitin
 
 void MujinVisionManager::_StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, ImagesubscriberHandlerPtr ih, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request, const double voxelsize)
 {
-    boost::mutex::scoped_lock lock(_mutexVisualizePointCloudThread);
     if (!!_pVisualizePointCloudThread && !_bStopVisualizePointCloudThread) {
         _SetStatusMessage(TT_Command, "VisualizePointCloud thread is already running, do nothing.");
     } else {
@@ -1527,7 +1526,6 @@ void MujinVisionManager::_StartVisualizePointCloudThread(const std::string& regi
 
 void MujinVisionManager::_StopSendPointCloudObstacleToControllerThread()
 {
-    boost::mutex::scoped_lock lock(_mutexSendPointCloudObstacleThread);
     _SetStatusMessage(TT_Command, "Stopping sendpointcloudobstacle thread.");
     _bStopSendPointCloudObstacleToControllerThread = true;
     if (!!_pSendPointCloudObstacleThread) {
@@ -1539,7 +1537,6 @@ void MujinVisionManager::_StopSendPointCloudObstacleToControllerThread()
 
 void MujinVisionManager::_StopDetectionThread()
 {
-    boost::mutex::scoped_lock lock(_mutexDetectionThread);
     std::stringstream ss;
     _SetStatusMessage(TT_Command, "Stopping detectoin thread.");
     if (!_bStopDetectionThread) {
@@ -1560,7 +1557,6 @@ void MujinVisionManager::_StopDetectionThread()
 
 void MujinVisionManager::_StopUpdateEnvironmentThread()
 {
-    boost::mutex::scoped_lock lock(_mutexUpdateEnvironmentThread);
     _SetStatusMessage(TT_Command, "Stopping update environment thread.");
     if (!!_pUpdateEnvironmentThread) {
         _bStopUpdateEnvironmentThread = true;
@@ -1574,7 +1570,6 @@ void MujinVisionManager::_StopUpdateEnvironmentThread()
 
 void MujinVisionManager::_StopExecutionVerificationPointCloudThread()
 {
-    boost::mutex::scoped_lock lock(_mutexExecutionVerificationPointCloudThread);
     _SetStatusMessage(TT_Command, "Stopping execution verification thread.");
     if (!!_pExecutionVerificationPointCloudThread) {
         _bStopExecutionVerificationPointCloudThread = true;
@@ -1588,7 +1583,6 @@ void MujinVisionManager::_StopExecutionVerificationPointCloudThread()
 
 void MujinVisionManager::_StopControllerMonitorThread()
 {
-    boost::mutex::scoped_lock lock(_mutexControllerMonitorThread);
     _SetStatusMessage(TT_Command, "Stopping controller monitor thread.");
     if (!_bStopControllerMonitorThread) {
         _bStopControllerMonitorThread = true;
@@ -1604,7 +1598,6 @@ void MujinVisionManager::_StopControllerMonitorThread()
 
 void MujinVisionManager::_StopVisualizePointCloudThread()
 {
-    boost::mutex::scoped_lock lock(_mutexVisualizePointCloudThread);
     _SetStatusMessage(TT_Command, "Stopping pointcloud visualization thread.");
     if (!_bStopVisualizePointCloudThread) {
         _bStopVisualizePointCloudThread = true;
@@ -3374,7 +3367,6 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
             }
         }
     } else {
-        boost::mutex::scoped_lock lock(_mutexSendPointCloudObstacleThread);
         _bStopSendPointCloudObstacleToControllerThread = false;
         _bIsSendPointcloudRunning = true;
         SendPointCloudObstacleToControllerThreadParams params;

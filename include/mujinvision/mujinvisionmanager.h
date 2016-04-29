@@ -373,6 +373,19 @@ private:
         double voxelsize;
     };
 
+    // for managing camera capturing life cycle
+    class CameraCaptureHandle
+    {
+    public:
+        CameraCaptureHandle(ImageSubscriberManagerPtr pImagesubscriberManager, const std::string& cameraid);
+        ~CameraCaptureHandle();
+    private:
+        ImageSubscriberManagerPtr _pImagesubscriberManager;
+        std::string _cameraid;
+    };
+    typedef boost::shared_ptr<CameraCaptureHandle> CameraCaptureHandlePtr;
+    typedef boost::weak_ptr<CameraCaptureHandle> CameraCaptureHandleWeakPtr;
+
     void _DeInitialize();
 
     enum ThreadType {
@@ -385,22 +398,6 @@ private:
         TT_VisualizePointCloud=6,
         TT_SendExecutionVerificationPointCloud=7
     };
-
-    class ImagesubscriberHandler
-    {
-    public:
-        ImagesubscriberHandler(const std::string& desc, const std::string& regionname, ImageSubscriberManagerPtr pImagesubscriberManager, const std::vector<std::string>& ids, const std::vector<std::string>& occlusioncheckids, const ptree& visionserverpt, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, std::map<std::string, std::string>& mCameraNameHardwareId, std::map<std::string, std::string>& mCameranameRegionname, const boost::function<std::map<std::string, int>()>& getCameraidCountFn, const boost::function<void(std::map<std::string, int>)>& updateCameraidCountFn);
-        virtual ~ImagesubscriberHandler();
-        std::string _description; ///< description
-        ImageSubscriberManagerPtr _pManager;
-        std::vector<std::string> _vIds;  ///< camera ids
-        uint64_t _ts; ///< creation timestamp
-        ptree _visionserverpt;
-        boost::function<std::map<std::string, int>()> _getCameraidCountFn;
-        boost::function<void(std::map<std::string, int>)> _updateCameraidCountFn; ///< 
-    };
-
-    typedef boost::shared_ptr<ImagesubscriberHandler> ImagesubscriberHandlerPtr;
 
     void _SetDetectorStatusMessage(const std::string& msg, const std::string& err="");
     void _SetStatusMessage(ThreadType tt, const std::string& msg, const std::string& err="");
@@ -449,15 +446,13 @@ private:
                        const bool checkcontaineremptyonly=false);
 
     /** \brief runs detection in a loop
-
-        \param ihraw reference to a valid handle of ImagesubscriberHandlerPtr. Once the thread copies the shared pointer, have to lock _mutexThreadResourceSync and signal condrunningthread so that the function creating the thread can release the handle on the image subscriber.
     */
-    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder, ImagesubscriberHandlerPtr ih);
+    void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder);
     void _StopDetectionThread();
 
-    void _VisualizePointCloudThread(VisualizePointcloudThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread);
-    void _StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, ImagesubscriberHandlerPtr ih, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
+    void _VisualizePointCloudThread(VisualizePointcloudThreadParams params);
+    void _StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
     void _StopVisualizePointCloudThread();
 
     /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
@@ -467,26 +462,26 @@ private:
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
         \param pointsize size of the point in meters to be sent to the mujin controller
      */
-    void _UpdateEnvironmentThread(UpdateEnvironmentThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread);
-    void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, ImagesubscriberHandlerPtr ih, const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _UpdateEnvironmentThread(UpdateEnvironmentThreadParams params);
+    void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopUpdateEnvironmentThread();
 
     /** \brief thread that sends the execution verification point cloud
      */
-    void _SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread);
-    void _StartExecutionVerificationPointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const std::string& obstaclename, ImagesubscriberHandlerPtr ih, const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params);
+    void _StartExecutionVerificationPointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopExecutionVerificationPointCloudThread();
     
     void _ControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StartControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StopControllerMonitorThread();
 
-    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, ImagesubscriberHandlerPtr ih, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01, const double pointsize=0.005, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
-    void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread);
+    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01, const double pointsize=0.005, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
+    void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params);
     void _StopSendPointCloudObstacleToControllerThread();
 
-    void _DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, ImagesubscriberHandlerPtr ih, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=false);
-    void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, ImagesubscriberHandlerPtr ih, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
+    void _DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=false);
+    void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
     /** \brief Gets transform of the instobject in meters.
      */
     mujinvision::Transform _GetTransform(const std::string& instobjname);
@@ -554,12 +549,10 @@ private:
     void _LoadConfig(const std::string& filename, std::string& content);
 
     bool _PreemptSubscriber();
-    std::map<std::string, int> _GetCameraidCount();
-    void _UpdateCameraidCount(std::map<std::string, int> map);
 
     void _StartAndGetCaptureHandle(const std::vector<std::string>& camreaids, const std::vector<std::string>& cameranamestocheckocclusion, const std::string& regionname, std::vector<CameraCaptureHandlePtr>& capturehandles);
-    //void _StartCapture(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion=std::vector<std::string>(), const double& timeout=5.0, const int numimages=-1);
-    void _StopCapture(const std::vector<std::string>& cameranames);
+
+    std::map<std::string, CameraCaptureHandleWeakPtr> _mCameraidCaptureHandles; ///< list of handles that maintain the runtime capture state of cameras
 
     unsigned int _statusport, _commandport, _configport;
     std::string _configdir;
@@ -585,7 +578,6 @@ private:
     std::queue<std::string> _commandErrorQueue, _configErrorQueue, _detectorErrorQueue, _updateenvironmentErrorQueue, _controllermonitorErrorQueue, _sendpointcloudErrorQueue, _visualizepointcloudErrorQueue, _sendexecverificationErrorQueue;
     std::queue<unsigned long long> _timestampQueue;
     boost::mutex _mutexStatusQueue; ///< protects _statusQueue, _messageQueue, and _timestampQueue
-    //boost::condition _condStatus; ///< notification when _statusqueue has data
 
     std::map<unsigned int, boost::shared_ptr<boost::thread> > _mPortCommandThread; ///< port -> thread
     boost::shared_ptr<boost::thread> _pStatusThread;
@@ -631,10 +623,8 @@ private:
     std::vector<ImagePtr> _lastresultimages; ///< last result image used for detection
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
     boost::mutex _mutexDetector; ///< lock for detector
-    boost::mutex _mutexThreadResourceSync; ///< mutex for syncing resources when threads are being created
 
     ptree _visionserverpt; ///< ptree storing visionserver params
-    std::vector<std::string> _vCameranames; ///< cameranames passed in for start detection loop
     std::vector<std::string> _vExecutionVerificationCameraNames; ///< names of cameras for exec verification
     double _filteringvoxelsize;  ///< point cloud filting param for exec verification
     double _filteringstddev;  ///< point cloud filting param for exec verification
@@ -650,23 +640,6 @@ private:
     std::map<std::string, std::vector<Real> > _mResultPoints; ///< result pointcloud obstacle, cameraname -> points. protected by _mutexDetectedInfo
     //@}
 
-    boost::mutex _mutexPublishingCount; ///< lock for _mCameraidCount
-    //std::map<std::string, int> _mCameraidCount; ///< camera hardware id -> number of ImagesubscriberHandler using it
-
-    class CameraCaptureHandle
-    {
-        CameraCaptureHandle(ImageSubscriberManagerPtr pImagesubscriberManager, const std::string& cameraid);
-        ~CameraCaptureHandle();
-    private:
-        ImageSubscriberManagerPtr _pImagesubscriberManager;
-        std::string _cameraid;
-    };
-    typedef boost::shared_ptr<CameraCaptureHandle> CameraCaptureHandlePtr;
-    typedef boost::weak_ptr<CameraCaptureHandle> CameraCaptureHandleWeakPtr;
-    
-    std::map<std::string, CameraCaptureHandleWeakPtr> _mCameraidCaptureHandles; ///< list of handles that maintain the runtime capture state of cameras
-    
-    
     double _controllerCommandTimeout; ///< controller command timeout in seconds
     std::string _userinfo_json; ///< userinfo json
     std::string _slaverequestid; ///< slaverequestid to ensure that binpicking task uses the same slave

@@ -308,6 +308,7 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
             CameraCaptureHandlePtr phandle = itcapture->second.lock();
             if( !!phandle ) {
                 tempcapturehandles[i] = phandle;
+                continue;
             }
             // handle is invalid, all the threads released it
         }

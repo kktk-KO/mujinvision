@@ -2491,8 +2491,8 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     std::vector<ImagePtr> colorimages, depthimages, resultimages;
 
     uint64_t start0 = GetMilliTime();
-    //unsigned long long starttime = 0, endtime = 0;
     starttime = 0; endtime = 0;
+    unsigned long long imagepacktimestamp = 0, oldimagepacktimestamp = 0;
     std::string cameraname;
     uint64_t lastimageagecheckfailurets = 0;
     uint64_t lastfirstimagecheckfailurewarnts = 0;
@@ -2509,7 +2509,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // get images from subscriber
         if (usecache) {
-            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, starttime, endtime, fetchimagetimeout / 1000.0);
+            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, starttime, endtime, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp);
         } else {
             BOOST_ASSERT(colorcameranames.size() == 1); // TODO supports only one color camera
             BOOST_ASSERT(depthcameranames.size() == 1); // TODO supports only one depth camera
@@ -2566,6 +2566,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // ensure streamer and try to get images again if images are too old
         if (maxage>0 && GetMilliTime()-starttime>maxage) {
+            oldimagepacktimestamp = imagepacktimestamp;
             if (GetMilliTime() - lastimageagecheckfailurets > 1000.0) {
                 std::stringstream msg_ss;
                 msg_ss << "Image is more than " << maxage << " ms old (" << (GetMilliTime() - starttime) << "), will try to get again"

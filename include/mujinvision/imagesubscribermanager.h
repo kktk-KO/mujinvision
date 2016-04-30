@@ -66,7 +66,13 @@ public:
      */
     virtual ImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=10.0) = 0;
 
-    virtual void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=10.0) = 0;
+    /** \brief Gets image pack from buffer from specified cameras
+        \param starttime min capture starting timestamp of all images in the pack
+        \param endtime max capture ending timestamp of all images in the pack
+        \param imagepacktimestamp timestamp of the image pack
+        \param newerthan imagepack must be taken later than this timestamp
+     */
+    virtual void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double& timeout=10.0, const unsigned long long& newerthan=0) = 0;
 
     /** \brief prune and subsample pointcloud
      */

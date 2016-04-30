@@ -43,7 +43,7 @@ public:
         std::vector<ImagePtr> resultimages;
         return resultimages;
     }
-    void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, const double& timeout)
+    void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double& timeout, const unsigned long long& laterthan)
     {
     }
     void StartCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0, const int numimages=-1, const std::string& extraoptions="")

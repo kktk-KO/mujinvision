@@ -241,7 +241,7 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
         }
 
         tostart.push_back(cameranames[i]);
-        tempcapturehandles[i].reset(new CameraCaptureHandle(_pImagesubscriberManager, cameranames[i]));
+        tempcapturehandles[i].reset(new CameraCaptureHandle(_pImagesubscriberManager, _mCameraNameHardwareId[cameranames[i]]));
         _mCameranameCaptureHandles[cameranames[i]] = tempcapturehandles[i];
     }
     if( tostart.size() > 0 ) {
@@ -2491,6 +2491,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     std::vector<ImagePtr> colorimages, depthimages, resultimages;
 
     uint64_t start0 = GetMilliTime();
+    uint64_t starttime0;
     starttime = 0; endtime = 0;
     unsigned long long imagepacktimestamp = 0, oldimagepacktimestamp = 0;
     std::string cameraname;
@@ -2614,7 +2615,9 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                         int occlusionchecked = tmppt.get<int>("occlusionchecked", 0);
                         if (occlusionchecked == 0) {
                             //MUJIN_LOG_ERROR(image->metadata);
+                            starttime0 = GetMilliTime();
                             pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, image->timestamp, image->endtimestamp, isoccluding);
+                            MUJIN_LOG_DEBUG("IsRobotOccludingBody for " << cameraname << " took " << (GetMilliTime() - starttime0)/1000.0f << " secs");
                             checkedcameranames.push_back(cameraname);
                         } else {
                             //MUJIN_LOG_ERROR("occlusioncheck was done in streamer");

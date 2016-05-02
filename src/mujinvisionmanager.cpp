@@ -189,6 +189,17 @@ bool MujinVisionManager::_PreemptSubscriber()
     return bpreempt;
 }
 
+bool MujinVisionManager::_PreemptDetector()
+{
+    bool bpreempt = _bShutdown || _bCancelCommand || _bStopDetectionThread || _bStopUpdateEnvironmentThread || _bStopExecutionVerificationPointCloudThread;
+    if (bpreempt ) {
+        std::stringstream ss;
+        ss << "preempt detector! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread;
+        MUJIN_LOG_DEBUG(ss.str())
+    }
+    return bpreempt;
+}
+
 MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir, const std::string& detectiondir)
 {
     _bInitialized = false;
@@ -3015,6 +3026,7 @@ void MujinVisionManager::Initialize(
     _targeturi = targeturi;
     _targetupdatename = targetupdatename;
     _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions);
+    _pDetector->SetPreemptFn(boost::bind(&MujinVisionManager::_PreemptDetector, this));
     MUJIN_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     MUJIN_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
     MUJIN_LOG_DEBUG(" ------------------------");

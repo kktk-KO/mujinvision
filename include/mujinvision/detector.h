@@ -30,6 +30,10 @@ public:
     virtual ~ObjectDetector() {
     }
 
+    virtual void SetPreemptFn(const boost::function<bool()>& preemptfn) {
+        _preemptfn = preemptfn;
+    }
+
     /** \brief sets up object detector
         \param detectorconf json string describing detector config
         \param mNameRegion map to detection regions from names
@@ -126,6 +130,7 @@ protected:
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
 
+    boost::function<bool()> _preemptfn;
 };
 
 typedef boost::shared_ptr<ObjectDetector> ObjectDetectorPtr;

@@ -77,7 +77,7 @@ public:
     virtual ~UserObjectDetector() {
     }
 
-    void Initialize(const std::string& detectorconf, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), const bool getgil=false) {
+    void Initialize(const std::string& detectorconf, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), preempt_fn preemptfn = 0, const bool getgil=false) {
     }
 
     void DeInitialize() {
@@ -120,7 +120,7 @@ public:
     virtual ~UserDetectorManager() {
     }
 
-    ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn, const std::map<std::string, std::string>& extraInitializationOptions = std::map<std::string, std::string>())
+    ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn, const std::map<std::string, std::string>& extraInitializationOptions = std::map<std::string, std::string>(), preempt_fn preemptfn = 0)
     {
         UserObjectDetectorPtr detector(new UserObjectDetector());
         return boost::dynamic_pointer_cast<ObjectDetector>(detector);

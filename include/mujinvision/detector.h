@@ -21,6 +21,8 @@
 
 namespace mujinvision {
 
+typedef bool (*preempt_fn)();
+
 class MUJINVISION_API ObjectDetector : public MujinInterruptable
 {
 public:
@@ -28,10 +30,6 @@ public:
     }
 
     virtual ~ObjectDetector() {
-    }
-
-    virtual void SetPreemptFn(const boost::function<bool()>& preemptfn) {
-        _preemptfn = preemptfn;
     }
 
     /** \brief sets up object detector
@@ -42,7 +40,7 @@ public:
         \param extraInitializationOptions optional extra options
         \param whether to get python gil
      */
-    virtual void Initialize(const std::string& detectorconf, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), const bool getgil=true) = 0;
+    virtual void Initialize(const std::string& detectorconf, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), preempt_fn preemptfn=0, const bool getgil=true) = 0;
 
     virtual void DeInitialize() = 0;
 
@@ -130,7 +128,7 @@ protected:
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
 
-    boost::function<bool()> _preemptfn;
+    preempt_fn _preemptfn;
 };
 
 typedef boost::shared_ptr<ObjectDetector> ObjectDetectorPtr;

@@ -644,6 +644,7 @@ private:
     // mujin controller binpicking state
     unsigned long long _binpickingstateTimestamp; ///< timestamp of latest binpicking state
     unsigned long long _lastGrabbedTargetTimestamp; ///< timestamp when last grabbed target
+    unsigned long long _lastDetectStartTimestamp; ///< starting timestamp of the images sent to the detector in the last detection call
     int _numPickAttempt; ///< num of picking attempts
     int _orderNumber;  ///< num of ordered items
     int _numLeftInOrder; ///< num of order to go

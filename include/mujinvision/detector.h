@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// Copyright (C) 2012-2015 MUJIN Inc.
+// Copyright (C) 2012-2016 MUJIN Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -116,9 +116,9 @@ public:
         }
     };
 
-    /** stops the detector operation as quickly as possible
+    /** Sets the preempt status in detector
      */
-    virtual void Stop() = 0;
+    virtual void SetPreempt(const bool preempt) = 0;
 
 protected:
 

@@ -182,20 +182,7 @@ bool MujinVisionManager::_PreemptSubscriber()
 {
     bool bpreempt = _bShutdown || _bCancelCommand || _bStopDetectionThread || _bStopUpdateEnvironmentThread || _bStopExecutionVerificationPointCloudThread;
     if (bpreempt ) {
-        std::stringstream ss;
-        ss << "preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread;
-        MUJIN_LOG_DEBUG(ss.str())
-    }
-    return bpreempt;
-}
-
-bool MujinVisionManager::_PreemptDetector()
-{
-    bool bpreempt = _bShutdown || _bCancelCommand || _bStopDetectionThread || _bStopUpdateEnvironmentThread || _bStopExecutionVerificationPointCloudThread;
-    if (bpreempt ) {
-        std::stringstream ss;
-        ss << "preempt detector! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread;
-        MUJIN_LOG_DEBUG(ss.str())
+        MUJIN_LOG_DEBUG("preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread << " _bStopUpdateEnvironmentThread=" << _bStopUpdateEnvironmentThread << " _bStopExecutionVerificationPointCloudThread=" << _bStopExecutionVerificationPointCloudThread);
     }
     return bpreempt;
 }
@@ -239,7 +226,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _pImagesubscriberManager = imagesubscribermanager;
     _pImagesubscriberManager->SetPreemptFn(boost::bind(&MujinVisionManager::_PreemptSubscriber, this));
     _pDetectorManager = detectormanager;
-    _zmqcontext.reset(new zmq::context_t(8));
+    _zmqcontext.reset(new zmq::context_t(9));
     _statusport = statusport;
     _commandport = commandport;
     _configport = configport;
@@ -302,7 +289,6 @@ void MujinVisionManager::Shutdown()
     _StopDetectionThread();
     _StopUpdateEnvironmentThread();
     _StopExecutionVerificationPointCloudThread();
-    _StopControllerMonitorThread();
     _StopVisualizePointCloudThread();
     _StopControllerMonitorThread();
     _StopCommandThread(_commandport);
@@ -2235,6 +2221,14 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
                 lastUpdateTimestamp = GetMilliTime();
             }
 
+            bool bpreempt = _bShutdown || _bCancelCommand || _bStopDetectionThread || _bStopUpdateEnvironmentThread || _bStopExecutionVerificationPointCloudThread;
+
+            if (bpreempt) {
+                if (!!_pDetector) {
+                    _pDetector->Stop();
+                }
+            }
+
             uint64_t dt = GetMilliTime() - lastUpdateTimestamp;
 
             if (dt < waitinterval) {
@@ -2716,7 +2710,6 @@ void MujinVisionManager::Initialize(
     _slaverequestid = slaverequestid;
     _bSendVerificationPointCloud = true;
     _containerParameters = containerParameters;
-
     std::stringstream url_ss;
     url_ss << "http://" << controllerIp << ":" << controllerPort;
     ControllerClientPtr controller = CreateControllerClient(controllerUsernamePass, url_ss.str());
@@ -3025,7 +3018,7 @@ void MujinVisionManager::Initialize(
     _targetname = targetname;
     _targeturi = targeturi;
     _targetupdatename = targetupdatename;
-    _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions, (preempt_fn)&MujinVisionManager::_PreemptDetector);
+    _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _zmqcontext, _mDetectorExtraInitializationOptions);
     MUJIN_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     MUJIN_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
     MUJIN_LOG_DEBUG(" ------------------------");
@@ -3047,9 +3040,12 @@ void MujinVisionManager::_DeInitialize()
     _StopControllerMonitorThread();
     _StopVisualizePointCloudThread();
     std::string regionname;
-    if (!!_pDetector) {
-        _pDetector.reset();
-        MUJIN_LOG_DEBUG("reset detector");
+    {
+        boost::mutex::scoped_lock lock(_mutexDetector);
+        if (!!_pDetector) {
+            _pDetector.reset();
+            MUJIN_LOG_DEBUG("reset detector");
+        }
     }
     if (!!_pImagesubscriberManager) {
         _pImagesubscriberManager->DeInitialize(); // do not reset because it is created and passed in from outside
@@ -3566,7 +3562,7 @@ void MujinVisionManager::SyncCameras(const std::string& regionname, const std::v
     if (!!_pDetector) {
         _pDetector.reset();
         MUJIN_LOG_DEBUG("reset detector");
-        _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions);
+        _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _zmqcontext, _mDetectorExtraInitializationOptions);
     }
     _SetStatus(TT_Command, MS_Succeeded);
 }

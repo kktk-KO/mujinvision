@@ -545,7 +545,6 @@ private:
     void _LoadConfig(const std::string& filename, std::string& content);
 
     bool _PreemptSubscriber();
-    bool _PreemptDetector();
 
     void _StartCapture(const std::vector<std::string>& cameranames);
     void _StopCapture(const std::vector<std::string>& cameranames);

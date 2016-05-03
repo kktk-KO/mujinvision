@@ -17,6 +17,7 @@
 #ifndef MUJIN_VISION_DETECTOR_MANAGER_H
 #define MUJIN_VISION_DETECTOR_MANAGER_H
 
+#include <mujincontrollerclient/mujinzmq.h>
 #include "detector.h"
 
 namespace mujinvision {
@@ -36,9 +37,10 @@ public:
         \param mRegionColorCameraMap map to color camera maps from region names
         \param mRegionDepthCameraMap map to depth camera maps from region names
         \param setstatusfn function the detector can use to set status
+        \param zmqcontext zmq context
         \param extraInitializationOptions extra initialization options that can override the values in the contructor
      */
-    virtual ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn, const std::map<std::string, std::string>& extraInitializationOptions = std::map<std::string, std::string>(), preempt_fn preemptfn=0) = 0;
+    virtual ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn, boost::shared_ptr<zmq::context_t> zmqcontext, const std::map<std::string, std::string>& extraInitializationOptions = std::map<std::string, std::string>()) = 0;
 };
 
 typedef boost::shared_ptr<DetectorManager> DetectorManagerPtr;

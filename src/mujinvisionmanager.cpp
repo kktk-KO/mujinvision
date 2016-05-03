@@ -804,7 +804,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
 
-            std::vector<std::string> cameranames;
+             std::vector<std::string> cameranames;
             boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
             if (!!cameranames_pt) {
                 FOREACH(v, *cameranames_pt) {
@@ -1374,7 +1374,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
     }
 }
 
-void MujinVisionManager::_StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, std::vector<CameraCaptureHandlePtr>& capturehandles, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder)
+void MujinVisionManager::_StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<CameraCaptureHandlePtr>& capturehandles, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder)
 {
     if (starttime > 0) {
         _tsStartDetection = starttime;
@@ -1668,6 +1668,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
             time0 = GetMilliTime();
             if (stoponleftinorder && orderNumber > 0 && numLeftInOrder == 0) {
+                // have to guarantee that capture is started
                 MUJIN_LOG_INFO("numLeftInOrder=" << numLeftInOrder << " orderNumber=" << orderNumber << " stoponleftinorder=" << stoponleftinorder << ", check container empty only.");
                 _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
                 detectcontaineronly = true;

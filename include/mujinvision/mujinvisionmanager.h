@@ -654,8 +654,6 @@ private:
     // vision manager flags
     bool _bInitialized; ///< whether visionmanager is initialized
     bool _bShutdown; ///< whether the visionmanager is shut down
-    bool _bCheckPreemptDetectionThread; ///< whether to check preempting conditions for detector calls made by the detection thread
-    bool _bCheckPreemptSendPointCloudObstacleThread; ///< whether to check preempting conditions for detector calls made by the SendPointCloudObstacleThread thread
     bool _bStopStatusThread; ///< whether to stop status thread
     bool _bStopDetectionThread; ///< whether to stop detection thread
     bool _bStopUpdateEnvironmentThread; ///< whether to stop update environment thread

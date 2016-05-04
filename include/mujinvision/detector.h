@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// Copyright (C) 2012-2015 MUJIN Inc.
+// Copyright (C) 2012-2016 MUJIN Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -128,7 +128,7 @@ protected:
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
 
-    preempt_fn _preemptfn;
+    preempt_fn _preemptfn; ///< function the detector can call to be interrupted by user
 };
 
 typedef boost::shared_ptr<ObjectDetector> ObjectDetectorPtr;

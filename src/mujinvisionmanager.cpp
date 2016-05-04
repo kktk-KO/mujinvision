@@ -182,20 +182,16 @@ bool MujinVisionManager::_PreemptSubscriber()
 {
     bool bpreempt = _bShutdown || _bCancelCommand || _bStopDetectionThread || _bStopUpdateEnvironmentThread || _bStopExecutionVerificationPointCloudThread;
     if (bpreempt ) {
-        std::stringstream ss;
-        ss << "preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread;
-        MUJIN_LOG_DEBUG(ss.str())
+        MUJIN_LOG_DEBUG("preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread << " _bStopUpdateEnvironmentThread=" << _bStopUpdateEnvironmentThread << " _bStopExecutionVerificationPointCloudThread=" << _bStopExecutionVerificationPointCloudThread);
     }
     return bpreempt;
 }
 
 bool MujinVisionManager::_PreemptDetector()
 {
-    bool bpreempt = _bShutdown || _bCancelCommand || _bStopDetectionThread || _bStopUpdateEnvironmentThread || _bStopExecutionVerificationPointCloudThread;
+    bool bpreempt = _bShutdown || _bCancelCommand || _bStopDetectionThread || (_tsStartDetection > 0 && _lastGrabbedTargetTimestamp > _tsStartDetection && _lastGrabbedTargetTimestamp < _lastDetectStartTimestamp);
     if (bpreempt ) {
-        std::stringstream ss;
-        ss << "preempt detector! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread;
-        MUJIN_LOG_DEBUG(ss.str())
+        MUJIN_LOG_INFO(str(boost::format("Preempting detector! _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d _lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u")%_bShutdown%_bCancelCommand%_bStopDetectionThread%_lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection));
     }
     return bpreempt;
 }
@@ -239,7 +235,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _pImagesubscriberManager = imagesubscribermanager;
     _pImagesubscriberManager->SetPreemptFn(boost::bind(&MujinVisionManager::_PreemptSubscriber, this));
     _pDetectorManager = detectormanager;
-    _zmqcontext.reset(new zmq::context_t(8));
+    _zmqcontext.reset(new zmq::context_t(9));
     _statusport = statusport;
     _commandport = commandport;
     _configport = configport;
@@ -302,7 +298,6 @@ void MujinVisionManager::Shutdown()
     _StopDetectionThread();
     _StopUpdateEnvironmentThread();
     _StopExecutionVerificationPointCloudThread();
-    _StopControllerMonitorThread();
     _StopVisualizePointCloudThread();
     _StopControllerMonitorThread();
     _StopCommandThread(_commandport);
@@ -2716,7 +2711,6 @@ void MujinVisionManager::Initialize(
     _slaverequestid = slaverequestid;
     _bSendVerificationPointCloud = true;
     _containerParameters = containerParameters;
-
     std::stringstream url_ss;
     url_ss << "http://" << controllerIp << ":" << controllerPort;
     ControllerClientPtr controller = CreateControllerClient(controllerUsernamePass, url_ss.str());
@@ -3047,9 +3041,12 @@ void MujinVisionManager::_DeInitialize()
     _StopControllerMonitorThread();
     _StopVisualizePointCloudThread();
     std::string regionname;
-    if (!!_pDetector) {
-        _pDetector.reset();
-        MUJIN_LOG_DEBUG("reset detector");
+    {
+        boost::mutex::scoped_lock lock(_mutexDetector);
+        if (!!_pDetector) {
+            _pDetector.reset();
+            MUJIN_LOG_DEBUG("reset detector");
+        }
     }
     if (!!_pImagesubscriberManager) {
         _pImagesubscriberManager->DeInitialize(); // do not reset because it is created and passed in from outside
@@ -3090,6 +3087,7 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
             _pDetector->SetDepthImage(depthimages.at(i));
         }
         // detect objects
+        _lastDetectStartTimestamp = imageStartTimestamp;
         if (resultimages.size() > 0) {
             _pDetector->DetectObjects(regionname, colorcameranames, depthcameranames, resultimages, detectedobjects, resultstate, fastdetection, bindetection, checkcontaineremptyonly);
         } else {

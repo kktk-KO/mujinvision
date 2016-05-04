@@ -145,7 +145,7 @@ public:
                                     const unsigned int maxage=0,
                                     const unsigned int fetchimagetimeout=0,
                                     const std::string& obstaclename="__dynamicobstacle__",
-                                    const unsigned long long& starttime=0 /*ms*/,
+                                    const unsigned long long starttime=0 /*ms*/,
                                     const std::string& locale="en_US",
                                     const unsigned int maxnumfastdetection=1,
                                     const unsigned int maxnumdetection=0,
@@ -448,7 +448,7 @@ private:
     /** \brief runs detection in a loop
     */
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long& starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder);
     void _StopDetectionThread();
 
     void _VisualizePointCloudThread(VisualizePointcloudThreadParams params);

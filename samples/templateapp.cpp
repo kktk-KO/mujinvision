@@ -17,40 +17,40 @@ public:
     void DeInitialize() {
     }
 
-    ImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double& timeout)
+    ImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout)
     {
         return ImagePtr();
     }
-    ImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double& timeout=1.0)
+    ImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout=1.0)
     {
         return ImagePtr();
     }
 
-    ImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout)
+    ImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout)
     {
         return ImagePtr();
     }
-    ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0, const int numimages=-1)
+    ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=1.0, const int numimages=-1)
     {
         return ImagePtr();
     }
-    ImagePtr SnapDetectionResult(const std::string& cameraname, const double& timeout=20.0/*sec*/)
+    ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0/*sec*/)
     {
         return ImagePtr();
     }
-    std::vector<ImagePtr> SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0, const int numimages=-1)
+    std::vector<ImagePtr> SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=1.0, const int numimages=-1)
     {
         std::vector<ImagePtr> resultimages;
         return resultimages;
     }
-    void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double& timeout, const unsigned long long& laterthan)
+    void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout, const unsigned long long laterthan)
     {
     }
-    void StartCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0, const int numimages=-1, const std::string& extraoptions="")
+    void StartCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="")
     {
     }
 
-    void StopCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0)
+    void StopCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0)
     {
     }
 

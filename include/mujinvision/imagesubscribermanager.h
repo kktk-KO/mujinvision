@@ -49,14 +49,14 @@ public:
         \param endtimestamp endtimestamp of the color image
         \return pointer to the color image
      */
-    virtual ImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double& timeout=10.0) = 0;
+    virtual ImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout=10.0) = 0;
     /** \brief Gets the latest color image from camera and its timestamp.
         \param cameraname name of the camera
         \param timestamp timestamp of the color image
         \param endtimestamp endtimestamp of the color image
         \return pointer to the color image
      */
-    virtual ImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double& timeout=1.0/*sec*/) = 0;
+    virtual ImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout=1.0/*sec*/) = 0;
 
     /** \brief Gets the depth image from the latest n images with depth data, and the min/max timestamps of the images used.
         \param cameraname name of the camera
@@ -64,7 +64,7 @@ public:
         \param endtime timestamp of the latest image
         \return pointer to the depth image
      */
-    virtual ImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=10.0) = 0;
+    virtual ImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=10.0) = 0;
 
     /** \brief Gets image pack from buffer from specified cameras
         \param starttime min capture starting timestamp of all images in the pack
@@ -72,7 +72,7 @@ public:
         \param imagepacktimestamp timestamp of the image pack
         \param newerthan imagepack must be taken later than this timestamp
      */
-    virtual void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double& timeout=10.0, const unsigned long long& newerthan=0) = 0;
+    virtual void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout=10.0, const unsigned long long newerthan=0) = 0;
 
     /** \brief prune and subsample pointcloud
      */
@@ -84,16 +84,16 @@ public:
         \param endtime timestamp of the latest image
         \return pointer to the depth image
      */
-    virtual ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0/*sec*/, const int numimages=-1) = 0;
+    virtual ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=1.0/*sec*/, const int numimages=-1) = 0;
 
-    virtual std::vector<ImagePtr> SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double& timeout=1.0/*sec*/, const int numimages=-1) = 0;
+    virtual std::vector<ImagePtr> SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=1.0/*sec*/, const int numimages=-1) = 0;
 
     /** \brief gets detection result
      */
-    virtual ImagePtr SnapDetectionResult(const std::string& cameraname, const double& timeout=20.0/*sec*/) = 0;
+    virtual ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0/*sec*/) = 0;
 
-    virtual void StartCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0, const int numimages=-1, const std::string& extraoptions="") = 0;
-    virtual void StopCaptureThread(const std::vector<std::string>& cameranames, const double& timeout=5.0) = 0;
+    virtual void StartCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="") = 0;
+    virtual void StopCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0) = 0;
 
     /** \brief Writes color image to disk.
      */

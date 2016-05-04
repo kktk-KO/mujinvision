@@ -17,7 +17,6 @@
 #ifndef MUJIN_VISION_DETECTOR_MANAGER_H
 #define MUJIN_VISION_DETECTOR_MANAGER_H
 
-#include <mujincontrollerclient/mujinzmq.h>
 #include "detector.h"
 
 namespace mujinvision {

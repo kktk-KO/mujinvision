@@ -649,8 +649,6 @@ private:
     bool _bIsGrabbingTarget; ///< whether the robot is grabbing target
     bool _bIsGrabbingLastTarget; ///< whether the robot is grabbing the last target
 
-    unsigned int _checkDetectorPreemptBits; ///< bits specifying which bits to check for preempting detector calls. bit0: DetectionThread, bit1: SendPointCloudObstacleThread
-
     // vision manager flags
     bool _bInitialized; ///< whether visionmanager is initialized
     bool _bShutdown; ///< whether the visionmanager is shut down
@@ -664,6 +662,7 @@ private:
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
     bool _bIsDetectionRunning; ///< true if detection thread is running
+    bool _bCheckDetectionThreadPreempt; ///< whether to check for preempting condition for detector calls made from detection thread
     bool _bIsVisualizePointcloudRunning; ///< whether the point cloud visualization thread is running
     bool _bIsSendPointcloudRunning; ///< whether send point cloud obstacle thread is running
     bool _bIsEnvironmentUpdateRunning; ///< whether env update thread is running

@@ -544,8 +544,8 @@ private:
     std::string _GetConfigFileName(const std::string& type, const std::string& configname);
     void _LoadConfig(const std::string& filename, std::string& content);
 
-    bool _PreemptSubscriber();
-    bool _PreemptDetector();
+    bool _CheckPreemptSubscriber();
+    bool _CheckPreemptDetector(const unsigned int checkpreemptbits);
 
     void _StartCapture(const std::vector<std::string>& cameranames);
     void _StopCapture(const std::vector<std::string>& cameranames);
@@ -656,6 +656,8 @@ private:
     bool _bForceRequestDetectionResults; ///< whether to run detection ignoring _numPickAttempt
     bool _bIsGrabbingTarget; ///< whether the robot is grabbing target
     bool _bIsGrabbingLastTarget; ///< whether the robot is grabbing the last target
+
+    unsigned int _detectorPreemptBits; ///< bits specifying whether to preempt detector calls. bit0: DetectObject, bit1: GetPointCloudObstacle
 
     // vision manager flags
     bool _bInitialized; ///< whether visionmanager is initialized

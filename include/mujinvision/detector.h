@@ -21,7 +21,7 @@
 
 namespace mujinvision {
 
-typedef boost::function<bool()> preempt_fn;
+typedef boost::function<bool(const unsigned int)> CheckPreemptFn;
 
 class MUJINVISION_API ObjectDetector : public MujinInterruptable
 {
@@ -40,22 +40,24 @@ public:
         \param extraInitializationOptions optional extra options
         \param whether to get python gil
      */
-    virtual void Initialize(const std::string& detectorconf, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), const preempt_fn& preemptfn=preempt_fn(), const bool getgil=true) = 0;
+    virtual void Initialize(const std::string& detectorconf, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), const CheckPreemptFn& preemptfn=CheckPreemptFn(), const bool getgil=true) = 0;
 
     virtual void DeInitialize() = 0;
 
     /** Detects objects from color and depth images.
         \param regionname
-        \param colorcameraname
-        \param depthcameraname
+        \param colorcameranames
+        \param depthcameranames
+        \param resultimages results could come from the streamer
         \param detectedobjects in world frame
         \param resultstate additional information about the detection result
         \param fastdetection whether to prioritize speed
         \param bindetection whether to detect bin
+        \param checkpreemptbits bits to check for preempt
      */
-    virtual void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false) = 0;
+    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false, const unsigned int checkpreemptbits=0) = 0;
 
-    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, const std::vector<ImagePtr>& resultimages, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false) = 0;
+    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, const std::vector<ImagePtr>& resultimages, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false, const unsigned int checkpreemptbits=0) = 0;
 
     /** \brief Gets point cloud obstacle from depth data and detection result.
         \param regionname
@@ -65,8 +67,9 @@ public:
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
         \param fast whether to prioritize speed
         \param whether to get python gil
+        \param checkpreemptbits bits to check for preempt
      */
-    virtual void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsworld, std::vector<double>& points, const double voxelsize=0.01, const bool fast=false, const bool getgil=false, const double stddev=0.01, const size_t numnn=80) = 0;
+    virtual void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsworld, std::vector<double>& points, const double voxelsize=0.01, const bool fast=false, const bool getgil=false, const double stddev=0.01, const size_t numnn=80, const unsigned int checkpreemptbits=1) = 0;
 
     /** \brief Gets point cloud in world frame from depth image.
         \param regionname
@@ -112,12 +115,6 @@ public:
         }
     }
 
-    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false) {
-        if (colorcameranames.size()>0 && depthcameranames.size()>0) {
-            DetectObjects(regionname, colorcameranames.at(0), depthcameranames.at(0), detectedobjects, resultstate, fastdetection, bindetection);
-        }
-    };
-
 protected:
 
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
@@ -128,7 +125,7 @@ protected:
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
 
-    preempt_fn _preemptfn; ///< function the detector can call to be interrupted by user
+    CheckPreemptFn _preemptfn; ///< function the detector can call to be interrupted by user
 };
 
 typedef boost::shared_ptr<ObjectDetector> ObjectDetectorPtr;

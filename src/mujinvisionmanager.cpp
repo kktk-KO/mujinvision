@@ -1761,7 +1761,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 uint64_t starttime = GetMilliTime();
                 {
                     boost::mutex::scoped_lock lock(_mutexDetector);
-                    _bCheckPreemptDetectionThread = false;
+                    _bCheckPreemptDetectionThread = true;
                     _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedparts, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
                 }
                 ss << "GetPointCloudObstacle() took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
@@ -3074,7 +3074,7 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
 {
     boost::mutex::scoped_lock lock(_mutexDetector);
     uint64_t starttime = GetMilliTime();
-    _bCheckPreemptDetectionThread = false;
+    _bCheckPreemptDetectionThread = true;
 
     std::vector<std::string> colorcameranames = _GetColorCameraNames(regionname, cameranames);
     std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
@@ -3203,7 +3203,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
     uint64_t starttime = GetMilliTime();
     std::vector<ImagePtr> dummyimages;
     std::vector<std::string> dummycameranames;
-    _bCheckPreemptSendPointCloudObstacleThread = false;
+    _bCheckPreemptSendPointCloudObstacleThread = true;
     if (!async) {
         std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
         // set up images

@@ -112,6 +112,9 @@ public:
         \param cameranames names of the cameras
         \param detectedobjects detection results in meters in world frame
         \param resultstate additional information about the detection result
+        \param imageStartTimestamp for all captured images, the starttime in ms of the image capture
+        \param imageEndTimestamp for all captured images, the endtime in ms of the image capture
+        \param isContainerPresent whether container specified by regionname is present
         \param ignoreocclusion whether to skip occlusion check
         \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
         \param fetchimagetimeout max time in ms to wait for getting images for detection
@@ -124,6 +127,9 @@ public:
                                const std::vector<std::string>& cameranames,
                                std::vector<DetectedObjectPtr>& detectedobjectsworld,
                                std::string& resultstate,
+                               unsigned long long& imageStartTimestamp,
+                               unsigned long long& imageEndTimestamp,
+                               int& isContainerPresent,
                                const bool ignoreocclusion=false,
                                const unsigned int maxage=0,
                                const unsigned int fetchimagetimeout=0,
@@ -207,17 +213,6 @@ public:
                                                 const double voxelsize=0.005);
 
     virtual void StopVisualizePointCloudThread();
-
-    /** \brief Detects the transform of region
-        \param regionname name of the region where the detection happens
-        \param cameranames names of the cameras used for detection
-        \param regiontransform detected new transform of the region
-        \param ignoreocclusion whether to skip occlusion check
-        \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
-        \param fetchimagetimeout max time in ms to wait for getting images for detection
-        \param request whether to request new images instead of getting them off the buffer
-     */
-    virtual void DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=false);
 
     /** \brief Saves a snapshot for each sensor mapped to the region. If detection was called before, snapshots of the images used for the last detection will be saved. Images are saved to the visionmanager application directory.
      */
@@ -423,8 +418,6 @@ private:
     void _StartStatusPublisher(const unsigned int port);
 
     /**
-       \param imageStartTimestamp for all captured images, the starttime in ms of the image capture
-       \param imageEndTimestamp for all captured images, the endtime in ms of the image capture
        \returns number of detected objects
     */
     int _DetectObjects(ThreadType tt,
@@ -476,7 +469,6 @@ private:
     void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, ImagesubscriberHandlerPtr ih, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01, const double pointsize=0.005, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
     void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params, ImagesubscriberHandlerPtr& ihraw, boost::condition& condrunningthread);
 
-    void _DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, ImagesubscriberHandlerPtr ih, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=false);
     void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, ImagesubscriberHandlerPtr ih, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
     /** \brief Gets transform of the instobject in meters.
      */
@@ -545,7 +537,7 @@ private:
     void _LoadConfig(const std::string& filename, std::string& content);
 
     bool _CheckPreemptSubscriber();
-    bool _CheckPreemptDetector(const unsigned int checkpreemptbits);
+    bool _CheckPreemptDetector();
 
     void _StartCapture(const std::vector<std::string>& cameranames);
     void _StopCapture(const std::vector<std::string>& cameranames);
@@ -657,11 +649,13 @@ private:
     bool _bIsGrabbingTarget; ///< whether the robot is grabbing target
     bool _bIsGrabbingLastTarget; ///< whether the robot is grabbing the last target
 
-    unsigned int _detectorPreemptBits; ///< bits specifying whether to preempt detector calls. bit0: DetectObject, bit1: GetPointCloudObstacle
+    unsigned int _checkDetectorPreemptBits; ///< bits specifying which bits to check for preempting detector calls. bit0: DetectionThread, bit1: SendPointCloudObstacleThread
 
     // vision manager flags
     bool _bInitialized; ///< whether visionmanager is initialized
     bool _bShutdown; ///< whether the visionmanager is shut down
+    bool _bCheckPreemptDetectionThread; ///< whether to check preempting conditions for detector calls made by the detection thread
+    bool _bCheckPreemptSendPointCloudObstacleThread; ///< whether to check preempting conditions for detector calls made by the SendPointCloudObstacleThread thread
     bool _bStopStatusThread; ///< whether to stop status thread
     bool _bStopDetectionThread; ///< whether to stop detection thread
     bool _bStopUpdateEnvironmentThread; ///< whether to stop update environment thread

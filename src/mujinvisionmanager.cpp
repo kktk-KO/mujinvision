@@ -237,7 +237,7 @@ MujinVisionManager::CameraCaptureHandle::~CameraCaptureHandle() {
     _pImagesubscriberManager->StopCaptureThread(tostop);
 }
 
-void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion, const std::string& regionname, std::vector<CameraCaptureHandlePtr>& capturehandles)
+void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion, const std::string& regionname, std::vector<CameraCaptureHandlePtr>& capturehandles, const bool force)
 {
     if (!_visionserverpt.get<bool>("runpublisher", true)) {
         capturehandles.resize(0);
@@ -251,8 +251,12 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
         if( itcapture != _mCameranameCaptureHandles.end() ) {
             CameraCaptureHandlePtr phandle = itcapture->second.lock();
             if( !!phandle ) {
-                tempcapturehandles[i] = phandle;
-                MUJIN_LOG_DEBUG("do not start capturing for " << cameranames[i] << " as it is already running");
+                if (!force) {
+                    tempcapturehandles[i] = phandle;
+                    MUJIN_LOG_DEBUG("do not start capturing for " << cameranames[i] << " as it is already running");
+                } else {
+                    tostart.push_back(cameranames[i]);
+                }
                 continue;
             }
             // handle is invalid, all the threads released it
@@ -1702,7 +1706,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             continue;
                         } else { // detect when robot is not occluding camera
                             MUJIN_LOG_INFO("need to detect for this picking attempt, starting image capturing... " << numPickAttempt << " " << lastPickedId << " " << int(forceRequestDetectionResults) << " " << lastDetectedId);
-                            _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);                
+                            _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
                         }
                     } else { // do not detect if binpicking status message is old (controller in bad state)
                         if (GetMilliTime() - lastbinpickingstatewarningts > 1000.0) {
@@ -3184,6 +3188,9 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
         }
     } else {
         MUJIN_LOG_ERROR("Not enough images, cannot detect! colorimages=" << colorimages.size() << " depthimages=" << depthimages.size() << " resultimages=" << resultimages.size());
+        MUJIN_LOG_INFO("force capturing, in case streamer crashed");
+        std::vector<CameraCaptureHandlePtr> capturehandles;
+        _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles, true);
     }
     int numresults = 0;
     if (resultstate == "") {

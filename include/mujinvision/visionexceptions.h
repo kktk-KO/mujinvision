@@ -41,19 +41,19 @@ enum MujinVisionErrorCode
 inline const char* GetErrorCodeString(MujinVisionErrorCode error)
 {
     switch(error) {
-    case MVE_Failed: return "MVE_Failed";
-    case MVE_InvalidArgument: return "MVE_InvalidArguments";
-    case MVE_CommandNotSupported: return "MVE_CommandNotSupported";
-    case MVE_ConnectionError: return "MVE_ConnectionError";
-    case MVE_ImageAcquisitionError: return "MVE_ImageAcquisitionError";
-    case MVE_RecognitionError: return "MVE_RecognitionError";
-    case MVE_ConfigurationFileError: return "MVE_ConfigurationFileError";
-    case MVE_NotImplemented: return "MVE_NotImplemented";
-    case MVE_Busy: return "MVE_Busy";
-    case MVE_NotInitialized: return "MVE_NotInitialized";
-    case MVE_ControllerError: return "MVE_ControllerError";
-    case MVE_NoResponse: return "MVE_NoResponse";
-    case MVE_UserInterrupted: return "MVE_UserInterrupted";
+    case MVE_Failed: return "Failed";
+    case MVE_InvalidArgument: return "InvalidArguments";
+    case MVE_CommandNotSupported: return "CommandNotSupported";
+    case MVE_ConnectionError: return "ConnectionError";
+    case MVE_ImageAcquisitionError: return "ImageAcquisitionError";
+    case MVE_RecognitionError: return "RecognitionError";
+    case MVE_ConfigurationFileError: return "ConfigurationFileError";
+    case MVE_NotImplemented: return "NotImplemented";
+    case MVE_Busy: return "Busy";
+    case MVE_NotInitialized: return "NotInitialized";
+    case MVE_ControllerError: return "ControllerError";
+    case MVE_NoResponse: return "NoResponse";
+    case MVE_UserInterrupted: return "UserInterrupted";
     }
     // throw an exception?
     return "";

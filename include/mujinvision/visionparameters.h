@@ -864,10 +864,10 @@ public:
 
     virtual ~Image() {}
 
-    std::string cameraid; ///< unique camera identifier
-    uint64_t timestamp; ///< timestamp of the beginning of the image aquisition process in milliseconds
-    uint64_t endtimestamp; ///< timestamp of the end of the image aquisition process in milliseconds
-    std::string metadata; ///< json string of image metadata
+    virtual std::string GetCameraId() = 0;
+    virtual uint64_t GetStartTimestamp() = 0;
+    virtual uint64_t GetEndTimestamp() = 0;
+    virtual std::string GetMetadata() = 0;
 };
 
 typedef boost::shared_ptr<Image> ImagePtr;

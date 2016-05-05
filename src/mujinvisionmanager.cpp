@@ -2643,16 +2643,16 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 std::stringstream ss;
                 for (size_t i=0; i<colorimages.size() && !isoccluding; ++i) {
                     ImagePtr image = colorimages.at(i);
-                    std::string cameraname = _mHardwareIdCameraName[image->cameraid];
+                    std::string cameraname = _mHardwareIdCameraName[image->GetCameraId()];
                     if (std::find(checkedcameranames.begin(), checkedcameranames.end(), cameraname) == checkedcameranames.end()) {
                         ss.clear();
-                        ss << image->metadata;
+                        ss << image->GetMetadata();
                         read_json(ss, tmppt);
                         int isoccluded = tmppt.get<int>("isoccluded", -1);
                         if (isoccluded == -1) {
-                            //MUJIN_LOG_ERROR(image->metadata);
+                            //MUJIN_LOG_ERROR(image->GetMetadata());
                             starttime0 = GetMilliTime();
-                            pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, image->timestamp, image->endtimestamp, isoccluding);
+                            pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, image->GetStartTimestamp(), image->GetEndTimestamp(), isoccluding);
                             MUJIN_LOG_DEBUG("IsRobotOccludingBody for " << cameraname << " took " << (GetMilliTime() - starttime0)/1000.0f << " secs");
                             checkedcameranames.push_back(cameraname);
                         } else {
@@ -2665,14 +2665,14 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 }
                 for (size_t i=0; i<depthimages.size() && !isoccluding; ++i) {
                     ImagePtr image = depthimages.at(i);
-                    std::string cameraname = _mHardwareIdCameraName[image->cameraid];
+                    std::string cameraname = _mHardwareIdCameraName[image->GetCameraId()];
                     if (std::find(checkedcameranames.begin(), checkedcameranames.end(), cameraname) == checkedcameranames.end()) {
                         ss.clear();
-                        ss << image->metadata;
+                        ss << image->GetMetadata();
                         read_json(ss, tmppt);
                         int isoccluded = tmppt.get<int>("isoccluded", -1);
                         if (isoccluded == -1) {
-                            pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, image->timestamp, image->endtimestamp, isoccluding);
+                            pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, image->GetStartTimestamp(), image->GetEndTimestamp(), isoccluding);
                             checkedcameranames.push_back(cameraname);
                         } else {
                             isoccluding = isoccluded == 1;
@@ -2722,10 +2722,10 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 std::vector<ImagePtr> dummycolorimages, dummydepthimages; // do not override verified color/depth images
                 resultimages.clear();
                 ImagePtr image = _pImagesubscriberManager->SnapDetectionResult(resultcameraname, fetchimagetimeout / 1000.0);
-                if (image->timestamp - starttime < 1000.0) {  // FIXME in theory they should be the same, need this for simulation to work
+                if (image->GetStartTimestamp() - starttime < 1000.0) {  // FIXME in theory they should be the same, need this for simulation to work
                     resultimages.push_back(image);
                 } else {
-                    MUJIN_LOG_WARN("got new images, have to verify again. image->timestamp=" << image->timestamp << " starttime=" << starttime);
+                    MUJIN_LOG_WARN("got new images, have to verify again. image->GetStartTimestamp()=" << image->GetStartTimestamp() << " starttime=" << starttime);
                     colorimages.clear();
                     depthimages.clear();
                     continue;

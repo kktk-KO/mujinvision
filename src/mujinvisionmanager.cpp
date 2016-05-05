@@ -2653,14 +2653,15 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                         ss.clear();
                         ss << image->metadata;
                         read_json(ss, tmppt);
-                        int occlusionchecked = tmppt.get<int>("occlusionchecked", 0);
-                        if (occlusionchecked == 0) {
+                        int isoccluded = tmppt.get<int>("isoccluded", -1);
+                        if (isoccluded == -1) {
                             //MUJIN_LOG_ERROR(image->metadata);
                             starttime0 = GetMilliTime();
                             pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, image->timestamp, image->endtimestamp, isoccluding);
                             MUJIN_LOG_DEBUG("IsRobotOccludingBody for " << cameraname << " took " << (GetMilliTime() - starttime0)/1000.0f << " secs");
                             checkedcameranames.push_back(cameraname);
                         } else {
+                            isoccluding = isoccluded == 1;
                             //MUJIN_LOG_ERROR("occlusioncheck was done in streamer");
                         }
                     } else {
@@ -2674,11 +2675,12 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                         ss.clear();
                         ss << image->metadata;
                         read_json(ss, tmppt);
-                        int occlusionchecked = tmppt.get<int>("occlusionchecked", 0);
-                        if (occlusionchecked == 0) {
+                        int isoccluded = tmppt.get<int>("isoccluded", -1);
+                        if (isoccluded == -1) {
                             pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, image->timestamp, image->endtimestamp, isoccluding);
                             checkedcameranames.push_back(cameraname);
                         } else {
+                            isoccluding = isoccluded == 1;
                             //MUJIN_LOG_ERROR("occlusioncheck was done in streamer");
                         }
                     } else {

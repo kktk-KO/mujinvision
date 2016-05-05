@@ -2564,16 +2564,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             //colorimages.push_back(_pImagesubscriberManager->SnapColorImage(colorcameranames.at(0), starttime, endtime, fetchimagetimeout / 1000.0));
             //depthimages.push_back(_pImagesubscriberManager->SnapDepthImage(depthcameranames.at(0), starttime, endtime, fetchimagetimeout / 1000.0));
             // assuming that the depth camera will return color image as well (with color camera name)
-            std::vector<ImagePtr> imgs = _pImagesubscriberManager->SnapColorAndDepthImages(depthcameranames.at(0), starttime, endtime, fetchimagetimeout / 1000.0);
-            for (size_t i=0; i<imgs.size(); ++i) {
-                if (imgs.at(i)->imagetype == MIT_IR) {
-                    colorimages.push_back(imgs.at(i));
-                } else if (imgs.at(i)->imagetype == MIT_DepthXYZ) {
-                    depthimages.push_back(imgs.at(i));
-                } else {
-                    MUJIN_LOG_WARN("received unknown image with type " << imgs.at(i)->imagetype);
-                }
-            }
+            _pImagesubscriberManager->SnapColorAndDepthImages(depthcameranames.at(0), starttime, endtime, colorimages, depthimages, fetchimagetimeout / 1000.0);
         }
         // if called by detection thread, break if it is being stopped
         if (tt == TT_Detector && _bStopDetectionThread) {

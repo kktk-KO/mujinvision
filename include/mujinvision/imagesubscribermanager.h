@@ -86,7 +86,7 @@ public:
      */
     virtual ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=1.0/*sec*/, const int numimages=-1) = 0;
 
-    virtual std::vector<ImagePtr> SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=1.0/*sec*/, const int numimages=-1) = 0;
+    virtual void SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const double timeout=1.0/*sec*/, const int numimages=-1) = 0;
 
     /** \brief gets detection result
      */

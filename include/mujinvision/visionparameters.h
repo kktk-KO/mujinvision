@@ -28,7 +28,6 @@
 
 #include "geometry.h"
 #include "visionexceptions.h"
-#include "mujinimage.h"
 
 #define FOREACH(it, v) for(typeof((v).begin())it = (v).begin(); it != (v).end(); (it)++)
 #define FOREACH_NOINC(it, v) for(typeof((v).begin())it = (v).begin(); it != (v).end(); )
@@ -857,6 +856,23 @@ public:
      */
     static void TransformDetectedObjects(const std::vector<DetectedObjectPtr>& detectedobjectsfrom, std::vector<DetectedObjectPtr>& detectedobjectsto, const Transform& worldtransformfrom, const Transform& worldtransformto);
 };
+
+class Image
+{
+public:
+    Image() {}
+
+    virtual ~Image() {}
+
+    std::string cameraid; ///< unique camera identifier
+    uint64_t timestamp; ///< timestamp of the beginning of the image aquisition process in milliseconds
+    uint64_t endtimestamp; ///< timestamp of the end of the image aquisition process in milliseconds
+    std::string metadata; ///< json string of image metadata
+};
+
+typedef boost::shared_ptr<Image> ImagePtr;
+typedef boost::shared_ptr<Image const> ImageConstPtr;
+typedef boost::weak_ptr<Image> ImageWeakPtr;
 
 } // namespace mujinvision
 #endif

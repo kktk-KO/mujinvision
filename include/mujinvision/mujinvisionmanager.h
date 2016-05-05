@@ -112,6 +112,9 @@ public:
         \param cameranames names of the cameras
         \param detectedobjects detection results in meters in world frame
         \param resultstate additional information about the detection result
+        \param imageStartTimestamp for all captured images, the starttime in ms of the image capture
+        \param imageEndTimestamp for all captured images, the endtime in ms of the image capture
+        \param isContainerPresent whether container specified by regionname is present
         \param ignoreocclusion whether to skip occlusion check
         \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
         \param fetchimagetimeout max time in ms to wait for getting images for detection
@@ -124,6 +127,9 @@ public:
                                const std::vector<std::string>& cameranames,
                                std::vector<DetectedObjectPtr>& detectedobjectsworld,
                                std::string& resultstate,
+                               unsigned long long& imageStartTimestamp,
+                               unsigned long long& imageEndTimestamp,
+                               int& isContainerPresent,
                                const bool ignoreocclusion=false,
                                const unsigned int maxage=0,
                                const unsigned int fetchimagetimeout=0,
@@ -207,17 +213,6 @@ public:
                                                 const double voxelsize=0.005);
 
     virtual void StopVisualizePointCloudThread();
-
-    /** \brief Detects the transform of region
-        \param regionname name of the region where the detection happens
-        \param cameranames names of the cameras used for detection
-        \param regiontransform detected new transform of the region
-        \param ignoreocclusion whether to skip occlusion check
-        \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
-        \param fetchimagetimeout max time in ms to wait for getting images for detection
-        \param request whether to request new images instead of getting them off the buffer
-     */
-    virtual void DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=false);
 
     /** \brief Saves a snapshot for each sensor mapped to the region. If detection was called before, snapshots of the images used for the last detection will be saved. Images are saved to the visionmanager application directory.
      */
@@ -423,8 +418,6 @@ private:
     void _StartStatusPublisher(const unsigned int port);
 
     /**
-       \param imageStartTimestamp for all captured images, the starttime in ms of the image capture
-       \param imageEndTimestamp for all captured images, the endtime in ms of the image capture
        \returns number of detected objects
     */
     int _DetectObjects(ThreadType tt,
@@ -480,8 +473,8 @@ private:
     void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params);
     void _StopSendPointCloudObstacleToControllerThread();
 
-    void _DetectRegionTransform(const std::string& regionname, const std::vector<std::string>& cameranames, mujinvision::Transform& regiontransform, const bool ignoreocclusion, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=false);
     void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
+
     /** \brief Gets transform of the instobject in meters.
      */
     mujinvision::Transform _GetTransform(const std::string& instobjname);
@@ -548,7 +541,8 @@ private:
     std::string _GetConfigFileName(const std::string& type, const std::string& configname);
     void _LoadConfig(const std::string& filename, std::string& content);
 
-    bool _PreemptSubscriber();
+    bool _CheckPreemptSubscriber();
+    bool _CheckPreemptDetector();
 
     void _StartAndGetCaptureHandle(const std::vector<std::string>& camreaids, const std::vector<std::string>& cameranamestocheckocclusion, const std::string& regionname, std::vector<CameraCaptureHandlePtr>& capturehandles);
 
@@ -649,6 +643,7 @@ private:
     // mujin controller binpicking state
     unsigned long long _binpickingstateTimestamp; ///< timestamp of latest binpicking state
     unsigned long long _lastGrabbedTargetTimestamp; ///< timestamp when last grabbed target
+    unsigned long long _lastDetectStartTimestamp; ///< starting timestamp of the images sent to the detector in the last detection call
     int _numPickAttempt; ///< num of picking attempts
     int _orderNumber;  ///< num of ordered items
     int _numLeftInOrder; ///< num of order to go
@@ -673,6 +668,7 @@ private:
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
     bool _bIsDetectionRunning; ///< true if detection thread is running
+    bool _bCheckDetectionThreadPreempt; ///< whether to check for preempting condition for detector calls made from detection thread
     bool _bIsVisualizePointcloudRunning; ///< whether the point cloud visualization thread is running
     bool _bIsSendPointcloudRunning; ///< whether send point cloud obstacle thread is running
     bool _bIsEnvironmentUpdateRunning; ///< whether env update thread is running

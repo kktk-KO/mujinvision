@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// Copyright (C) 2012-2015 MUJIN Inc.
+// Copyright (C) 2012-2016 MUJIN Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@
 
 namespace mujinvision {
 
+typedef boost::function<bool()> CheckPreemptFn;
+
 class MUJINVISION_API ObjectDetector : public MujinInterruptable
 {
 public:
@@ -38,20 +40,21 @@ public:
         \param extraInitializationOptions optional extra options
         \param whether to get python gil
      */
-    virtual void Initialize(const std::string& detectorconf, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), const bool getgil=true) = 0;
+    virtual void Initialize(const std::string& detectorconf, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), const CheckPreemptFn& preemptfn=CheckPreemptFn(), const bool getgil=true) = 0;
 
     virtual void DeInitialize() = 0;
 
     /** Detects objects from color and depth images.
         \param regionname
-        \param colorcameraname
-        \param depthcameraname
+        \param colorcameranames
+        \param depthcameranames
+        \param resultimages results could come from the streamer
         \param detectedobjects in world frame
         \param resultstate additional information about the detection result
         \param fastdetection whether to prioritize speed
         \param bindetection whether to detect bin
      */
-    virtual void DetectObjects(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false) = 0;
+    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false) = 0;
 
     virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, const std::vector<ImagePtr>& resultimages, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false) = 0;
 
@@ -73,15 +76,6 @@ public:
         \param points result points representing the point cloud in world frame
      */
     virtual void GetCameraPointCloud(const std::string& regionname, const std::string& depthcameraname, ImageConstPtr depthimage, std::vector<double>& points, const double voxelsize=0.01) = 0;
-
-    /** \brief Detects the transform of the region.
-        \param regionname
-        \param colorcameraname
-        \param depthcameraname
-        \param regiontransform transform of the region
-     */
-    virtual void DetectRegionTransform(const std::string& regionname, const std::string& colorcameraname, const std::string& depthcameraname, mujinvision::Transform& regiontransform) {
-    }
 
     virtual void SetColorImage(ImagePtr colorimage) = 0;
     virtual void SetDepthImage(ImagePtr depthimage) = 0;
@@ -110,12 +104,6 @@ public:
         }
     }
 
-    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false) {
-        if (colorcameranames.size()>0 && depthcameranames.size()>0) {
-            DetectObjects(regionname, colorcameranames.at(0), depthcameranames.at(0), detectedobjects, resultstate, fastdetection, bindetection);
-        }
-    };
-
 protected:
 
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
@@ -126,6 +114,7 @@ protected:
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
 
+    CheckPreemptFn _preemptfn; ///< function the detector can call to be interrupted by user
 };
 
 typedef boost::shared_ptr<ObjectDetector> ObjectDetectorPtr;

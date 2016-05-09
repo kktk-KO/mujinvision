@@ -1826,40 +1826,34 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             if (_bStopDetectionThread) {
                 break;
             }
-            // call GetPointCloudObstacle on parts only
-            for (size_t i=0; i<detectedobjects.size(); ++i) {
-                if (_mNameRegion.find(detectedobjects[i]->name) == _mNameRegion.end()) {
-                    detectedparts.push_back(detectedobjects[i]);
+            if (!detectcontaineronly) {  // skip getting pointcloud obstacle if detecting container only
+                // call GetPointCloudObstacle on parts only
+                for (size_t i=0; i<detectedobjects.size(); ++i) {
+                    if (_mNameRegion.find(detectedobjects[i]->name) == _mNameRegion.end()) {
+                        detectedparts.push_back(detectedobjects[i]);
+                    }
                 }
-            }
-            std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
-            for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
-                std::string cameraname = cameranamestobeused[i];
-                std::vector<Real> points;
-                std::stringstream ss;
-                uint64_t starttime = GetMilliTime();
-                if (detectcontaineronly) {
-                    TrueSetter turnOnCheckDetectionThreadPreempt(_bCheckDetectionThreadPreempt);
-                    _bCheckDetectionThreadPreempt = false;  // temporarily turn it off during container empty cycle
+                std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
+                for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
+                    std::string cameraname = cameranamestobeused[i];
+                    std::vector<Real> points;
+                    std::stringstream ss;
+                    uint64_t starttime = GetMilliTime();
                     {
                         boost::mutex::scoped_lock lock(_mutexDetector);
                         _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedparts, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
                     }
-                } else {
-                    boost::mutex::scoped_lock lock(_mutexDetector);
-                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedparts, points, voxelsize, false, true, _filteringstddev, _filteringnumnn);
-                }
-                ss << "GetPointCloudObstacle() took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
-                MUJIN_LOG_INFO(ss.str());
-                if (points.size() / 3 == 0) {
-                    _SetDetectorStatusMessage("got 0 point from GetPointCloudObstacle() in detection loop");
-                }
-                {
-                    boost::mutex::scoped_lock lock(_mutexDetectedInfo);
-                    _mResultPoints[cameraname] = points;
+                    ss << "GetPointCloudObstacle() took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
+                    MUJIN_LOG_INFO(ss.str());
+                    if (points.size() / 3 == 0) {
+                        _SetDetectorStatusMessage("got 0 point from GetPointCloudObstacle() in detection loop");
+                    }
+                    {
+                        boost::mutex::scoped_lock lock(_mutexDetectedInfo);
+                        _mResultPoints[cameraname] = points;
+                    }
                 }
             }
-
             lastDetectedId = numPickAttempt;
             if (isControllerPickPlaceRunning && !forceRequestDetectionResults && numresults > 0) {
                 MUJIN_LOG_INFO("detected at least 1 object, stop image capturing...");

@@ -2628,6 +2628,16 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             continue;
         }
 
+        // check if all images have starttimestamps within delta time
+        unsigned long long maxstarttimedelta = 1000; // ms
+        if (endtime < starttime && endtime - starttime < maxstarttimedelta) {
+            MUJIN_LOG_WARN("endtime=" << endtime << " starttime=" << starttime << " of imagepack " << imagepacktimestamp << " is too big >" << maxstarttimedelta << ", will try to get again");
+            colorimages.clear();
+            depthimages.clear();
+            resultimages.clear();
+            continue;
+        }
+
         // skip images and try to get them again if failed to check for occlusion
         bool isoccluding = false;
         if (!ignoreocclusion && regionname.size() > 0) {
@@ -2693,6 +2703,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         } else {
             //MUJIN_LOG_WARN("skip occlusion check ignoreocclusion=" << ignoreocclusion << " regionname=" << regionname);
         }
+
         // skip images if there was occlusion
         if (isoccluding) {
             if (GetMilliTime() - lastocclusionwarnts > 1000.0) {

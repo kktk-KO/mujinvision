@@ -542,7 +542,7 @@ private:
     void _LoadConfig(const std::string& filename, std::string& content);
 
     bool _CheckPreemptSubscriber();
-    bool _CheckPreemptDetector();
+    bool _CheckPreemptDetector(const unsigned int checkpreemptbits);
 
     void _StartAndGetCaptureHandle(const std::vector<std::string>& camreaids, const std::vector<std::string>& cameranamestocheckocclusion, const std::string& regionname, std::vector<CameraCaptureHandlePtr>& capturehandles, bool force=false);
 
@@ -668,7 +668,6 @@ private:
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
     bool _bIsDetectionRunning; ///< true if detection thread is running
-    bool _bCheckDetectionThreadPreempt; ///< whether to check for preempting condition for detector calls made from detection thread
     bool _bIsVisualizePointcloudRunning; ///< whether the point cloud visualization thread is running
     bool _bIsSendPointcloudRunning; ///< whether send point cloud obstacle thread is running
     bool _bIsEnvironmentUpdateRunning; ///< whether env update thread is running

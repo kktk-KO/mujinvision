@@ -2371,6 +2371,8 @@ void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadPar
         unsigned int fetchimagetimeout = params.fetchimagetimeout;
         bool request = params.request;
         double voxelsize = params.voxelsize;
+        std::vector<CameraCaptureHandlePtr> capturehandles;
+        _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
         while (!_bStopVisualizePointCloudThread) {
             SyncCameras(regionname, cameranames);
             if (_bStopVisualizePointCloudThread) {

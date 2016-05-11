@@ -210,27 +210,28 @@ bool MujinVisionManager::_CheckPreemptSubscriber()
 
 bool MujinVisionManager::_CheckPreemptDetector(const unsigned int checkpreemptbits)
 {
-    bool bPreemptDetectionThread = _bShutdown || _bCancelCommand || _bStopDetectionThread;
-    if( _bUseGrabbedTargeInfoInDetectionPreempt ) {
-        if (_tsStartDetection > 0 && _lastGrabbedTargetTimestamp > _tsStartDetection && _lastGrabbedTargetTimestamp < _lastDetectStartTimestamp) {
-            bPreemptDetectionThread = true;
-        }
-    }
-    bool bPreemptSendPointcloudObstacleThread = _bShutdown || _bCancelCommand || _bStopSendPointCloudObstacleToControllerThread;
-    bool bCheckDetectionThreadPreempt = (checkpreemptbits >> 0) & 1;
-    bool bCheckSendPointcloudThreadPreempt = (checkpreemptbits >> 1) & 1;
-
-    bool bpreempt = false;
-    if (bPreemptDetectionThread && bCheckDetectionThreadPreempt) {
-        MUJIN_LOG_INFO(str(boost::format("Preempting detector call by DetectionThread! bPreemptDetectionThread=%d bPreemptSendPointcloudObstacleThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d _lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u")%bPreemptDetectionThread%bPreemptSendPointcloudObstacleThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%_lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection));
-        bpreempt = true;
-    }
-    if (bPreemptSendPointcloudObstacleThread && bCheckSendPointcloudThreadPreempt) {
-        MUJIN_LOG_INFO(str(boost::format("Preempting detector call by SendPointCloudObstacleThread! bPreemptDetectionThread=%d bPreemptSendPointcloudObstacleToControllerThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d _lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u")%bPreemptDetectionThread%bPreemptSendPointcloudObstacleThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%_lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection));
-        bpreempt = true;
-    }
-
-    return bpreempt;
+    return false;
+//    bool bPreemptDetectionThread = _bShutdown || _bCancelCommand || _bStopDetectionThread;
+//    if( _bUseGrabbedTargeInfoInDetectionPreempt ) {
+//        if (_tsStartDetection > 0 && _lastGrabbedTargetTimestamp > _tsStartDetection && _lastGrabbedTargetTimestamp < _lastDetectStartTimestamp) {
+//            bPreemptDetectionThread = true;
+//        }
+//    }
+//    bool bPreemptSendPointcloudObstacleThread = _bShutdown || _bCancelCommand || _bStopSendPointCloudObstacleToControllerThread;
+//    bool bCheckDetectionThreadPreempt = (checkpreemptbits >> 0) & 1;
+//    bool bCheckSendPointcloudThreadPreempt = (checkpreemptbits >> 1) & 1;
+//
+//    bool bpreempt = false;
+//    if (bPreemptDetectionThread && bCheckDetectionThreadPreempt) {
+//        MUJIN_LOG_INFO(str(boost::format("Preempting detector call by DetectionThread! bPreemptDetectionThread=%d bPreemptSendPointcloudObstacleThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d _lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u")%bPreemptDetectionThread%bPreemptSendPointcloudObstacleThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%_lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection));
+//        bpreempt = true;
+//    }
+//    if (bPreemptSendPointcloudObstacleThread && bCheckSendPointcloudThreadPreempt) {
+//        MUJIN_LOG_INFO(str(boost::format("Preempting detector call by SendPointCloudObstacleThread! bPreemptDetectionThread=%d bPreemptSendPointcloudObstacleToControllerThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d _lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u")%bPreemptDetectionThread%bPreemptSendPointcloudObstacleThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%_lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection));
+//        bpreempt = true;
+//    }
+//
+//    return bpreempt;
 }
 
 MujinVisionManager::CameraCaptureHandle::CameraCaptureHandle(ImageSubscriberManagerPtr pImagesubscriberManager, const std::string& cameraid) : _pImagesubscriberManager(pImagesubscriberManager), _cameraid(cameraid)

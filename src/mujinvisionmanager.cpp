@@ -1847,7 +1847,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     uint64_t starttime = GetMilliTime();
                     {
                         boost::mutex::scoped_lock lock(_mutexDetector);
-                        _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedparts, points, voxelsize, false, true, _filteringstddev, _filteringnumnn, 0);
+                        _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedparts, points, voxelsize, false, true, _filteringstddev, _filteringnumnn, 1);
                     }
                     ss << "GetPointCloudObstacle() took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                     MUJIN_LOG_INFO(ss.str());
@@ -3309,7 +3309,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                 {
                     boost::mutex::scoped_lock lock(_mutexDetector);
                     _pDetector->SetDepthImage(depthimages.at(i));
-                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 1);
+                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 2);
                 }
                 if (points.size() / 3 == 0) {
                     _SetStatusMessage(TT_Command, "got 0 point from GetPointCloudObstacle()");
@@ -3324,7 +3324,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                         {
                             boost::mutex::scoped_lock lock(_mutexDetector);
                             _pDetector->SetDepthImage(depthimages1.at(0));
-                            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 1);
+                            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 2);
                         }
                         numretries--;
                     }
@@ -3405,7 +3405,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                     if (!!_pDetector) {
                         boost::mutex::scoped_lock lock(_mutexDetector);
                         _pDetector->SetDepthImage(depthimages.at(i));
-                        _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn, 1);
+                        _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn, 2);
                     } else {
                         MUJIN_LOG_WARN("detector is reset, stop async SendPointCloudObstacleToController call");
                         return;
@@ -3424,7 +3424,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                             if (!!_pDetector) {
                                 boost::mutex::scoped_lock lock(_mutexDetector);
                                 _pDetector->SetDepthImage(depthimages1.at(0));
-                                _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn, 1);
+                                _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn, 2);
                             } else {
                                 MUJIN_LOG_WARN("detector is reset, stop async SendPointCloudObstacleToController call");
                                 return;

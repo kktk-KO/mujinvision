@@ -210,7 +210,12 @@ bool MujinVisionManager::_CheckPreemptSubscriber()
 
 bool MujinVisionManager::_CheckPreemptDetector(const unsigned int checkpreemptbits)
 {
-    bool bPreemptDetectionThread = _bShutdown || _bCancelCommand || _bStopDetectionThread || (_tsStartDetection > 0 && _lastGrabbedTargetTimestamp > _tsStartDetection && _lastGrabbedTargetTimestamp < _lastDetectStartTimestamp);
+    bool bPreemptDetectionThread = _bShutdown || _bCancelCommand || _bStopDetectionThread;
+    if( _bUseGrabbedTargeInfoInDetectionPreempt ) {
+        if (_tsStartDetection > 0 && _lastGrabbedTargetTimestamp > _tsStartDetection && _lastGrabbedTargetTimestamp < _lastDetectStartTimestamp) {
+            bPreemptDetectionThread = true;
+        }
+    }
     bool bPreemptSendPointcloudObstacleThread = _bShutdown || _bCancelCommand || _bStopSendPointCloudObstacleToControllerThread;
     bool bCheckDetectionThreadPreempt = (checkpreemptbits >> 0) & 1;
     bool bCheckSendPointcloudThreadPreempt = (checkpreemptbits >> 1) & 1;
@@ -321,6 +326,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _resultState = "{}";
     _pImagesubscriberManager = imagesubscribermanager;
     _pImagesubscriberManager->SetPreemptFn(boost::bind(&MujinVisionManager::_CheckPreemptSubscriber, this));
+    _bUseGrabbedTargeInfoInDetectionPreempt = false;
     _pDetectorManager = detectormanager;
     _zmqcontext.reset(new zmq::context_t(8));
     _statusport = statusport;
@@ -920,6 +926,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             std::string resultstate;
             unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
             int isContainerPresent=-1;
+            _bUseGrabbedTargeInfoInDetectionPreempt = false;
             DetectObjects(regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection);
             result_ss << "{";
             result_ss << _GetJsonString(detectedobjects) << ", ";
@@ -1643,6 +1650,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     unsigned long long lastGrabbedTargetTimeStamp = 0;
     unsigned int numdetection = 0;
     std::vector<DetectedObjectPtr> detectedobjects, detectedparts;
+    _bUseGrabbedTargeInfoInDetectionPreempt = stoponleftinorder; // use the grabbed target info only if stoponleftinorder is set
+    
     std::vector<CameraCaptureHandlePtr> capturehandles;
     while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimeStamp > _tsStartDetection && _tsLastEnvUpdate > 0 && _resultImageEndTimestamp > 0 && lastGrabbedTargetTimeStamp < _resultImageEndTimestamp)) {
         detectcontaineronly = false;
@@ -1683,6 +1692,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             time0 = GetMilliTime();
             if (stoponleftinorder && orderNumber > 0 && numLeftInOrder == 0) {
                 // have to guarantee that capture is started
+                _bUseGrabbedTargeInfoInDetectionPreempt = false; // starting to do container empty detection only, so do not preempt detector anymore
                 MUJIN_LOG_INFO("numLeftInOrder=" << numLeftInOrder << " orderNumber=" << orderNumber << " stoponleftinorder=" << stoponleftinorder << ", check container empty only.");
                 _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
                 detectcontaineronly = true;

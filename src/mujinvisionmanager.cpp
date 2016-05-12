@@ -2214,10 +2214,10 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 if (points.size() == 0) {
                     MUJIN_LOG_WARN("got 0 points from camera " << cameraname << ", do not send to controller");
                 } else if (mCameranameLastsentcloudtime.find(cameraname) == mCameranameLastsentcloudtime.end() || cloudstarttime > mCameranameLastsentcloudtime[cameraname]) {
-                    mCameranameLastsentcloudtime[cameraname] = cloudstarttime;
                     try {
                         uint64_t starttime = GetMilliTime();
                         pBinpickingTask->AddPointCloudObstacle(points, pointsize, "latestobstacle_"+cameraname, cloudstarttime, cloudendtime, true);
+                        mCameranameLastsentcloudtime[cameraname] = cloudstarttime;
                         std::stringstream ss;
                         ss << "Sent latest pointcloud of " << cameraname << " with " << (points.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                         MUJIN_LOG_DEBUG(ss.str());
@@ -3320,7 +3320,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                     while (numretries > 0 && points.size() / 3 == 0) {
                         points.clear();
                         _SetStatusMessage(TT_Command, "re-try getting depthimage and pointcloudobstacle");
-                        _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, request, false);
+                        _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages1, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, request, false);
                         {
                             boost::mutex::scoped_lock lock(_mutexDetector);
                             _pDetector->SetDepthImage(depthimages1.at(0));

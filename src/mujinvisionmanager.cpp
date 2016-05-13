@@ -1634,7 +1634,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     }
     int lastDetectedId = 0;
     int lastPickedId = -1;
+    uint64_t oldbinpickingstatets = 0;
     uint64_t lastocclusionwarningts = 0;
+    uint64_t lastoutofocclusionts = 0;
     uint64_t lastbinpickingstatewarningts = 0;
     uint64_t lastwaitforocclusionwarningts = 0;
     uint64_t lastattemptts = 0;
@@ -1665,6 +1667,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         int isContainerPresent=-1;
         try {
             time0=GetMilliTime();
+            oldbinpickingstatets = binpickingstateTimestamp;
             {
                 boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
                 if (binpickingstateTimestamp != _binpickingstateTimestamp) {
@@ -1686,7 +1689,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 numLeftInOrder = _numLeftInOrder;
                 orderNumber = _orderNumber;
             }
-            MUJIN_LOG_DEBUG("get binpicking state took " << (GetMilliTime()-time0)/1000.0f << " secs");
+            if (binpickingstateTimestamp > oldbinpickingstatets) {
+                MUJIN_LOG_DEBUG("get binpicking state took " << (GetMilliTime()-time0)/1000.0f << " secs");
+            }
             if (_bStopDetectionThread) {
                 break;
             }
@@ -1704,17 +1709,21 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 if (numPickAttempt <= lastPickedId) { // if robot has picked
                     if (GetMilliTime() - binpickingstateTimestamp < maxage) { // only do the following if the binpicking state message is up-to-date
                         if (isRobotOccludingSourceContainer) { // skip detection if robot occludes camera
+                            if (binpickingstateTimestamp > _lastocclusionTimestamp) {
+                                _lastocclusionTimestamp = binpickingstateTimestamp;
+                            }
                             if (GetMilliTime() - lastocclusionwarningts > 1000.0) {
                                 MUJIN_LOG_INFO("robot is picking now (occluding camera), stop capturing " + ParametersBase::GetJsonString(_GetHardwareIds(cameranames)));
                                 lastocclusionwarningts = GetMilliTime();
-                            }
-                            if (binpickingstateTimestamp > _lastocclusionTimestamp) {
-                                _lastocclusionTimestamp = binpickingstateTimestamp;
+                                if (lastoutofocclusionts > 0 && _lastocclusionTimestamp > lastoutofocclusionts && _lastocclusionTimestamp - lastoutofocclusionts > 10000.0) {
+                                    MUJIN_LOG_WARN("robot is occluding container for more than " << (_lastocclusionTimestamp - lastoutofocclusionts) / 1000.0f << " secs!");
+                                }
                             }
                             // stop capturing by removing capture handles
                             capturehandles.resize(0);
                             continue;
                         } else { // detect when robot is not occluding camera
+                            lastoutofocclusionts = binpickingstateTimestamp;
                             MUJIN_LOG_INFO("need to detect for this picking attempt, starting image capturing... " << numPickAttempt << " " << lastPickedId << " " << int(forceRequestDetectionResults) << " " << lastDetectedId);
                             _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
                         }

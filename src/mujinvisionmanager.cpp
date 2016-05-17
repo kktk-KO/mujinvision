@@ -2745,8 +2745,8 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             resultimages.clear();
             continue;
         } else {
-            // capture again for result images, assuming 1, the previous result image was a dummy 2, it is generated using the verified color/depth pair
-            if (_visionserverpt.get<bool>("rv", false)) {
+            // capture for result images if it is rv system and both color and depth images are captured, if only depth is captured, then this is invoked by VisualizePointcloudThread and there is no need for result image
+            if (_visionserverpt.get<bool>("rv", false) && colorimages.size() > 0 && depthimages.size() > 0) {
                 MUJIN_LOG_DEBUG("color/depth pair (starttime=" << starttime << " endtime=" << endtime << ") passed occlusion and age checks, get result image");
                 std::string resultcameraname = depthcameranames.at(0); // assuming that the first depth camera provides the result image
                 std::vector<ImagePtr> dummycolorimages, dummydepthimages; // do not override verified color/depth images

@@ -247,7 +247,7 @@ MujinVisionManager::CameraCaptureHandle::~CameraCaptureHandle() {
 
 void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion, const std::string& regionname, std::vector<CameraCaptureHandlePtr>& capturehandles, const bool force)
 {
-    if (!_visionserverpt.get<bool>("runpublisher", true)) {
+    if (!force && !_visionserverpt.get<bool>("runpublisher", true)) {
         capturehandles.resize(0);
         return;
     }
@@ -2381,7 +2381,7 @@ void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadPar
         bool request = params.request;
         double voxelsize = params.voxelsize;
         std::vector<CameraCaptureHandlePtr> capturehandles;
-        _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
+        _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles, true);
         while (!_bStopVisualizePointCloudThread) {
             SyncCameras(regionname, cameranames);
             if (_bStopVisualizePointCloudThread) {

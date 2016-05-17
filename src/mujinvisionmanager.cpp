@@ -2693,10 +2693,13 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                     ImagePtr image = depthimages.at(i);
                     std::string cameraname = _mHardwareIdCameraName[image->GetCameraId()];
                     if (std::find(checkedcameranames.begin(), checkedcameranames.end(), cameraname) == checkedcameranames.end()) {
-                        ss.clear();
-                        ss << image->GetMetadata();
-                        read_json(ss, tmppt);
-                        int isoccluded = tmppt.get<int>("isoccluded", -1);
+                        int isoccluded = -1;
+                        if (image->GetMetadata().size() > 0) {
+                            ss.clear();
+                            ss << image->GetMetadata();
+                            read_json(ss, tmppt);
+                            isoccluded = tmppt.get<int>("isoccluded", -1);
+                        }
                         if (isoccluded == -1) {
                             pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, image->GetStartTimestamp(), image->GetEndTimestamp(), isoccluding);
                             checkedcameranames.push_back(cameraname);

@@ -166,6 +166,7 @@ public:
         \param cameranames names of the cameras used for detection
         \param detectedobjects detection result in meters in  world frame
         \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
+        \param newerthan if non 0, requries the starttimestamp of the image be newer than the specified timestamp in milliseconds
         \param fetchimagetimeout max time in ms to wait for getting images for detection
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
         \param pointsize size of the point in meters to be sent to the mujin controller
@@ -177,6 +178,7 @@ public:
                                                     const std::vector<std::string>& cameranames,
                                                     const std::vector<DetectedObjectPtr>& detectedobjectsworld,
                                                     const unsigned int maxage=0,
+                                                    const unsigned long long newerthan=0,
                                                     const unsigned int fetchimagetimeout=0,
                                                     const double voxelsize=0.01,
                                                     const double pointsize=0.005,
@@ -351,6 +353,7 @@ private:
         std::vector<std::string> cameranames;
         std::vector<DetectedObjectPtr> detectedobjectsworld;
         unsigned int maxage;
+        unsigned long long newerthan;
         unsigned int fetchimagetimeout;
         double voxelsize;
         double pointsize;
@@ -469,7 +472,7 @@ private:
     void _StartControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StopControllerMonitorThread();
 
-    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01, const double pointsize=0.005, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
+    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage=0, const unsigned long long newerthan=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01, const double pointsize=0.005, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
     void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params);
     void _StopSendPointCloudObstacleToControllerThread();
 

@@ -850,6 +850,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 }
             }
             unsigned int maxage = command_pt.get("maxage", 0);
+            unsigned long long newerthan = command_pt.get("newerthan", 0);
             unsigned int fetchimagetimeout = command_pt.get("fetchimagetimeout", 0);
             double voxelsize = command_pt.get("voxelsize", 0.01);
             double pointsize = command_pt.get("pointsize", 0.005);
@@ -859,7 +860,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             bool async = command_pt.get("async", false);
             std::string locale = command_pt.get("locale", "en_US");
             _locale = locale;
-            SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
+            SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, maxage, newerthan, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
@@ -3301,12 +3302,12 @@ void MujinVisionManager::StopVisualizePointCloudThread()
     _SetStatus(TT_Command, MS_Succeeded);
 }
 
-void MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
+void MujinVisionManager::SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned long long newerthan, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
 {
-    _SendPointCloudObstacleToController(regionname, cameranames, detectedobjectsworld, maxage, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
+    _SendPointCloudObstacleToController(regionname, cameranames, detectedobjectsworld, maxage, newerthan, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
 }
 
-void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
+void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned long long newerthan, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
 {
     if (!_pImagesubscriberManager) {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
@@ -3324,8 +3325,8 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
         bool ignoreocclusion = true;
         unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
         _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, request, false);
-        if (imageStartTimestamp <= _lastSendPointCloudObstacleTimestamp || imageStartTimestamp <= _tsStartDetection) {
-            MUJIN_LOG_WARN("image is too old, but send anyways. imageStartTimestamp=" << imageStartTimestamp << " _tsStartDetection=" << _tsStartDetection << " _lastSendPointCloudObstacleTimestamp=" << _lastSendPointCloudObstacleTimestamp);
+        if (imageStartTimestamp <= _lastSendPointCloudObstacleTimestamp || imageStartTimestamp <= newerthan) {
+            MUJIN_LOG_WARN("image is too old, but send anyways. imageStartTimestamp=" << imageStartTimestamp << " newerthan=" << newerthan << " _lastSendPointCloudObstacleTimestamp=" << _lastSendPointCloudObstacleTimestamp);
         }
         if (depthimages.size() == depthcameranames.size()) {
             for (size_t i=0; i<depthimages.size(); ++i) {
@@ -3374,6 +3375,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
         params.cameranames = cameranames;
         params.detectedobjectsworld = detectedobjectsworld;
         params.maxage = maxage;
+        params.newerthan = newerthan;
         params.fetchimagetimeout = fetchimagetimeout;
         params.voxelsize = voxelsize;
         params.pointsize = pointsize;
@@ -3393,6 +3395,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
     std::vector<std::string> cameranames = params.cameranames;
     std::vector<DetectedObjectPtr> detectedobjectsworld = params.detectedobjectsworld;
     unsigned int maxage = params.maxage;
+    unsigned long long newerthan = params.newerthan;
     unsigned int fetchimagetimeout = params.fetchimagetimeout;
     double voxelsize = params.voxelsize;
     double pointsize = params.pointsize;
@@ -3425,9 +3428,9 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
         uint64_t lastwarnedtimestamp = 0;
         while (!_bStopSendPointCloudObstacleToControllerThread) {
             _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, true, false);
-            if (imageStartTimestamp <= _lastSendPointCloudObstacleTimestamp || imageStartTimestamp <= _tsStartDetection) {
+            if (imageStartTimestamp <= _lastSendPointCloudObstacleTimestamp || imageStartTimestamp <= newerthan) {
                 if (GetMilliTime() - lastwarnedtimestamp > 1000) {
-                    MUJIN_LOG_WARN("image is too old imageStartTimestamp=" << imageStartTimestamp << " _tsStartDetection=" << _tsStartDetection << " _lastSendPointCloudObstacleTimestamp=" << _lastSendPointCloudObstacleTimestamp);
+                    MUJIN_LOG_WARN("image is too old imageStartTimestamp=" << imageStartTimestamp << " newerthan=" << newerthan << " _lastSendPointCloudObstacleTimestamp=" << _lastSendPointCloudObstacleTimestamp);
                     lastwarnedtimestamp = GetMilliTime();
                 }
                 continue;

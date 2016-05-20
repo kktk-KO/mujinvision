@@ -212,7 +212,7 @@ bool MujinVisionManager::_CheckPreemptDetector(const unsigned int checkpreemptbi
 {
     bool bPreemptDetectionThread = _bShutdown || _bCancelCommand || _bStopDetectionThread;
     if( _bUseGrabbedTargeInfoInDetectionPreempt ) {
-        if (_tsStartDetection > 0 && _lastGrabbedTargetTimestamp > _tsStartDetection && _lastGrabbedTargetTimestamp < _lastDetectStartTimestamp) {
+        if (!_bForceRequestDetectionResults && _tsStartDetection > 0 && _lastGrabbedTargetTimestamp > _tsStartDetection && _lastGrabbedTargetTimestamp < _lastDetectStartTimestamp) {
             bPreemptDetectionThread = true;
         }
     }
@@ -222,7 +222,7 @@ bool MujinVisionManager::_CheckPreemptDetector(const unsigned int checkpreemptbi
 
     bool bpreempt = false;
     if (bPreemptDetectionThread && bCheckDetectionThreadPreempt) {
-        MUJIN_LOG_INFO(str(boost::format("Preempting detector call by DetectionThread! bPreemptDetectionThread=%d bPreemptSendPointcloudObstacleThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d _lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u")%bPreemptDetectionThread%bPreemptSendPointcloudObstacleThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%_lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection));
+        MUJIN_LOG_INFO(str(boost::format("Preempting detector call by DetectionThread! bPreemptDetectionThread=%d bPreemptSendPointcloudObstacleThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d _lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u _bForceRequestDetectionResults=%d")%bPreemptDetectionThread%bPreemptSendPointcloudObstacleThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%_lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection%_bForceRequestDetectionResults));
         bpreempt = true;
     }
     if (bPreemptSendPointcloudObstacleThread && bCheckSendPointcloudThreadPreempt) {
@@ -338,6 +338,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _binpickingTaskHeartbeatPort = 0;
     _binpickingTaskHeartbeatTimeout = 10;
     _lastocclusionTimestamp = 0;
+    _lastSendPointCloudObstacleTimestamp = 0;
     _controllerCommandTimeout = 10.0;
     _locale = "en_US";
     _detectorconfig = "";
@@ -3323,6 +3324,9 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
         bool ignoreocclusion = true;
         unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
         _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, request, false);
+        if (imageStartTimestamp <= _lastSendPointCloudObstacleTimestamp || imageStartTimestamp <= _tsStartDetection) {
+            MUJIN_LOG_WARN("image is too old, but send anyways. imageStartTimestamp=" << imageStartTimestamp << " _tsStartDetection=" << _tsStartDetection << " _lastSendPointCloudObstacleTimestamp=" << _lastSendPointCloudObstacleTimestamp);
+        }
         if (depthimages.size() == depthcameranames.size()) {
             for (size_t i=0; i<depthimages.size(); ++i) {
                 std::string cameraname = depthcameranames.at(i);
@@ -3359,6 +3363,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                 ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
                 _SetStatusMessage(TT_Command, ss.str());
                 _pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename);
+                _lastSendPointCloudObstacleTimestamp = imageStartTimestamp;
             }
         }
     } else {
@@ -3417,8 +3422,16 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
         std::vector<std::string> dummycameranames;
         //_GetDepthImages(TT_SendPointcloudObstacle, regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, true);
         unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
-        while (!_bStopSendPointCloudObstacleToControllerThread && depthimages.size() < depthcameranames.size()) {
+        uint64_t lastwarnedtimestamp = 0;
+        while (!_bStopSendPointCloudObstacleToControllerThread) {
             _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, fetchimagetimeout, true, false);
+            if (imageStartTimestamp <= _lastSendPointCloudObstacleTimestamp || imageStartTimestamp <= _tsStartDetection) {
+                if (GetMilliTime() - lastwarnedtimestamp > 1000) {
+                    MUJIN_LOG_WARN("image is too old imageStartTimestamp=" << imageStartTimestamp << " _tsStartDetection=" << _tsStartDetection << " _lastSendPointCloudObstacleTimestamp=" << _lastSendPointCloudObstacleTimestamp);
+                    lastwarnedtimestamp = GetMilliTime();
+                }
+                continue;
+            }
             MUJIN_LOG_DEBUG(str(boost::format("got images %d in SendPointCloudObstacleToControllerThread")%depthimages.size()));
             if (depthimages.size() == depthcameranames.size()) {
                 for (size_t i=0; i<depthimages.size(); ++i) {
@@ -3463,6 +3476,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                     ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
                     _SetStatusMessage(TT_SendPointcloudObstacle, ss.str());
                     pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename);
+                    _lastSendPointCloudObstacleTimestamp = imageStartTimestamp;
                 }
                 _SetStatus(TT_SendPointcloudObstacle, MS_Succeeded);
                 break;

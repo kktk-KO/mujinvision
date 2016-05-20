@@ -611,6 +611,7 @@ private:
     std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
     unsigned long long _resultTimestamp; ///< ms timestamp of latest detection result. protected by _mutexDetectedInfo
     unsigned long long _resultImageStartTimestamp, _resultImageEndTimestamp; ///< ms timestamps for the latest detection result, the image start and end timestamps.
+    unsigned long long _lastSendPointCloudObstacleTimestamp; ///< ms timestamp when pointcloud obstacle is sent
     boost::mutex _mutexControllerBinpickingState; ///< lock for controller binpicking state
     unsigned long long _lastocclusionTimestamp;
     std::vector<ImagePtr> _lastcolorimages; ///< last color images used for detection

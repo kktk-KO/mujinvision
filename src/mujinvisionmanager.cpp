@@ -704,7 +704,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 }
             }
             double voxelsize = command_pt.get<double>("voxelsize", 0.01);
-            double pointsize = command_pt.get<double>("pointsize", 0.005);
+            double pointsize = command_pt.get<double>("pointsize", 0);
             bool ignoreocclusion = command_pt.get<bool>("ignoreocclusion", false);
             bool stoponleftinorder = command_pt.get<bool>("stoponleftinorder", false);
             unsigned int maxage = command_pt.get<unsigned int>("maxage", 0);
@@ -853,7 +853,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             unsigned long long newerthan = command_pt.get("newerthan", 0);
             unsigned int fetchimagetimeout = command_pt.get("fetchimagetimeout", 0);
             double voxelsize = command_pt.get("voxelsize", 0.01);
-            double pointsize = command_pt.get("pointsize", 0.005);
+            double pointsize = command_pt.get("pointsize", 0);
             std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
             bool fast = command_pt.get("fast", false);
             bool request = command_pt.get("request", true);
@@ -950,7 +950,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                     cameranames.push_back(v->second.get<std::string>(""));
                 }
             }
-            double pointsize = command_pt.get("pointsize",0.005);
+            double pointsize = command_pt.get("pointsize",0);
             double voxelsize = command_pt.get("voxelsize",0.005);
             bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
             unsigned int maxage = command_pt.get("maxage",0);
@@ -980,7 +980,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                     cameranames.push_back(v->second.get<std::string>(""));
                 }
             }
-            double pointsize = command_pt.get("pointsize",0.005);
+            double pointsize = command_pt.get("pointsize",0);
             double voxelsize = command_pt.get("voxelsize",0.005);
             bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
             unsigned int maxage = command_pt.get("maxage",0);
@@ -1988,6 +1988,10 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
         std::vector<std::string> cameranames = params.cameranames;
         //double voxelsize = params.voxelsize;
         double pointsize = params.pointsize;
+        if (pointsize == 0) {
+            pointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
+            MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
+        }
         std::string obstaclename = params.obstaclename;
         unsigned int waitinterval = params.waitinterval;
         std::string locale = params.locale;
@@ -2191,6 +2195,10 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         MUJIN_LOG_INFO("starting SendExecutionVerificationPointCloudThread " + ParametersBase::GetJsonString(evcamnames));
         //double voxelsize = params.voxelsize;
         double pointsize = params.pointsize;
+        if (pointsize == 0) {
+            pointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
+            MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
+        }
         std::string obstaclename = params.obstaclename;
         unsigned int waitinterval = params.waitinterval;
         std::string locale = params.locale;
@@ -2380,6 +2388,10 @@ void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadPar
         std::string regionname = params.regionname;
         std::vector<std::string> cameranames = params.cameranames;
         double pointsize = params.pointsize;
+        if (pointsize == 0) {
+            pointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
+            MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
+        }
         bool ignoreocclusion = params.ignoreocclusion;
         unsigned int maxage = params.maxage;
         unsigned int fetchimagetimeout = params.fetchimagetimeout;
@@ -3307,12 +3319,17 @@ void MujinVisionManager::SendPointCloudObstacleToController(const std::string& r
     _SendPointCloudObstacleToController(regionname, cameranames, detectedobjectsworld, maxage, newerthan, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
 }
 
-void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned long long newerthan, const unsigned int fetchimagetimeout, const double voxelsize, const double pointsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
+void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>&cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage, const unsigned long long newerthan, const unsigned int fetchimagetimeout, const double voxelsize, const double ptsize, const std::string& obstaclename, const bool fast, const bool request, const bool async, const std::string& locale)
 {
     if (!_pImagesubscriberManager) {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
     }
     uint64_t starttime = GetMilliTime();
+    double pointsize = ptsize;
+    if (pointsize == 0) {
+        pointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
+        MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
+    }
     std::vector<ImagePtr> dummyimages;
     std::vector<std::string> dummycameranames;
     if (!async) {

@@ -609,6 +609,7 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         memset(cropContainerEmptyMarginsXYZXYZ, 0, sizeof(cropContainerEmptyMarginsXYZXYZ));
         memset(containerRoiMarginsXYZXYZ, 0, sizeof(containerRoiMarginsXYZXYZ));
         containerEmptyDivisor = 150;
+        pointsize = 0.003;
     }
 
     RegionParameters(const ptree& pt)
@@ -639,6 +640,7 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         BOOST_ASSERT(i == 6);
         containerEmptyDivisor = pt.get<double>("containerEmptyDivisor", 150);
         visualizationuri = pt.get<std::string>("visualizationuri", "");
+        pointsize = pt.get<double>("pointsize", 0.003);
     }
 
     virtual ~RegionParameters() {
@@ -661,6 +663,7 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     std::vector<double> outerTranslation; ///< the center of the box defining the outer extents of the base link (physical) in the world frame
     std::vector<double> outerExtents; ///< the outer extents of the region defining the outer walls of container (physical).
     std::vector<double> outerRotationmat; ///< defining rotation of outer box (physical) in the world frame, 3x3 row major
+    double pointsize; ///< pointcloud pointsize in millimeter
 
     Transform tBaseLinkInInnerRegionTopCenter; ///< transform of the container link's coordinate system with respect to the inner region's center top face (firstlinkcenter_T_region)
     std::string GetJsonString()
@@ -675,6 +678,7 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         ss << ", " << ParametersBase::GetJsonString("containerRoiMarginsXYZXYZ") << ": " << ParametersBase::GetJsonString(containerRoiMarginsXYZXYZ);
         ss << ", " << ParametersBase::GetJsonString("containerEmptyDivisor") << ": " << containerEmptyDivisor;
         ss << ", " << ParametersBase::GetJsonString("visualizationuri") << ": " << ParametersBase::GetJsonString(visualizationuri);
+        ss << ", " << ParametersBase::GetJsonString("pointsize") << ": " << pointsize;
         if (innerTranslation.size() > 0) {
             ss << ", " << ParametersBase::GetJsonString("innerTranslation") << ": " << ParametersBase::GetJsonString(innerTranslation);
         }
@@ -723,6 +727,7 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
             }
             _pt.put_child("containerRoiMarginsXYZXYZ", container_pt);
             _pt.put<std::string>("visualizationuri", visualizationuri);
+            _pt.put<double>("pointsize", pointsize);
         }
         return _pt;
     }

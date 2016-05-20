@@ -708,7 +708,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             bool ignoreocclusion = command_pt.get<bool>("ignoreocclusion", false);
             bool stoponleftinorder = command_pt.get<bool>("stoponleftinorder", false);
             unsigned int maxage = command_pt.get<unsigned int>("maxage", 0);
-            unsigned int fetchimagetimeout = command_pt.get("fetchimagetimeout", 0);
+            unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
             std::string obstaclename = command_pt.get<std::string>("obstaclename", "__dynamicobstacle__");
             unsigned long long detectionstarttime = command_pt.get<unsigned long long>("starttime", 0);
             std::string locale = command_pt.get<std::string>("locale", "en_US");
@@ -849,16 +849,16 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                     detectedobjects.push_back(DetectedObjectPtr(new DetectedObject(v->second.get_child(""))));
                 }
             }
-            unsigned int maxage = command_pt.get("maxage", 0);
-            unsigned long long newerthan = command_pt.get("newerthan", 0);
-            unsigned int fetchimagetimeout = command_pt.get("fetchimagetimeout", 0);
-            double voxelsize = command_pt.get("voxelsize", 0.01);
-            double pointsize = command_pt.get("pointsize", 0);
-            std::string obstaclename = command_pt.get("obstaclename", "__dynamicobstacle__");
-            bool fast = command_pt.get("fast", false);
-            bool request = command_pt.get("request", true);
-            bool async = command_pt.get("async", false);
-            std::string locale = command_pt.get("locale", "en_US");
+            unsigned int maxage = command_pt.get<unsigned int>("maxage", 0);
+            unsigned long long newerthan = command_pt.get<unsigned long long>("newerthan", 0);
+            unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
+            double voxelsize = command_pt.get<double>("voxelsize", 0.01);
+            double pointsize = command_pt.get<double>("pointsize", 0);
+            std::string obstaclename = command_pt.get<std::string>("obstaclename", "__dynamicobstacle__");
+            bool fast = command_pt.get<bool>("fast", false);
+            bool request = command_pt.get<bool>("request", true);
+            bool async = command_pt.get<bool>("async", false);
+            std::string locale = command_pt.get<std::string>("locale", "en_US");
             _locale = locale;
             SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, maxage, newerthan, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
             result_ss << "{";
@@ -919,11 +919,11 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                     cameranames.push_back(v->second.get<std::string>(""));
                 }
             }
-            bool ignoreocclusion = command_pt.get("ignoreocclusion", false);
-            unsigned int maxage = command_pt.get("maxage", 0);
-            unsigned int fetchimagetimeout = command_pt.get("fetchimagetimeout", 0);
-            bool fastdetection = command_pt.get("fastdetection", false);
-            bool bindetection = command_pt.get("bindetection", false);
+            bool ignoreocclusion = command_pt.get<bool>("ignoreocclusion", false);
+            unsigned int maxage = command_pt.get<unsigned int>("maxage", 0);
+            unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
+            bool fastdetection = command_pt.get<bool>("fastdetection", false);
+            bool bindetection = command_pt.get<bool>("bindetection", false);
             std::vector<DetectedObjectPtr> detectedobjects;
             std::string resultstate;
             unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
@@ -950,12 +950,12 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                     cameranames.push_back(v->second.get<std::string>(""));
                 }
             }
-            double pointsize = command_pt.get("pointsize",0);
-            double voxelsize = command_pt.get("voxelsize",0.005);
-            bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
-            unsigned int maxage = command_pt.get("maxage",0);
-            unsigned int fetchimagetimeout = command_pt.get("fetchimagetimeout", 0);
-            bool request = command_pt.get("request", true);
+            double pointsize = command_pt.get<double>("pointsize",0);
+            double voxelsize = command_pt.get<double>("voxelsize",0.005);
+            bool ignoreocclusion = command_pt.get<bool>("ignoreocclusion",false);
+            unsigned int maxage = command_pt.get<unsigned int>("maxage",0);
+            unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
+            bool request = command_pt.get<bool>("request", true);
             VisualizePointCloudOnController(regionname, cameranames, pointsize, ignoreocclusion, maxage, fetchimagetimeout, request, voxelsize);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -980,12 +980,12 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                     cameranames.push_back(v->second.get<std::string>(""));
                 }
             }
-            double pointsize = command_pt.get("pointsize",0);
-            double voxelsize = command_pt.get("voxelsize",0.005);
-            bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
-            unsigned int maxage = command_pt.get("maxage",0);
-            unsigned int fetchimagetimeout = command_pt.get("fetchimagetimeout", 0);
-            bool request = command_pt.get("request", true);
+            double pointsize = command_pt.get<double>("pointsize",0);
+            double voxelsize = command_pt.get<double>("voxelsize",0.005);
+            bool ignoreocclusion = command_pt.get<bool>("ignoreocclusion",false);
+            unsigned int maxage = command_pt.get<unsigned int>("maxage",0);
+            unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
+            bool request = command_pt.get<bool>("request", true);
             StartVisualizePointCloudThread(regionname, cameranames, pointsize, ignoreocclusion, maxage, fetchimagetimeout, request, voxelsize);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -1003,9 +1003,9 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
 
-            bool ignoreocclusion = command_pt.get("ignoreocclusion",false);
-            unsigned int maxage = command_pt.get("maxage",0);
-            unsigned int fetchimagetimeout = command_pt.get("fetchimagetimeout", 0);
+            bool ignoreocclusion = command_pt.get<bool>("ignoreocclusion",false);
+            unsigned int maxage = command_pt.get<unsigned int>("maxage",0);
+            unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
             SaveSnapshot(command_pt.get<std::string>("regionname"), ignoreocclusion, maxage, fetchimagetimeout);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -3452,7 +3452,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                 }
                 continue;
             }
-            MUJIN_LOG_DEBUG(str(boost::format("got images %d in SendPointCloudObstacleToControllerThread")%depthimages.size()));
+            MUJIN_LOG_DEBUG(str(boost::format("got images %d in SendPointCloudObstacleToControllerThread imageStartTimestamp=%u newerthan=%u")%depthimages.size()%imageStartTimestamp%newerthan));
             if (depthimages.size() == depthcameranames.size()) {
                 for (size_t i=0; i<depthimages.size(); ++i) {
                     std::string cameraname = depthcameranames.at(i);

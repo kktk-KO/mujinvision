@@ -986,6 +986,14 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             unsigned int maxage = command_pt.get<unsigned int>("maxage",0);
             unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
             bool request = command_pt.get<bool>("request", true);
+            for (size_t i=0; i<cameranames.size(); ++i) {
+                if (_mCameranameRegionname.find(cameranames[i]) == _mCameranameRegionname.end()) {
+                    throw MujinVisionException("cameraname=" + cameranames[i] + " is not supported!", MVE_InvalidArgument);
+                }
+                if (_mCameranameRegionname[cameranames[i]].size() == 0) {
+                    throw MujinVisionException("regionname is empty for cameraname=" + cameranames[i], MVE_InvalidArgument);
+                }
+            }
             StartVisualizePointCloudThread(regionname, cameranames, pointsize, ignoreocclusion, maxage, fetchimagetimeout, request, voxelsize);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;

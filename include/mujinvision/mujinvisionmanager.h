@@ -117,6 +117,7 @@ public:
         \param isContainerPresent whether container specified by regionname is present
         \param ignoreocclusion whether to skip occlusion check
         \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
+        \param newerthantimestamp if non 0, requries the starttimestamp of the image used for detection to be newer than the specified timestamp in milliseconds
         \param fetchimagetimeout max time in ms to wait for getting images for detection
         \param fastdetection whether to prioritize speed
         \param bindetection whether to detect bin
@@ -132,6 +133,7 @@ public:
                                int& isContainerPresent,
                                const bool ignoreocclusion=false,
                                const unsigned int maxage=0,
+                               const unsigned long long newerthantimestamp=0,
                                const unsigned int fetchimagetimeout=0,
                                const bool fastdetection=false,
                                const bool bindetection=false,
@@ -139,6 +141,7 @@ public:
                                const bool useold=false);
 
     /** \brief starts detection thread to continuously detect objects and sends detection results to mujin controller
+        \param detectionstarttimestamp timestamp in ms indicating the start of the detection, if not specified, used the current time when detection thread is started. only images taken after detectionstarttime will be used for detection
         \param sendVerificationPointCloud whether send verification point cloud or not from current detection loop
      */
     virtual void StartDetectionLoop(const std::string& regionname,
@@ -151,7 +154,7 @@ public:
                                     const unsigned int maxage=0,
                                     const unsigned int fetchimagetimeout=0,
                                     const std::string& obstaclename="__dynamicobstacle__",
-                                    const unsigned long long starttime=0 /*ms*/,
+                                    const unsigned long long detectionstarttimestamp=0 /*ms*/,
                                     const std::string& locale="en_US",
                                     const unsigned int maxnumfastdetection=1,
                                     const unsigned int maxnumdetection=0,
@@ -166,7 +169,7 @@ public:
         \param cameranames names of the cameras used for detection
         \param detectedobjects detection result in meters in  world frame
         \param maxage max time difference in ms allowed between the current time and the timestamp of image used for detection, 0 means infinity
-        \param newerthan if non 0, requries the starttimestamp of the image be newer than the specified timestamp in milliseconds
+        \param newerthantimestamp if non 0, requries the starttimestamp of the image used for getting pointcloud obstacle to be newer than the specified timestamp in milliseconds
         \param fetchimagetimeout max time in ms to wait for getting images for detection
         \param voxelsize size of the voxel grid in meters used for simplifying the cloud
         \param pointsize size of the point in meters to be sent to the mujin controller
@@ -178,7 +181,7 @@ public:
                                                     const std::vector<std::string>& cameranames,
                                                     const std::vector<DetectedObjectPtr>& detectedobjectsworld,
                                                     const unsigned int maxage=0,
-                                                    const unsigned long long newerthan=0,
+                                                    const unsigned long long newerthantimestamp=0,
                                                     const unsigned int fetchimagetimeout=0,
                                                     const double voxelsize=0.01,
                                                     const double pointsize=0.005,
@@ -189,12 +192,15 @@ public:
                                                     const std::string& locale="en_US");
 
     /** \brief Visualizes the raw camera point clouds on mujin controller
+        \param maxage max time difference in ms allowed between the current time and the timestamp of image used, 0 means infinity
+        \param newerthantimestamp if non 0, requries the starttimestamp of the image used for visualization to be newer than the specified timestamp in milliseconds
      */
     virtual void VisualizePointCloudOnController(const std::string& regionname,
                                                  const std::vector<std::string>& cameranames,
                                                  const double pointsize=0.005,
                                                  const bool ignoreocclusion=false,
                                                  const unsigned int maxage=0,
+                                                 const unsigned long long newerthantimestamp=0,
                                                  const unsigned int fetchimagetimeout=0,
                                                  const bool request=true,
                                                  const double voxelsize=0.005);
@@ -204,12 +210,15 @@ public:
     virtual void ClearVisualizationOnController();
 
     /** \brief Continuously synchronizing cameras and visualizing point clouds on mujin controller
+        \param maxage max time difference in ms allowed between the current time and the timestamp of image used, 0 means infinity
+        \param newerthantimestamp if non 0, requries the starttimestamp of the image used for visualization to be newer than the specified timestamp in milliseconds
      */
     virtual void StartVisualizePointCloudThread(const std::string& regionname,
                                                 const std::vector<std::string>& cameranames,
                                                 const double pointsize=0.005,
                                                 const bool ignoreocclusion=false,
                                                 const unsigned int maxage=0,
+                                                const unsigned long long newerthantimestamp=0,
                                                 const unsigned int fetchimagetimeout=0,
                                                 const bool request=true,
                                                 const double voxelsize=0.005);
@@ -322,6 +331,7 @@ private:
         bool ignoreocclusion;
         bool stoponleftinorder;
         unsigned int maxage;
+        unsigned long long newerthantimestamp;
         unsigned int fetchimagetimeout;
         unsigned int maxnumfastdetection;
         unsigned int maxnumdetection;
@@ -353,7 +363,7 @@ private:
         std::vector<std::string> cameranames;
         std::vector<DetectedObjectPtr> detectedobjectsworld;
         unsigned int maxage;
-        unsigned long long newerthan;
+        unsigned long long newerthantimestamp;
         unsigned int fetchimagetimeout;
         double voxelsize;
         double pointsize;
@@ -366,6 +376,7 @@ private:
         double pointsize;
         bool ignoreocclusion;
         unsigned int maxage;
+        unsigned long long newerthantimestamp;
         unsigned int fetchimagetimeout;
         bool request;
         double voxelsize;
@@ -434,6 +445,7 @@ private:
                        int& isContainerPresent,
                        const bool ignoreocclusion=false,
                        const unsigned int maxage=0,
+                       const unsigned long long newerthantimestamp=0,
                        const unsigned int fetchimagetimeout=0,
                        const bool fastdetection=false,
                        const bool bindetection=false,
@@ -444,11 +456,11 @@ private:
     /** \brief runs detection in a loop
     */
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long starttime, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long detectionstarttimestamp, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder);
     void _StopDetectionThread();
 
     void _VisualizePointCloudThread(VisualizePointcloudThreadParams params);
-    void _StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
+    void _StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
     void _StopVisualizePointCloudThread();
 
     /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
@@ -472,11 +484,11 @@ private:
     void _StartControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StopControllerMonitorThread();
 
-    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage=0, const unsigned long long newerthan=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01, const double pointsize=0.005, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
+    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned int maxage=0, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01, const double pointsize=0.005, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
     void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params);
     void _StopSendPointCloudObstacleToControllerThread();
 
-    void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
+    void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005, const bool ignoreocclusion=false, const unsigned int maxage=0, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005);
 
     /** \brief Gets transform of the instobject in meters.
      */
@@ -500,9 +512,13 @@ private:
     void _SyncCamera(const std::string& cameraname);
     void _SyncCamera(const std::string& cameraname, const mujinclient::Transform& t);
 
-    /// \param imageStartTimestamp for all captured images, the starttime in ms of the image capture
-    /// \param imageEndTimestamp for all captured images, the endtime in ms of the image capture
-    void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned int maxage=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
+    /** \brief gets images from specified cameras for specified region
+        \param output imageStartTimestamp for all captured images, the starttime in ms of the image captured
+        \param output imageEndTimestamp for all captured images, the endtime in ms of the image captured
+        \param maxage max age in milliseconds of image to use, the call blocks until all images satisfy requirements or passed fetchimagetimeout
+        \param newerthantimestamp images must be newer than the specified timestamp, the call blocks until all images satisfy requirements or passed fetchimagetimeout
+    */
+    void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned int maxage=0 /*ms*/, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -678,7 +694,6 @@ private:
     bool _bSendVerificationPointCloud; ///< whether send verification point cloud or not
     bool _bDetectedObjectsValid; ///< if true, then _vDetectedObject is valid and should be updated to the scene. if false, then not valid and UpdateEnvironmentState should not update the objects. protected by _mutexDetectedInfo
     bool _bUseGrabbedTargeInfoInDetectionPreempt; ///< if true, then use _lastGrabbedTargetTimestamp and numLeftInOrder to determine whether the detector should be preempted or not. by default it is false.
-    
     bool _bDetectBin; ///< whether to detect bin
     std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether to stop the command thread of specified port
 

@@ -212,8 +212,14 @@ bool MujinVisionManager::_CheckPreemptDetector(const unsigned int checkpreemptbi
 {
     bool bPreemptDetectionThread = _bShutdown || _bCancelCommand || _bStopDetectionThread;
     if( _bUseGrabbedTargeInfoInDetectionPreempt ) {
-        if (!_bForceRequestDetectionResults && _tsStartDetection > 0 && _lastGrabbedTargetTimestamp > _tsStartDetection && _lastGrabbedTargetTimestamp < _lastDetectStartTimestamp) {
-            bPreemptDetectionThread = true;
+        if( _tsStartDetection > 0 ) { // detection is running
+            if( _lastGrabbedTargetTimestamp > _tsStartDetection ) { // already on the last item since _lastGrabbedTargetTimestamp is set
+                if( (_bIsGrabbingTarget || _numLeftInOrder == 0) ) { // currently grabbing the last item or the last item has already been placed so _numLeftInOrder is 0
+                    if( _lastGrabbedTargetTimestamp > _lastDetectStartTimestamp ) { // if image time is earlier than the grabbed timestamp, have to preempt
+                        bPreemptDetectionThread = true;
+                    }
+                }
+            }   
         }
     }
     bool bPreemptSendPointcloudObstacleThread = _bShutdown || _bCancelCommand || _bStopSendPointCloudObstacleToControllerThread;
@@ -865,7 +871,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         }
-    } else if (!!_pDetectionThread && !_bStopDetectionThread) {
+    } else if (!!_pDetectionThread && _bIsDetectionRunning) {
         throw MujinVisionException("Cannot execute " + command + " while detection thread is running, please stop it first.", MVE_Busy);
     } else {
         // these commands can only be called when detection is not running
@@ -1416,6 +1422,7 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
         params.stoponleftinorder = stoponleftinorder;
 
         _bIsDetectionRunning = true;
+        
         // reset cached binpicking state to ensure clean state, e.g. lastGrabbedTargetTimeStamp
         {
             boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
@@ -1705,9 +1712,13 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 break;
             }
             time0 = GetMilliTime();
-            if (stoponleftinorder && orderNumber > 0 && numLeftInOrder == 0) {
+            if (stoponleftinorder && orderNumber > 0 && numLeftInOrder == 0 ) {
+                // last part is already picked up and robot is most likely moving to its home position. turn off preempting, but make sure all images are after _lastGrabbedTargetTimestamp
                 // have to guarantee that capture is started
                 _bUseGrabbedTargeInfoInDetectionPreempt = false; // starting to do container empty detection only, so do not preempt detector anymore
+                if( _lastGrabbedTargetTimestamp == 0 ) {
+                    MUJIN_LOG_WARN("last part is already placed, but _lastGrabbedTargetTimestamp is 0!");
+                }
                 MUJIN_LOG_INFO("numLeftInOrder=" << numLeftInOrder << " orderNumber=" << orderNumber << " stoponleftinorder=" << stoponleftinorder << ", check container empty only.");
                 MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
                 _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
@@ -1785,6 +1796,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 bool request=false;
                 bool useold=false;
                 bool checkcontaineremptyonly=true;
+                // TODO images processed here should be after _lastGrabbedTargetTimestamp. If _lastGrabbedTargetTimestamp is 0, sleep a little and try again.
                 numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
             } else if (numfastdetection > 0 || bindetectiononly) {
                 while (!_bStopDetectionThread && numresults == 0 && (numfastdetection > 0 || bindetectiononly)) {

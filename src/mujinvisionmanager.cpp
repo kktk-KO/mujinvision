@@ -228,7 +228,7 @@ bool MujinVisionManager::_CheckPreemptDetector(const unsigned int checkpreemptbi
 
     bool bpreempt = false;
     if (bPreemptDetectionThread && bCheckDetectionThreadPreempt) {
-        MUJIN_LOG_INFO(str(boost::format("Preempting detector call by DetectionThread! bPreemptDetectionThread=%d bPreemptSendPointcloudObstacleThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d _lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u _bForceRequestDetectionResults=%d")%bPreemptDetectionThread%bPreemptSendPointcloudObstacleThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%_lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection%_bForceRequestDetectionResults));
+        MUJIN_LOG_INFO(str(boost::format("Preempting detector call by DetectionThread! bPreemptDetectionThread=%d bPreemptSendPointcloudObstacleThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d _lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u _bForceRequestDetectionResults=%d _bIsGrabbingTarget=%d _numLeftInOrder=%d")%bPreemptDetectionThread%bPreemptSendPointcloudObstacleThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%_lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection%_bForceRequestDetectionResults%_bIsGrabbingTarget%_numLeftInOrder));
         bpreempt = true;
     }
     if (bPreemptSendPointcloudObstacleThread && bCheckSendPointcloudThreadPreempt) {
@@ -1693,9 +1693,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             {
                 boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
                 if (binpickingstateTimestamp != _binpickingstateTimestamp) {
-                    std::stringstream ss;
-                    ss << "DetectionThread binpickingstate: ts=" << _binpickingstateTimestamp << " numPickAttempt=" << _numPickAttempt << " isControllerPickPlaceRunning=" << _bIsControllerPickPlaceRunning << " isRobotOccludingContainer=" << _bIsRobotOccludingSourceContainer << " forceRequestDetectionResults=" << forceRequestDetectionResults << " numLeftInOrder=" << numLeftInOrder << " lastGrabbedTargetTimeStamp=" << _lastGrabbedTargetTimestamp << " _tsLastEnvUpdate=" << _tsLastEnvUpdate << " _resultImageEndTimestamp" << _resultImageEndTimestamp;
-                    MUJIN_LOG_DEBUG(ss.str());
+                    MUJIN_LOG_DEBUG("DetectionThread binpickingstate: ts=" << _binpickingstateTimestamp << " numPickAttempt=" << _numPickAttempt << " isControllerPickPlaceRunning=" << _bIsControllerPickPlaceRunning << " isRobotOccludingContainer=" << _bIsRobotOccludingSourceContainer << " forceRequestDetectionResults=" << forceRequestDetectionResults << " numLeftInOrder=" << numLeftInOrder << " lastGrabbedTargetTimeStamp=" << _lastGrabbedTargetTimestamp << " _tsLastEnvUpdate=" << _tsLastEnvUpdate << " _resultImageEndTimestamp" << _resultImageEndTimestamp << " _bIsGrabbingLastTarget=" << _bIsGrabbingLastTarget);
                 }
                 binpickingstateTimestamp = _binpickingstateTimestamp;
                 lastGrabbedTargetTimeStamp = _lastGrabbedTargetTimestamp;
@@ -1729,8 +1727,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
                 _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
                 detectcontaineronly = true;
-            } else if (!isControllerPickPlaceRunning || forceRequestDetectionResults || _vDetectedObject.size() == 0) { // detect if forced or no result
-                MUJIN_LOG_INFO("force detection, start capturing..." << (int)isControllerPickPlaceRunning << " " << (int)forceRequestDetectionResults << " " << _vDetectedObject.size());
+            } else if (!isControllerPickPlaceRunning || forceRequestDetectionResults) { // detect if forced
+                MUJIN_LOG_INFO("force detection, start capturing..." << (int)isControllerPickPlaceRunning << " " << (int)forceRequestDetectionResults);
                 MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
                 _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
             } else {  // do the following only if pick and place thread is running and detection is not forced

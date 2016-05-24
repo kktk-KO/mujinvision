@@ -210,30 +210,46 @@ bool MujinVisionManager::_CheckPreemptSubscriber()
 
 bool MujinVisionManager::_CheckPreemptDetector(const unsigned int checkpreemptbits)
 {
-    bool bPreemptDetectionThread = _bShutdown || _bCancelCommand || _bStopDetectionThread;
-    if( _bUseGrabbedTargeInfoInDetectionPreempt ) {
-        if( _tsStartDetection > 0 ) { // detection is running
-            if( _lastGrabbedTargetTimestamp > _tsStartDetection ) { // already on the last item since _lastGrabbedTargetTimestamp is set
-                if( (_bIsGrabbingTarget || _numLeftInOrder == 0) ) { // currently grabbing the last item or the last item has already been placed so _numLeftInOrder is 0
-                    if( _lastGrabbedTargetTimestamp > _lastDetectStartTimestamp ) { // if image time is earlier than the grabbed timestamp, have to preempt
-                        bPreemptDetectionThread = true;
-                    }
-                }
-            }
-        }
+    bool bIsGrabbingTarget;
+    bool bForceRequestDetectionResults;
+    unsigned long long lastGrabbedTargetTimestamp;
+    int numLeftInOrder;
+    {
+        boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
+        bIsGrabbingTarget = _bIsGrabbingTarget;
+        bForceRequestDetectionResults = _bForceRequestDetectionResults;
+        lastGrabbedTargetTimestamp = _lastGrabbedTargetTimestamp;
+        numLeftInOrder = _numLeftInOrder;
     }
-    bool bPreemptSendPointcloudObstacleThread = _bShutdown || _bCancelCommand || _bStopSendPointCloudObstacleToControllerThread;
     bool bCheckDetectionThreadPreempt = (checkpreemptbits >> 0) & 1;
     bool bCheckSendPointcloudThreadPreempt = (checkpreemptbits >> 1) & 1;
 
     bool bpreempt = false;
-    if (bPreemptDetectionThread && bCheckDetectionThreadPreempt) {
-        MUJIN_LOG_INFO(str(boost::format("Preempting detector call by DetectionThread! bPreemptDetectionThread=%d bPreemptSendPointcloudObstacleThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d _lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u _bForceRequestDetectionResults=%d _bIsGrabbingTarget=%d _numLeftInOrder=%d")%bPreemptDetectionThread%bPreemptSendPointcloudObstacleThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%_lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection%_bForceRequestDetectionResults%_bIsGrabbingTarget%_numLeftInOrder));
-        bpreempt = true;
+    if (bCheckDetectionThreadPreempt) {
+        bool bPreemptDetectionThread = _bShutdown || _bCancelCommand || _bStopDetectionThread;
+        if( _bUseGrabbedTargeInfoInDetectionPreempt ) {
+            if( _tsStartDetection > 0 ) { // detection is running
+                if( lastGrabbedTargetTimestamp > _tsStartDetection ) { // already on the last item since lastGrabbedTargetTimestamp is set
+                    if( (bIsGrabbingTarget || numLeftInOrder == 0) ) { // currently grabbing the last item or the last item has already been placed so numLeftInOrder is 0
+                        MUJIN_LOG_DEBUG("lastGrabbedTargetTimestamp=" << lastGrabbedTargetTimestamp << " _lastDetectStartTimestamp=" << _lastDetectStartTimestamp);
+                        if( lastGrabbedTargetTimestamp > _lastDetectStartTimestamp ) { // if image time is earlier than the grabbed timestamp, have to preempt
+                            bPreemptDetectionThread = true;
+                        }
+                    }
+                }
+            }
+        }
+        if (bPreemptDetectionThread) {
+            MUJIN_LOG_INFO(str(boost::format("Preempting detector call by DetectionThread! bPreemptDetectionThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u bForceRequestDetectionResults=%d bIsGrabbingTarget=%d numLeftInOrder=%d")%bPreemptDetectionThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection%bForceRequestDetectionResults%bIsGrabbingTarget%numLeftInOrder));
+            bpreempt = true;
+        }
     }
-    if (bPreemptSendPointcloudObstacleThread && bCheckSendPointcloudThreadPreempt) {
-        MUJIN_LOG_INFO(str(boost::format("Preempting detector call by SendPointCloudObstacleThread! bPreemptDetectionThread=%d bPreemptSendPointcloudObstacleToControllerThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d _lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u")%bPreemptDetectionThread%bPreemptSendPointcloudObstacleThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%_lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection));
-        bpreempt = true;
+    if (bCheckSendPointcloudThreadPreempt) {
+        bool bPreemptSendPointcloudObstacleThread = _bShutdown || _bCancelCommand || _bStopSendPointCloudObstacleToControllerThread;
+        if (bPreemptSendPointcloudObstacleThread) {
+            MUJIN_LOG_INFO(str(boost::format("Preempting detector call by SendPointCloudObstacleThread! bPreemptSendPointcloudObstacleToControllerThread=%d _bShutdown=%d _bCancelCommand=%d")%bPreemptSendPointcloudObstacleThread%_bShutdown%_bCancelCommand));
+            bpreempt = true;
+        }
     }
 
     return bpreempt;
@@ -1427,7 +1443,7 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
 
         _bIsDetectionRunning = true;
 
-        // reset cached binpicking state to ensure clean state, e.g. lastGrabbedTargetTimeStamp
+        // reset cached binpicking state to ensure clean state, e.g. lastGrabbedTargetTimestamp
         {
             boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
             _bIsControllerPickPlaceRunning = false;
@@ -1672,13 +1688,13 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     int numLeftInOrder = -1;
     int orderNumber = -1;
     unsigned long long binpickingstateTimestamp = 0;
-    unsigned long long lastGrabbedTargetTimeStamp = 0;
+    unsigned long long lastGrabbedTargetTimestamp = 0;
     unsigned int numdetection = 0;
     std::vector<DetectedObjectPtr> detectedobjects, detectedparts;
     _bUseGrabbedTargeInfoInDetectionPreempt = stoponleftinorder; // use the grabbed target info only if stoponleftinorder is set
     
     std::vector<CameraCaptureHandlePtr> capturehandles;
-    while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimeStamp > _tsStartDetection && _tsLastEnvUpdate > 0 && _resultImageEndTimestamp > 0 && lastGrabbedTargetTimeStamp < _resultImageEndTimestamp)) {
+    while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimestamp > _tsStartDetection && _tsLastEnvUpdate > 0 && _resultImageEndTimestamp > 0 && lastGrabbedTargetTimestamp < _resultImageEndTimestamp)) {
         detectcontaineronly = false;
         starttime = GetMilliTime();
         std::string resultstate;
@@ -1693,10 +1709,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             {
                 boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
                 if (binpickingstateTimestamp != _binpickingstateTimestamp) {
-                    MUJIN_LOG_DEBUG("DetectionThread binpickingstate: ts=" << _binpickingstateTimestamp << " numPickAttempt=" << _numPickAttempt << " isControllerPickPlaceRunning=" << _bIsControllerPickPlaceRunning << " isRobotOccludingContainer=" << _bIsRobotOccludingSourceContainer << " forceRequestDetectionResults=" << forceRequestDetectionResults << " numLeftInOrder=" << numLeftInOrder << " lastGrabbedTargetTimeStamp=" << _lastGrabbedTargetTimestamp << " _tsLastEnvUpdate=" << _tsLastEnvUpdate << " _resultImageEndTimestamp" << _resultImageEndTimestamp << " _bIsGrabbingLastTarget=" << _bIsGrabbingLastTarget);
+                    MUJIN_LOG_DEBUG("DetectionThread binpickingstate: ts=" << _binpickingstateTimestamp << " numPickAttempt=" << _numPickAttempt << " isControllerPickPlaceRunning=" << _bIsControllerPickPlaceRunning << " isRobotOccludingContainer=" << _bIsRobotOccludingSourceContainer << " forceRequestDetectionResults=" << forceRequestDetectionResults << " _numLeftInOrder=" << _numLeftInOrder << " lastGrabbedTargetTimestamp=" << _lastGrabbedTargetTimestamp << " _tsLastEnvUpdate=" << _tsLastEnvUpdate << " _resultImageEndTimestamp" << _resultImageEndTimestamp << " _bIsGrabbingLastTarget=" << _bIsGrabbingLastTarget);
                 }
                 binpickingstateTimestamp = _binpickingstateTimestamp;
-                lastGrabbedTargetTimeStamp = _lastGrabbedTargetTimestamp;
+                lastGrabbedTargetTimestamp = _lastGrabbedTargetTimestamp;
                 if (_numPickAttempt > numPickAttempt) {
                     lastattemptts = binpickingstateTimestamp;
                 }
@@ -1717,17 +1733,17 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             }
             time0 = GetMilliTime();
             if (stoponleftinorder && orderNumber > 0 && numLeftInOrder == 0 ) {
-                // last part is already picked up and robot is most likely moving to its home position. turn off preempting, but make sure all images are after _lastGrabbedTargetTimestamp
-                // have to guarantee that capture is started
+                // last part is already picked up and robot is most likely moving to its home position. turn off preempting, but make sure all images are after lastGrabbedTargetTimestamp
                 _bUseGrabbedTargeInfoInDetectionPreempt = false; // starting to do container empty detection only, so do not preempt detector anymore
-                if( _lastGrabbedTargetTimestamp == 0 ) {
-                    MUJIN_LOG_WARN("last part is already placed, but _lastGrabbedTargetTimestamp is 0!");
+                if( lastGrabbedTargetTimestamp == 0 ) {
+                    MUJIN_LOG_WARN("last part is already placed, but lastGrabbedTargetTimestamp is 0!");
                 }
                 MUJIN_LOG_INFO("numLeftInOrder=" << numLeftInOrder << " orderNumber=" << orderNumber << " stoponleftinorder=" << stoponleftinorder << ", check container empty only.");
+                // have to guarantee that capture is started
                 MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
                 _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
                 detectcontaineronly = true;
-            } else if (!isControllerPickPlaceRunning || forceRequestDetectionResults) { // detect if forced
+            } else if (!isControllerPickPlaceRunning || forceRequestDetectionResults) { // detect if forced or not during pick and place
                 MUJIN_LOG_INFO("force detection, start capturing..." << (int)isControllerPickPlaceRunning << " " << (int)forceRequestDetectionResults);
                 MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
                 _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
@@ -1748,9 +1764,13 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             // stop capturing by removing capture handles
                             capturehandles.resize(0);
                             continue;
-                        } else { // detect when robot is not occluding camera
+                        } else {
+                            // detect when robot is not occluding camera anymore
+                            // even when it is placing the last part, because
+                            // 1, the placing could fail, and we can use the new result
+                            // 2, or, the result of this detection call could arrive after placing is done but before the next detection call, therefore saving another round of detection
                             lastoutofocclusionts = binpickingstateTimestamp;
-                            MUJIN_LOG_INFO("need to detect for this picking attempt, starting image capturing... " << numPickAttempt << " " << lastPickedId << " " << int(forceRequestDetectionResults) << " " << lastDetectedId);
+                            MUJIN_LOG_INFO("need to detect for this picking attempt, starting image capturing... numPickAttempt=" << numPickAttempt << " lastPickedId=" << lastPickedId << " forceRequestDetectionResults=" << int(forceRequestDetectionResults) << " lastDetectedId=" << lastDetectedId << " numLeftInOrder=" << numLeftInOrder << " stoponleftinorder=" << stoponleftinorder << " lastGrabbedTargetTimestamp=" << lastGrabbedTargetTimestamp);
                             MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
                             _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
                         }
@@ -1800,11 +1820,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 bool request=false;
                 bool useold=false;
                 bool checkcontaineremptyonly=true;
-                // images processed here should be after _lastGrabbedTargetTimestamp. If _lastGrabbedTargetTimestamp is 0, sleep a little and try again.
-                if (_lastGrabbedTargetTimestamp == 0) {
-                    MUJIN_LOG_ERROR("_lastGrabbedTargetTimestamp should not be 0");
+                // images processed here should be after lastGrabbedTargetTimestamp.
+                if (lastGrabbedTargetTimestamp == 0) {
+                    MUJIN_LOG_ERROR("lastGrabbedTargetTimestamp should not be 0!");
                 }
-                numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, _lastGrabbedTargetTimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
+                numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, lastGrabbedTargetTimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
             } else if (numfastdetection > 0 || bindetectiononly) {
                 while (!_bStopDetectionThread && numresults == 0 && (numfastdetection > 0 || bindetectiononly)) {
                     bool fastdetection=true;
@@ -1963,7 +1983,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             _resultTimestamp = GetMilliTime();
             _resultImageStartTimestamp = imageStartTimestamp;
             _resultImageEndTimestamp = imageEndTimestamp;
-            MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
+            if (_bDetectedObjectsValid) {
+                MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
+            } else {
+                MUJIN_LOG_INFO(str(boost::format("send resultstate with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
+            }
         } else {
             MUJIN_LOG_INFO("resultstate is null, do not update result");
         }
@@ -2002,9 +2026,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         _StopExecutionVerificationPointCloudThread();
         MUJIN_LOG_INFO("stopped environment update thread");
     }
-    std::stringstream ss;
-    ss << "ending detection thread. numdetection=" << numdetection << " numLeftInOrder=" << numLeftInOrder << " _bStopDetectionThread=" << _bStopDetectionThread << " lastGrabbedTargetTimeStamp=" << lastGrabbedTargetTimeStamp << " _tsLastEnvUpdate=" << _tsLastEnvUpdate << " _tsStartDetection=" << _tsStartDetection << " _resultImageEndTimestamp" << _resultImageEndTimestamp;
-    MUJIN_LOG_INFO(ss.str());
+
+    if (lastGrabbedTargetTimestamp > _tsLastEnvUpdate) {
+        MUJIN_LOG_WARN("_tsLastEnvUpdate=" << _tsLastEnvUpdate << " is older than lastGrabbedTargetTimestamp=" << lastGrabbedTargetTimestamp << "!");
+    }
+
+    MUJIN_LOG_INFO("ending detection thread. numdetection=" << numdetection << " numLeftInOrder=" << numLeftInOrder << " _bStopDetectionThread=" << _bStopDetectionThread << " lastGrabbedTargetTimestamp=" << lastGrabbedTargetTimestamp << " _tsLastEnvUpdate=" << _tsLastEnvUpdate << " _tsStartDetection=" << _tsStartDetection << " _resultImageEndTimestamp" << _resultImageEndTimestamp << " _resultTimestamp=" << _resultTimestamp);
 }
 
 void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams params)
@@ -3473,7 +3500,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
         std::vector<std::string> dummycameranames;
         //_GetDepthImages(TT_SendPointcloudObstacle, regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, true);
         unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
-        uint64_t lastwarnedtimestamp = 0;
+        //uint64_t lastwarnedtimestamp = 0;
         while (!_bStopSendPointCloudObstacleToControllerThread) {
             _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, true, false);
             MUJIN_LOG_DEBUG(str(boost::format("got %d images in SendPointCloudObstacleToControllerThread imageStartTimestamp=%u newerthantimestamp=%u")%depthimages.size()%imageStartTimestamp%newerthantimestamp));

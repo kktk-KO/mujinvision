@@ -149,7 +149,7 @@ public:
                                     const std::vector<std::string>& executionverificationcameranames,
                                     const Transform& worldresultoffsettransform,
                                     const double voxelsize=0.01,
-                                    const double pointsize=0.005,
+                                    const double pointsize=5,
                                     const bool ignoreocclusion=false,
                                     const unsigned int maxage=0,
                                     const unsigned int fetchimagetimeout=0,
@@ -160,7 +160,7 @@ public:
                                     const unsigned int maxnumdetection=0,
                                     const bool sendVerificationPointCloud=true,
                                     const bool stopOnLeftInOrder=false);
-   
+
 
     virtual void StopDetectionLoop();
 
@@ -184,7 +184,7 @@ public:
                                                     const unsigned long long newerthantimestamp=0,
                                                     const unsigned int fetchimagetimeout=0,
                                                     const double voxelsize=0.01,
-                                                    const double pointsize=0.005,
+                                                    const double pointsize=5,
                                                     const std::string& obstaclename="__dynamicobstacle__",
                                                     const bool fast=false,
                                                     const bool request=true,
@@ -197,7 +197,7 @@ public:
      */
     virtual void VisualizePointCloudOnController(const std::string& regionname,
                                                  const std::vector<std::string>& cameranames,
-                                                 const double pointsize=0.005,
+                                                 const double pointsize=5,
                                                  const bool ignoreocclusion=false,
                                                  const unsigned int maxage=0,
                                                  const unsigned long long newerthantimestamp=0,
@@ -215,7 +215,7 @@ public:
      */
     virtual void StartVisualizePointCloudThread(const std::string& regionname,
                                                 const std::vector<std::string>& cameranames,
-                                                const double pointsize=0.005,
+                                                const double pointsize=5,
                                                 const bool ignoreocclusion=false,
                                                 const unsigned int maxage=0,
                                                 const unsigned long long newerthantimestamp=0,
@@ -254,7 +254,7 @@ public:
     /** \brief Whether visionmanager is shut down
      */
     bool IsShutdown();
-    
+
     virtual void GetLatestDetectedObjects(std::vector<DetectedObjectPtr>& detectobjectsworld, std::string& resultstate, std::vector<Real>& points, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, const bool returnpoints=false);
 
     virtual void GetConfig(const std::string& type, std::string& config);
@@ -381,10 +381,10 @@ private:
     // for managing camera capturing life cycle
     class CameraCaptureHandle
     {
-    public:
+public:
         CameraCaptureHandle(ImageSubscriberManagerPtr pImagesubscriberManager, const std::string& cameraid);
         ~CameraCaptureHandle();
-    private:
+private:
         ImageSubscriberManagerPtr _pImagesubscriberManager;
         std::string _cameraid;
     };
@@ -429,7 +429,7 @@ private:
 
     /**
        \returns number of detected objects
-    */
+     */
     int _DetectObjects(ThreadType tt,
                        BinPickingTaskResourcePtr pBinpickingTask,
                        const std::string& regionname,
@@ -450,7 +450,7 @@ private:
                        const bool checkcontaineremptyonly=false);
 
     /** \brief runs detection in a loop
-    */
+     */
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params);
     void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long detectionstarttimestamp, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder);
     void _StopDetectionThread();
@@ -475,7 +475,7 @@ private:
     void _SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params);
     void _StartExecutionVerificationPointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopExecutionVerificationPointCloudThread();
-    
+
     void _ControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StartControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StopControllerMonitorThread();
@@ -513,7 +513,7 @@ private:
         \param output imageEndTimestamp for all captured images, the endtime in ms of the image captured
         \param maxage max age in milliseconds of image to use, the call blocks until all images satisfy requirements or passed fetchimagetimeout
         \param newerthantimestamp images must be newer than the specified timestamp, the call blocks until all images satisfy requirements or passed fetchimagetimeout
-    */
+     */
     void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned int maxage=0 /*ms*/, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]

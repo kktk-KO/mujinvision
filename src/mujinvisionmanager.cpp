@@ -309,7 +309,7 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
     capturehandles = tempcapturehandles;
     tempcapturehandles.clear();
 }
-    
+
 MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscribermanager, DetectorManagerPtr detectormanager, const unsigned int statusport, const unsigned int commandport, const unsigned configport, const std::string& configdir, const std::string& detectiondir)
 {
     _bInitialized = false;
@@ -1680,7 +1680,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     unsigned int numdetection = 0;
     std::vector<DetectedObjectPtr> detectedobjects, detectedparts;
     _bUseGrabbedTargeInfoInDetectionPreempt = stoponleftinorder; // use the grabbed target info only if stoponleftinorder is set
-    
+
     std::vector<CameraCaptureHandlePtr> capturehandles;
     while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimestamp > _tsStartDetection && _tsLastEnvUpdate > 0 && _resultImageEndTimestamp > 0 && lastGrabbedTargetTimestamp < _resultImageEndTimestamp)) {
         detectcontaineronly = false;
@@ -2558,7 +2558,7 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinv
     matrix.m[0] = baselinkobb.rotationmat[0]; matrix.m[1] = baselinkobb.rotationmat[1]; matrix.m[2] = baselinkobb.rotationmat[2];
     matrix.m[4] = baselinkobb.rotationmat[3]; matrix.m[5] = baselinkobb.rotationmat[4]; matrix.m[6] = baselinkobb.rotationmat[5];
     matrix.m[8] = baselinkobb.rotationmat[6]; matrix.m[9] = baselinkobb.rotationmat[7]; matrix.m[10] = baselinkobb.rotationmat[8];
-    
+
     Vector quat = quatFromMatrix(matrix);
     O_T_baselinkcenter.rot[0] = quat[0];
     O_T_baselinkcenter.rot[1] = quat[1];
@@ -2684,7 +2684,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             continue;
         }
 
-        // try to get images again if images are older than the specified timestamp 
+        // try to get images again if images are older than the specified timestamp
         if (newerthantimestamp > 0 && imageStartTimestamp <= newerthantimestamp) {
             oldimagepacktimestamp = imagepacktimestamp;
             if (GetMilliTime() - lastimagetscheckfailurets > 1000.0) {
@@ -3613,7 +3613,7 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
             names.push_back(name_ss.str());
         }
     }
-    _pBinpickingTask->VisualizePointCloud(pointslist, pointsize*1000.0f, names); // need to convert pointsize to millimeter
+    _pBinpickingTask->VisualizePointCloud(pointslist, pointsize, names);
     _SetStatus(TT_Command, MS_Succeeded);
 }
 

@@ -403,7 +403,7 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
                 ss << ", ";
             }
         }
-        ss << "]";        
+        ss << "]";
         ss << "extra_parameters: [";
         for (size_t iparam = 0; iparam < extra_parameters.size(); iparam++) {
             ss << extra_parameters[iparam];
@@ -609,7 +609,7 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         memset(cropContainerEmptyMarginsXYZXYZ, 0, sizeof(cropContainerEmptyMarginsXYZXYZ));
         memset(containerRoiMarginsXYZXYZ, 0, sizeof(containerRoiMarginsXYZXYZ));
         containerEmptyDivisor = 150;
-        pointsize = 0.003;
+        pointsize = 3;
     }
 
     RegionParameters(const ptree& pt)
@@ -640,7 +640,7 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         BOOST_ASSERT(i == 6);
         containerEmptyDivisor = pt.get<double>("containerEmptyDivisor", 150);
         visualizationuri = pt.get<std::string>("visualizationuri", "");
-        pointsize = pt.get<double>("pointsize", 0.003);
+        pointsize = pt.get<double>("pointsize", 3);
     }
 
     virtual ~RegionParameters() {
@@ -865,9 +865,11 @@ public:
 class Image
 {
 public:
-    Image() {}
+    Image() {
+    }
 
-    virtual ~Image() {}
+    virtual ~Image() {
+    }
 
     virtual std::string GetCameraId() = 0;
     virtual uint64_t GetStartTimestamp() = 0;

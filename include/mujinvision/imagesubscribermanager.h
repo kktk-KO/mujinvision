@@ -95,14 +95,6 @@ public:
     virtual void StartCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="") = 0;
     virtual void StopCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0) = 0;
 
-    /** \brief Writes color image to disk.
-     */
-    virtual void WriteColorImage(const std::string& cameraname, const std::string& filename) = 0;
-
-    /** \brief Writes depth image to disk.
-     */
-    virtual void WriteDepthImage(const std::string& cameraname, const std::string& filename) = 0;
-
 protected:
 
     std::map<std::string, CameraPtr> _mNameCamera; ///< name -> camera

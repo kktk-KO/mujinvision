@@ -1031,18 +1031,6 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
-        } else if (command == "SaveSnapshot") {
-            if (!_pBinpickingTask || !_pImagesubscriberManager) {
-                throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
-            }
-
-            bool ignoreocclusion = command_pt.get<bool>("ignoreocclusion",false);
-            unsigned int maxage = command_pt.get<unsigned int>("maxage",0);
-            unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
-            SaveSnapshot(command_pt.get<std::string>("regionname"), ignoreocclusion, maxage, fetchimagetimeout);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
         } else if (command == "UpdateDetectedObjects") {
             if (command_pt.count("regionname") == 0) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
@@ -3632,38 +3620,6 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
 void MujinVisionManager::ClearVisualizationOnController()
 {
     _pBinpickingTask->ClearVisualization();
-    _SetStatus(TT_Command, MS_Succeeded);
-}
-
-void MujinVisionManager::SaveSnapshot(const std::string& regionname, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const bool request)
-{
-    std::vector<std::string> cameranames;
-    std::vector<std::string> cameranamestobeused = _GetCameraNames(regionname, cameranames);
-    FOREACH(iter,_mRegionColorCameraMap[regionname]) {
-        std::string colorcameraname = iter->first;
-        std::string camerabodyname, sensorname;
-        _ParseCameraName(colorcameraname, camerabodyname, sensorname);
-        if (std::find(cameranamestobeused.begin(), cameranamestobeused.end(), colorcameraname) != cameranamestobeused.end()) {
-            std::stringstream filename_ss;
-            filename_ss << camerabodyname << "-" << sensorname << "-2d-" << GetMilliTime() << ".png";
-            std::vector<std::string> ccamnames;
-            ccamnames.push_back(colorcameraname);
-            _pImagesubscriberManager->WriteColorImage(colorcameraname, filename_ss.str());
-        }
-    }
-    FOREACH(iter,_mRegionDepthCameraMap[regionname]) {
-        std::string depthcameraname = iter->first;
-        std::string camerabodyname, sensorname;
-        _ParseCameraName(depthcameraname, camerabodyname, sensorname);
-        if (std::find(cameranamestobeused.begin(), cameranamestobeused.end(), depthcameraname) != cameranamestobeused.end()) {
-            std::stringstream filename_ss;
-            filename_ss << camerabodyname << "-" << sensorname << "-3d-" << GetMilliTime() << ".pcd";
-            std::vector<ImagePtr> depthimages;
-            std::vector<std::string> dcamnames;
-            dcamnames.push_back(depthcameraname);
-            _pImagesubscriberManager->WriteDepthImage(depthcameraname, filename_ss.str());
-        }
-    }
     _SetStatus(TT_Command, MS_Succeeded);
 }
 

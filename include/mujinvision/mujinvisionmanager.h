@@ -225,10 +225,6 @@ public:
 
     virtual void StopVisualizePointCloudThread();
 
-    /** \brief Saves a snapshot for each sensor mapped to the region. If detection was called before, snapshots of the images used for the last detection will be saved. Images are saved to the visionmanager application directory.
-     */
-    virtual void SaveSnapshot(const std::string& regionname, const bool ignoreocclusion=true, const unsigned int maxage=0, const unsigned int fetchimagetimeout=0, const bool request=true);
-
     /** \brief Updates the locally maintained list of the detected objects
         \param detectedobjectsworld detection result in world frame
         \param sendtocontroller whether to send the list to mujin controller

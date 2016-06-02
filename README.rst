@@ -63,8 +63,6 @@ Regular commands controls the detection process:
 - SendPointCloudObstacleToController
 - VisualizePointCloudOnController
 - ClearVisualizationOnController
-- DetectRegionTransform
-- SaveSnapshot
 - UpdateDetectedObjects
 - SyncRegion
 - SyncCameras

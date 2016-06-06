@@ -2081,7 +2081,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
             }
             else {
                 lastUpdateTimestamp = _resultTimestamp;
-                MUJIN_LOG_INFO(str(boost::format("updating environment with %d detected objects")%vDetectedObject.size()));
+                MUJIN_LOG_INFO(str(boost::format("updating environment with %d detected objects, valid=%d")%vDetectedObject.size()%bDetectedObjectsValid));
                 detectedobjects.resize(0);
                 totalpoints.resize(0);
                 if( bDetectedObjectsValid ) {
@@ -2155,6 +2155,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                         }
                     }
                     try {
+                        MUJIN_LOG_DEBUG(str(boost::format("detectedobjects.size()=%d, _targetupdatename=%s")%detectedobjects.size()%_targetupdatename));
                         starttime = GetMilliTime();
                         pBinpickingTask->UpdateEnvironmentState(_targetupdatename, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "m", 10);
                         std::stringstream ss;
@@ -2162,7 +2163,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                         _SetStatusMessage(TT_UpdateEnvironment, ss.str());
                     }
                     catch(const std::exception& ex) {
-                        if (GetMilliTime() - lastwarnedtimestamp1 > 1000.0) {
+                        if ( lastwarnedtimestamp1 == 0 || GetMilliTime() - lastwarnedtimestamp1 > 1000) {
                             lastwarnedtimestamp1 = GetMilliTime();
                             std::stringstream ss;
                             ss << "Failed to update environment state: " << ex.what() << ".";

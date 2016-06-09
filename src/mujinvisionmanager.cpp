@@ -2222,7 +2222,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
     }
     catch (...) {
         std::stringstream errss;
-        errss << "Caught unknown exception in VisualizePointcloudThread!";
+        errss << "Caught unknown exception in _UpdateEnvironmentThread!";
         _SetStatus(TT_UpdateEnvironment, MS_Aborted, errss.str(), "", false);
         MUJIN_LOG_ERROR(errss.str());
     }
@@ -2281,7 +2281,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 } else if (mCameranameLastsentcloudtime.find(cameraname) == mCameranameLastsentcloudtime.end() || cloudstarttime > mCameranameLastsentcloudtime[cameraname]) {
                     try {
                         uint64_t starttime = GetMilliTime();
-                        pBinpickingTask->AddPointCloudObstacle(points, pointsize, "latestobstacle_"+cameraname, cloudstarttime, cloudendtime, true);
+                        pBinpickingTask->AddPointCloudObstacle(points, pointsize, "latestobstacle_"+cameraname, cloudstarttime, cloudendtime, true, "m");
                         mCameranameLastsentcloudtime[cameraname] = cloudstarttime;
                         std::stringstream ss;
                         ss << "Sent latest pointcloud of " << cameraname << " with " << (points.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
@@ -3425,7 +3425,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                 std::stringstream ss;
                 ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
                 _SetStatusMessage(TT_Command, ss.str());
-                _pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename);
+                _pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "m");
                 _lastSendPointCloudObstacleTimestamp = imageStartTimestamp;
             }
         } else {
@@ -3535,7 +3535,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                     std::stringstream ss;
                     ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
                     _SetStatusMessage(TT_SendPointcloudObstacle, ss.str());
-                    pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename);
+                    pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "m");
                     _lastSendPointCloudObstacleTimestamp = imageStartTimestamp;
                 }
                 _SetStatus(TT_SendPointcloudObstacle, MS_Succeeded);

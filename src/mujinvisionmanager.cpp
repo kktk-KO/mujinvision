@@ -3604,7 +3604,7 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
             names.push_back(name_ss.str());
         }
     }
-    _pBinpickingTask->VisualizePointCloud(pointslist, pointsize, names);
+    _pBinpickingTask->VisualizePointCloud(pointslist, pointsize, names, "mm");
     _SetStatus(TT_Command, MS_Succeeded);
 }
 

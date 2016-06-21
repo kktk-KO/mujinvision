@@ -2493,7 +2493,7 @@ void MujinVisionManager::_SyncCamera(const std::string& cameraname)
     utils::GetSensorData(_pControllerClient, _pSceneResource, camerabodyname, sensorname, sensordata);
 
     mujinclient::Transform O_T_C0;
-    utils::GetSensorTransform(_pControllerClient, _pSceneResource, camerabodyname, sensorname, O_T_C0, "m");
+    utils::GetSensorTransform(_pControllerClient, _pSceneResource, camerabodyname, sensorname, O_T_C0, "mm");
     Transform O_T_C = _GetTransform(O_T_C0); // sensor transform in world frame
     _mNameCamera[cameraname]->SetWorldTransform(O_T_C);
     MUJIN_LOG_DEBUG("setting camera transform to:\n" + _GetString(_mNameCamera[cameraname]->GetWorldTransform()));

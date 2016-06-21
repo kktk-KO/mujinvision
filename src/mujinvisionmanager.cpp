@@ -1661,8 +1661,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     int lastDetectedId = 0;
     int lastPickedId = -1;
     uint64_t oldbinpickingstatets = 0;
-    uint64_t lastocclusionwarningts = 0;
-    uint64_t lastoutofocclusionts = 0;
     uint64_t lastbinpickingstatewarningts = 0;
     uint64_t lastwaitforocclusionwarningts = 0;
     uint64_t lastattemptts = 0;
@@ -1742,13 +1740,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             if (binpickingstateTimestamp > _lastocclusionTimestamp) {
                                 _lastocclusionTimestamp = binpickingstateTimestamp;
                             }
-                            if (GetMilliTime() - lastocclusionwarningts > 1000.0) {
-                                MUJIN_LOG_INFO("robot is picking now (occluding camera), stop capturing " + ParametersBase::GetJsonString(_GetHardwareIds(cameranames)));
-                                lastocclusionwarningts = GetMilliTime();
-                                if (lastoutofocclusionts > 0 && _lastocclusionTimestamp > lastoutofocclusionts && _lastocclusionTimestamp - lastoutofocclusionts > 10000.0) {
-                                    MUJIN_LOG_WARN("robot is occluding container for more than " << (_lastocclusionTimestamp - lastoutofocclusionts) / 1000.0f << " secs!");
-                                }
-                            }
                             // stop capturing by removing capture handles
                             capturehandles.resize(0);
                             continue;
@@ -1757,7 +1748,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             // even when it is placing the last part, because
                             // 1, the placing could fail, and we can use the new result
                             // 2, or, the result of this detection call could arrive after placing is done but before the next detection call, therefore saving another round of detection
-                            lastoutofocclusionts = binpickingstateTimestamp;
                             MUJIN_LOG_INFO("need to detect for this picking attempt, starting image capturing... numPickAttempt=" << numPickAttempt << " lastPickedId=" << lastPickedId << " forceRequestDetectionResults=" << int(forceRequestDetectionResults) << " lastDetectedId=" << lastDetectedId << " numLeftInOrder=" << numLeftInOrder << " stoponleftinorder=" << stoponleftinorder << " lastGrabbedTargetTimestamp=" << lastGrabbedTargetTimestamp);
                             MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
                             _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);

@@ -3015,6 +3015,10 @@ void MujinVisionManager::Initialize(
         _mDetectorExtraInitializationOptions["classname"] = detectorclassname;
     }
 
+    // load unit info
+    _mDetectorExtraInitializationOptions["inputUnit"] = _visionserverpt.get<std::string>("inputunit", "mm");
+    _mDetectorExtraInitializationOptions["outputUnit"] = _visionserverpt.get<std::string>("outputunit", "mm");
+
     // set up regions
     _mNameRegion.clear();
     std::vector<std::string> regionnames;

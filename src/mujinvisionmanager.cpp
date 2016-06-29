@@ -3006,6 +3006,11 @@ void MujinVisionManager::Initialize(
     read_json(visionmanagerconfigss, _visionserverpt);
     _filteringvoxelsize = _visionserverpt.get<double>("filteringvoxelsize", 0.01 * 1000);
     _filteringstddev = _visionserverpt.get<double>("filteringstddev", 0.01 * 1000);
+    if (_filteringvoxelsize < 1 && _filteringstddev < 1) {
+        MUJIN_LOG_WARN("it seems that filteringvoxelsize=" << _filteringvoxelsize << " and filteringvoxelsize=" << _filteringvoxelsize << " are in meters, converting them to mm, please update conf");
+        _filteringvoxelsize = _filteringvoxelsize * 1000;
+        _filteringstddev = _filteringstddev * 1000;
+    }
     _filteringnumnn = _visionserverpt.get<int>("filteringnumnn", 80);
     _bDetectBin = _visionserverpt.get<bool>("detectbin", true);
     std::string detectormodulename = _visionserverpt.get<std::string>("modulename", "");

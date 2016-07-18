@@ -3147,6 +3147,9 @@ void MujinVisionManager::Initialize(
         CameraParametersPtr pcameraparameters;
         for (unsigned int i=0; i<region->pRegionParameters->cameranames.size(); ++i) {
             cameraname = region->pRegionParameters->cameranames.at(i);
+            if( _mNameCamera.find(cameraname) == _mNameCamera.end() ) {
+                throw MujinVisionException(str(boost::format("scene sensor mapping does not have camera %s coming from region %s")%cameraname%regionname), MVE_InvalidArgument);
+            }
             pcameraparameters = _mNameCamera[cameraname]->pCameraParameters;
             if (std::find(syncedcamera.begin(), syncedcamera.end(), cameraname) == syncedcamera.end()) {
                 _SyncCamera(cameraname, resultgetinstobjectandsensorinfo.msensortransform[cameraname]);

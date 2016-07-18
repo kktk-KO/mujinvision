@@ -2228,10 +2228,6 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         MUJIN_LOG_INFO("starting SendExecutionVerificationPointCloudThread " + ParametersBase::GetJsonString(evcamnames));
         //double voxelsize = params.voxelsize;
         double pointsize = params.pointsize;
-        if (pointsize == 0) {
-            pointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
-            MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
-        }
         std::string obstaclename = params.obstaclename;
         unsigned int waitinterval = params.waitinterval;
         std::string locale = params.locale;
@@ -2264,6 +2260,11 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 std::vector<double> points;
                 std::string cameraname = evcamnames.at(i);
                 unsigned long long cloudstarttime, cloudendtime;
+                double newpointsize = 0;
+                if (pointsize == 0) {
+                    newpointsize = _mNameRegion[_mCameranameRegionname[cameraname]]->pRegionParameters->pointsize;
+                    MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
+                }
 
                 int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn);
                 if (isoccluded == -2 ) {
@@ -2274,7 +2275,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                     }
                     try {
                         uint64_t starttime = GetMilliTime();
-                        pBinpickingTask->AddPointCloudObstacle(points, pointsize, "latestobstacle_"+cameraname, cloudstarttime, cloudendtime, true, "mm", isoccluded);
+                        pBinpickingTask->AddPointCloudObstacle(points, newpointsize, "latestobstacle_"+cameraname, cloudstarttime, cloudendtime, true, "mm", isoccluded);
                         mCameranameLastsentcloudtime[cameraname] = cloudstarttime;
                         std::stringstream ss;
                         ss << "Sent latest pointcloud of " << cameraname << " with " << (points.size()/3.) << " points, isoccluded=" << isoccluded << ", took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
@@ -2529,7 +2530,7 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname)
 void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinvision::Transform& O_T_region, const BinPickingTaskResource::ResultOBB& baselinkobb, const BinPickingTaskResource::ResultOBB& innerobb)
 {
     //_mNameRegion[regionname]->SetWorldTransform(regiontransform);
-    MUJIN_LOG_DEBUG("setting region transform to:\n" + _GetString(O_T_region));//_mNameRegion[regionname]->GetWorldTransform()));
+    MUJIN_LOG_DEBUG("setting region transform to:\n" + _GetString(O_T_region)); //_mNameRegion[regionname]->GetWorldTransform()));
     // update globalroi3d from mujin controller
     _mNameRegion[regionname]->pRegionParameters->outerTranslation = baselinkobb.translation;
     _mNameRegion[regionname]->pRegionParameters->outerExtents = baselinkobb.extents;
@@ -3398,7 +3399,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                 // get point cloud obstacle
                 std::vector<Real> points;
                 ImagePtr depthimage = depthimages.at(i);
-                
+
                 {
                     boost::mutex::scoped_lock lock(_mutexDetector);
                     _pDetector->SetDepthImage(depthimages.at(i));
@@ -3435,7 +3436,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                     read_json(ss, tmppt);
                     isoccluded = tmppt.get<int>("isoccluded", -1);
                 }
-                    
+
                 ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
                 _SetStatusMessage(TT_Command, ss.str());
                 _pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "mm", isoccluded);
@@ -3549,7 +3550,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                     }
 
                     std::stringstream ss;
-                    
+
                     int isoccluded = -1;
                     if (!!depthimage && depthimage->GetMetadata().size() > 0) {
                         ptree tmppt;
@@ -3557,7 +3558,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                         read_json(ss, tmppt);
                         isoccluded = tmppt.get<int>("isoccluded", -1);
                     }
-                    
+
                     ss.str(std::string()); ss.clear();
                     ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
                     _SetStatusMessage(TT_SendPointcloudObstacle, ss.str());

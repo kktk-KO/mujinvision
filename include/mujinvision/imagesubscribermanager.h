@@ -74,9 +74,11 @@ public:
      */
     virtual void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout=10.0, const unsigned long long newerthan=0) = 0;
 
-    /** \brief prune and subsample pointcloud
+    /** \brief Gets a point cloud from the camera name and prunes and subsamples it.
+
+        \return occlusion status of robot with the container: -2 if did not get any depth image, -1 if unknown, 0 if not occluding, 1 if robot is occluding container in camera
      */
-    virtual void GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize=0.01, const double stddev=0.01, const size_t numnn=80) = 0;
+    virtual int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize=0.01, const double stddev=0.01, const size_t numnn=80) = 0;
 
     /** \brief Gets the depth image from the latest n images with depth data, and the min/max timestamps of the images used.
         \param cameraname name of the camera

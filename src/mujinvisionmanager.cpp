@@ -2263,7 +2263,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 double newpointsize = 0;
                 if (pointsize == 0) {
                     newpointsize = _mNameRegion[_mCameranameRegionname[cameraname]]->pRegionParameters->pointsize;
-                    MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
+                    MUJIN_LOG_INFO("pointsize=0, using pointsize= " << newpointsize << " in regionparam for camera " << cameraname << " of region " << _mCameranameRegionname[cameraname]);
                 }
 
                 int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn);

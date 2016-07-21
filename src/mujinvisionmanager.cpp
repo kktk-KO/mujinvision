@@ -210,13 +210,13 @@ bool MujinVisionManager::_CheckPreemptSubscriber()
 
 bool MujinVisionManager::_CheckPreemptDetector(const unsigned int checkpreemptbits)
 {
-    bool bIsGrabbingTarget;
+    bool bIsGrabbingLastTarget;
     bool bForceRequestDetectionResults;
     unsigned long long lastGrabbedTargetTimestamp;
     int numLeftInOrder;
     {
         boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);
-        bIsGrabbingTarget = _bIsGrabbingTarget;
+        bIsGrabbingLastTarget = _bIsGrabbingLastTarget;
         bForceRequestDetectionResults = _bForceRequestDetectionResults;
         lastGrabbedTargetTimestamp = _lastGrabbedTargetTimestamp;
         numLeftInOrder = _numLeftInOrder;
@@ -230,7 +230,7 @@ bool MujinVisionManager::_CheckPreemptDetector(const unsigned int checkpreemptbi
         if( _bUseGrabbedTargeInfoInDetectionPreempt ) {
             if( _tsStartDetection > 0 ) { // detection is running
                 if( lastGrabbedTargetTimestamp > _tsStartDetection ) { // already on the last item since lastGrabbedTargetTimestamp is set
-                    if( (bIsGrabbingTarget || numLeftInOrder == 0) ) { // currently grabbing the last item or the last item has already been placed so numLeftInOrder is 0
+                    if( (bIsGrabbingLastTarget || numLeftInOrder == 0) ) { // currently grabbing the last item or the last item has already been placed so numLeftInOrder is 0
                         MUJIN_LOG_DEBUG("lastGrabbedTargetTimestamp=" << lastGrabbedTargetTimestamp << " _lastDetectStartTimestamp=" << _lastDetectStartTimestamp);
                         if( lastGrabbedTargetTimestamp > _lastDetectStartTimestamp ) { // if image time is earlier than the grabbed timestamp, have to preempt
                             bPreemptDetectionThread = true;
@@ -240,7 +240,7 @@ bool MujinVisionManager::_CheckPreemptDetector(const unsigned int checkpreemptbi
             }
         }
         if (bPreemptDetectionThread) {
-            MUJIN_LOG_INFO(str(boost::format("Preempting detector call by DetectionThread! bPreemptDetectionThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u bForceRequestDetectionResults=%d bIsGrabbingTarget=%d numLeftInOrder=%d")%bPreemptDetectionThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection%bForceRequestDetectionResults%bIsGrabbingTarget%numLeftInOrder));
+            MUJIN_LOG_INFO(str(boost::format("Preempting detector call by DetectionThread! bPreemptDetectionThread=%d _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d lastGrabbedTargetTimestamp=%u _lastDetectStartTimestamp=%u _tsStartDetection=%u bForceRequestDetectionResults=%d bIsGrabbingLastTarget=%d numLeftInOrder=%d")%bPreemptDetectionThread%_bShutdown%_bCancelCommand%_bStopDetectionThread%lastGrabbedTargetTimestamp%_lastDetectStartTimestamp%_tsStartDetection%bForceRequestDetectionResults%bIsGrabbingLastTarget%numLeftInOrder));
             bpreempt = true;
         }
     }
@@ -1680,7 +1680,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     _bUseGrabbedTargeInfoInDetectionPreempt = stoponleftinorder; // use the grabbed target info only if stoponleftinorder is set
 
     std::vector<CameraCaptureHandlePtr> capturehandles;
-    while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimestamp > _tsStartDetection && _tsLastEnvUpdate > 0 && _resultImageEndTimestamp > 0 && lastGrabbedTargetTimestamp < _resultImageEndTimestamp)) {
+    while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimestamp > _tsStartDetection && _tsLastEnvUpdate > 0 && _resultImageEndTimestamp > 0 && lastGrabbedTargetTimestamp < _resultImageEndTimestamp && !_bIsGrabbingLastTarget)) {
         detectcontaineronly = false;
         starttime = GetMilliTime();
         std::string resultstate;
@@ -1718,7 +1718,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 break;
             }
             time0 = GetMilliTime();
-            if (stoponleftinorder && orderNumber > 0 && numLeftInOrder == 0 ) {
+            if (stoponleftinorder && orderNumber > 0 && (numLeftInOrder == 0 || (numLeftInOrder == 1 && _bIsGrabbingLastTarget)) ) { // make sure to test when numLeftInOrder is 0 (or 1 and robot is grabbing last target).
                 // last part is already picked up and robot is most likely moving to its home position. turn off preempting, but make sure all images are after lastGrabbedTargetTimestamp
                 _bUseGrabbedTargeInfoInDetectionPreempt = false; // starting to do container empty detection only, so do not preempt detector anymore
                 if( lastGrabbedTargetTimestamp == 0 ) {
@@ -1803,7 +1803,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     MUJIN_LOG_ERROR("lastGrabbedTargetTimestamp should not be 0!");
                 }
                 numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, lastGrabbedTargetTimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
-            } else if (numfastdetection > 0 || bindetectiononly) {
+            }
+            else if (numfastdetection > 0 || bindetectiononly) {
                 while (!_bStopDetectionThread && numresults == 0 && (numfastdetection > 0 || bindetectiononly)) {
                     bool fastdetection=true;
                     bool bindetection=_bDetectBin;
@@ -1904,7 +1905,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 // stop capturing by removing capture handles
                 capturehandles.resize(0);
                 MUJIN_LOG_INFO("capturing stopped");
-            } else {
+            }
+            else {
                 //MUJIN_LOG_INFO("detected no object, do not stop image capturing...");
             }
         }
@@ -1963,10 +1965,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             _resultImageEndTimestamp = imageEndTimestamp;
             if (_bDetectedObjectsValid) {
                 MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
-            } else {
+            }
+            else {
                 MUJIN_LOG_INFO(str(boost::format("send resultstate with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
             }
-        } else {
+        }
+        else {
             MUJIN_LOG_INFO("resultstate is null, do not update result");
         }
         if (_bStopDetectionThread) {

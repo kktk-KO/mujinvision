@@ -2652,8 +2652,12 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
             colorimages.clear();
             depthimages.clear();
-            MUJIN_LOG_WARN("reset image subscriber and get out of _GetImages()");
+            MUJIN_LOG_WARN("reset image subscriber and capture handles, then get out of _GetImages()");
             _pImagesubscriberManager->Reset();
+            {
+                boost::mutex::scoped_lock lock(_mutexCaptureHandles);
+                _mCameranameCaptureHandles.clear();
+            }
             break;
         }
 
@@ -3101,7 +3105,10 @@ void MujinVisionManager::Initialize(
     starttime = GetMilliTime();
     _SetStatusMessage(TT_Command, "Setting up cameras.");
     _mNameCamera.clear();
-    _mCameranameCaptureHandles.clear();
+    {
+        boost::mutex::scoped_lock lock(_mutexCaptureHandles);
+        _mCameranameCaptureHandles.clear();
+    }
     FOREACH(it, _mNameCameraParameters) {
         std::string cameraname = it->first;
         CameraParametersPtr pcameraparameters = it->second;

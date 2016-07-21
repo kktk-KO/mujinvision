@@ -388,11 +388,12 @@ private:
     class CameraCaptureHandle
     {
 public:
-        CameraCaptureHandle(ImageSubscriberManagerPtr pImagesubscriberManager, const std::string& cameraid);
+        CameraCaptureHandle(ImageSubscriberManagerPtr pImagesubscriberManager, const std::string& cameraid, const std::string& cameraname);
         ~CameraCaptureHandle();
 private:
         ImageSubscriberManagerPtr _pImagesubscriberManager;
         std::string _cameraid;
+        std::string _cameraname;
     };
     typedef boost::shared_ptr<CameraCaptureHandle> CameraCaptureHandlePtr;
     typedef boost::weak_ptr<CameraCaptureHandle> CameraCaptureHandleWeakPtr;

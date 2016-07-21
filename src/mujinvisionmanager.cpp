@@ -2645,7 +2645,10 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         if (resultimages.size() == 0 && (colorimages.size() < colorcameranames.size() || depthimages.size() < depthcameranames.size())) {
             if (GetMilliTime() - lastcouldnotcapturewarnts > 1000.0) {
                 MUJIN_LOG_WARN("Could not get all images, ensure capturing thread, will try again" << ": # color " << colorimages.size() << "," << colorcameranames.size() << ", # depth " << depthimages.size() << "," << depthcameranames.size() << ", # result images = " << resultimages.size() << ", use_cache = " << usecache);
+                MUJIN_LOG_WARN("reset image subscriber and get out of _GetImages()");
+                _InitializeImageSubscriberManager(_pImagesubscriberManager);
                 lastcouldnotcapturewarnts = GetMilliTime();
+                break;
             }
 
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
@@ -3177,17 +3180,11 @@ void MujinVisionManager::Initialize(
     MUJIN_LOG_DEBUG("sync cameras took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
 
     // set up subscribers
-    _SetStatusMessage(TT_Command, "Loading subscriber configuration.");
-    // load subscriber configuration
     _imagesubscriberconfig = imagesubscriberconfig;
-    std::stringstream imagesubscriberconfigss;
-    imagesubscriberconfigss << imagesubscriberconfig;
-    ptree imagesubscriberpt;
-    read_json(imagesubscriberconfigss, imagesubscriberpt);
-
-    // set up image subscriber manager
-    _SetStatusMessage(TT_Command, "Setting up image manager.");
-    _pImagesubscriberManager->Initialize(_mNameCamera, streamerIp, streamerPort, imagesubscriberpt.get_child("zmq_subscriber"), _zmqcontext);
+    _streamerIp = streamerIp;
+    _streamerPort = streamerPort;
+    _SetStatusMessage(TT_Command, "Loading subscriber configuration.");
+    _InitializeImageSubscriberManager(_pImagesubscriberManager);
 
     // set up detectors
     starttime = GetMilliTime();
@@ -3865,4 +3862,23 @@ void MujinVisionManager::_ParseCameraName(const std::string& cameraname, std::st
     camerabodyname = cameraname.substr(0,pos);
     sensorname = cameraname.substr(pos+1);
 }
+
+void MujinVisionManager::_InitializeImageSubscriberManager(ImageSubscriberManagerPtr pImagesubscriberManager)
+{
+    // reset
+    _pImagesubscriberManager.reset();
+
+    // load subscriber configuration
+    ptree imagesubscriberpt;
+    if (_imagesubscriberconfig.size() > 0) {
+        std::stringstream imagesubscriberconfigss;
+        imagesubscriberconfigss << _imagesubscriberconfig;
+        read_json(imagesubscriberconfigss, imagesubscriberpt);
+    }
+
+    // set up image subscriber manager
+    _SetStatusMessage(TT_Command, "Setting up image manager.");
+    _pImagesubscriberManager->Initialize(_mNameCamera, _streamerIp, _streamerPort, imagesubscriberpt, _zmqcontext);
+}
+
 } // namespace mujinvision

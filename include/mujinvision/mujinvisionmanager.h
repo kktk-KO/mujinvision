@@ -410,6 +410,8 @@ private:
         TT_SendExecutionVerificationPointCloud=7
     };
 
+    void _InitializeImageSubscriberManager(ImageSubscriberManagerPtr pImagesubscriberManager);
+
     void _SetDetectorStatusMessage(const std::string& msg, const std::string& err="");
     void _SetStatusMessage(ThreadType tt, const std::string& msg, const std::string& err="");
     void _SetStatus(ThreadType tt, ManagerStatus status, const std::string& msg="", const std::string& err="", const bool allowInterrupt=true);
@@ -661,6 +663,8 @@ private:
     std::string _userinfo_json; ///< userinfo json
     std::string _slaverequestid; ///< slaverequestid to ensure that binpicking task uses the same slave
     std::string _controllerIp; ///< controller ip
+    std::string _streamerIp; ///< streamer ip
+    unsigned int _streamerPort; ///< streamer port
 
     // mujin controller binpicking state
     unsigned long long _binpickingstateTimestamp; ///< timestamp of latest binpicking state

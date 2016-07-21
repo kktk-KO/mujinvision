@@ -2273,10 +2273,8 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn);
                 if (isoccluded == -2 ) {
                     MUJIN_LOG_DEBUG("did not get depth from " << cameraname << ", so do not send to controller");
-                    {
-                        boost::mutex::scoped_lock lock(_mutexCaptureHandles);
-                        _mCameranameCaptureHandles.erase(cameraname);
-                    }
+                    MUJIN_LOG_DEBUG("try to force capturing");
+                    _StartAndGetCaptureHandle(evcamnames, evcamnames, _mCameranameRegionname[cameraname], capturehandles);
                 } else if (mCameranameLastsentcloudtime.find(cameraname) == mCameranameLastsentcloudtime.end() || cloudstarttime > mCameranameLastsentcloudtime[cameraname]) {
                     if( points.size() == 0 ) {
                         MUJIN_LOG_WARN("sending 0 points from camera " << cameraname);
@@ -2302,10 +2300,8 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                     }
                 } else {
                     MUJIN_LOG_WARN("got old point cloud from camera " << cameraname << ", do not send to controller. cloudstarttime=" << cloudstarttime << " oldtime=" << mCameranameLastsentcloudtime[cameraname]);
-                    {
-                        boost::mutex::scoped_lock lock(_mutexCaptureHandles);
-                        _mCameranameCaptureHandles.erase(cameraname);
-                    }
+                    MUJIN_LOG_DEBUG("try to force capturing");
+                    _StartAndGetCaptureHandle(evcamnames, evcamnames, _mCameranameRegionname[cameraname], capturehandles);
                 }
             }
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
@@ -3301,14 +3297,9 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
     } else {
         MUJIN_LOG_ERROR("Not enough images, cannot detect! colorimages=" << colorimages.size() << " depthimages=" << depthimages.size() << " resultimages=" << resultimages.size());
         MUJIN_LOG_INFO("force capturing, in case streamer crashed");
-        MUJIN_LOG_DEBUG("resetting capturehandles with cameranames " << __GetString(cameranames));
-        {
-            boost::mutex::scoped_lock lock(_mutexCaptureHandles);
-            for (size_t i=0; i<cameranames.size(); ++i) {
-                _mCameranameCaptureHandles.erase(cameranames[i]);
-            }
-        }
-        //_StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles, true);
+        MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
+        std::vector<CameraCaptureHandlePtr> capturehandles;
+        _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles, true);
     }
     int numresults = 0;
     if (resultstate == "") {

@@ -2618,7 +2618,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     uint64_t lastfirstimagecheckfailurewarnts = 0;
     uint64_t lastocclusioncheckfailurewarnts = 0;
     uint64_t lastocclusionwarnts = 0;
-    uint64_t lastcouldnotcapturewarnts = 0;
+    //uint64_t lastcouldnotcapturewarnts = 0;
     bool usecache = !((request || !_visionserverpt.get<bool>("runpublisher", true)) && (colorcameranames.size() == 1 && depthcameranames.size() == 1));
 
     while (!_bCancelCommand && // command is not being canceled
@@ -2647,18 +2647,14 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // ensure streamer and try to get images again if got fewer than expected images
         if (resultimages.size() == 0 && (colorimages.size() < colorcameranames.size() || depthimages.size() < depthcameranames.size())) {
-            if (GetMilliTime() - lastcouldnotcapturewarnts > 1000.0) {
-                MUJIN_LOG_WARN("Could not get all images, ensure capturing thread, will try again" << ": # color " << colorimages.size() << "," << colorcameranames.size() << ", # depth " << depthimages.size() << "," << depthcameranames.size() << ", # result images = " << resultimages.size() << ", use_cache = " << usecache);
-                MUJIN_LOG_WARN("reset image subscriber and get out of _GetImages()");
-                _InitializeImageSubscriberManager(_pImagesubscriberManager);
-                lastcouldnotcapturewarnts = GetMilliTime();
-                break;
-            }
+            MUJIN_LOG_WARN("Could not get all images, ensure capturing thread, will try again" << ": # color " << colorimages.size() << "," << colorcameranames.size() << ", # depth " << depthimages.size() << "," << depthcameranames.size() << ", # result images = " << resultimages.size() << ", use_cache = " << usecache);
+            //lastcouldnotcapturewarnts = GetMilliTime();
 
-            boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
             colorimages.clear();
             depthimages.clear();
-            continue;
+            MUJIN_LOG_WARN("reset image subscriber and get out of _GetImages()");
+            _pImagesubscriberManager->Reset();
+            break;
         }
 
         // throw exception if acquired images are from the future
@@ -3184,11 +3180,17 @@ void MujinVisionManager::Initialize(
     MUJIN_LOG_DEBUG("sync cameras took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
 
     // set up subscribers
-    _imagesubscriberconfig = imagesubscriberconfig;
-    _streamerIp = streamerIp;
-    _streamerPort = streamerPort;
     _SetStatusMessage(TT_Command, "Loading subscriber configuration.");
-    _InitializeImageSubscriberManager(_pImagesubscriberManager);
+    // load subscriber configuration
+    _imagesubscriberconfig = imagesubscriberconfig;
+    std::stringstream imagesubscriberconfigss;
+    imagesubscriberconfigss << imagesubscriberconfig;
+    ptree imagesubscriberpt;
+    read_json(imagesubscriberconfigss, imagesubscriberpt);
+
+    // set up image subscriber manager
+    _SetStatusMessage(TT_Command, "Setting up image manager.");
+    _pImagesubscriberManager->Initialize(_mNameCamera, streamerIp, streamerPort, imagesubscriberpt, _zmqcontext);
 
     // set up detectors
     starttime = GetMilliTime();
@@ -3866,23 +3868,4 @@ void MujinVisionManager::_ParseCameraName(const std::string& cameraname, std::st
     camerabodyname = cameraname.substr(0,pos);
     sensorname = cameraname.substr(pos+1);
 }
-
-void MujinVisionManager::_InitializeImageSubscriberManager(ImageSubscriberManagerPtr pImagesubscriberManager)
-{
-    // reset
-    _pImagesubscriberManager.reset();
-
-    // load subscriber configuration
-    ptree imagesubscriberpt;
-    if (_imagesubscriberconfig.size() > 0) {
-        std::stringstream imagesubscriberconfigss;
-        imagesubscriberconfigss << _imagesubscriberconfig;
-        read_json(imagesubscriberconfigss, imagesubscriberpt);
-    }
-
-    // set up image subscriber manager
-    _SetStatusMessage(TT_Command, "Setting up image manager.");
-    _pImagesubscriberManager->Initialize(_mNameCamera, _streamerIp, _streamerPort, imagesubscriberpt, _zmqcontext);
-}
-
 } // namespace mujinvision

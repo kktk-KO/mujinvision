@@ -43,6 +43,10 @@ public:
     
     virtual void DeInitialize() = 0;
 
+    /** \brief Resets imagesubscriber connections
+     */
+    virtual void Reset() = 0;
+
     /** \brief Gets the latest color image from camera and its timestamp.
         \param cameraname name of the camera
         \param timestamp timestamp of the color image

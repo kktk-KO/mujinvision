@@ -17,6 +17,9 @@ public:
     void DeInitialize() {
     }
 
+    void Reset() {
+    }
+
     ImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout)
     {
         return ImagePtr();

@@ -369,7 +369,6 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _targetname = "";
     _targeturi = "";
     _targetupdatename = "detected_";
-    _resultState = "";
     _userinfo_json = "";
     _slaverequestid = "";
     _controllerIp = "";

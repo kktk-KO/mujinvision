@@ -859,9 +859,11 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
 
             std::vector<std::string> cameranames;
             boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
+            std::string cameraname;
             if (!!cameranames_pt) {
                 FOREACH(v, *cameranames_pt) {
-                    cameranames.push_back(v->second.get<std::string>(""));
+                    cameraname = v->second.get<std::string>("");
+                    cameranames.push_back(cameraname);
                 }
             }
             std::vector<DetectedObjectPtr> detectedobjects;
@@ -2263,9 +2265,6 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
             for (unsigned int i=0; i<evcamnames.size(); ++i) {
                 std::vector<double> points;
                 std::string cameraname = evcamnames.at(i);
-                if (cameraname.find("_r_") != std::string::npos) { // skip the right camera because pointcloud has id of the left camera
-                    continue;
-                }
                 unsigned long long cloudstarttime, cloudendtime;
                 double newpointsize = 0;
                 if (pointsize == 0) {

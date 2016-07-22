@@ -2263,6 +2263,9 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
             for (unsigned int i=0; i<evcamnames.size(); ++i) {
                 std::vector<double> points;
                 std::string cameraname = evcamnames.at(i);
+                if (cameraname.find("_r_") != std::string::npos) { // skip the right camera because pointcloud has id of the left camera
+                    continue;
+                }
                 unsigned long long cloudstarttime, cloudendtime;
                 double newpointsize = 0;
                 if (pointsize == 0) {

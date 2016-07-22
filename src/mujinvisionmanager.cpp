@@ -3403,15 +3403,17 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
     std::vector<std::string> dummycameranames;
     if (!async) {
         std::vector<CameraCaptureHandlePtr> capturehandles;
-        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-        _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
         std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
+        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(depthcameranames));
+        _StartAndGetCaptureHandle(depthcameranames, depthcameranames, regionname, capturehandles);
         // set up images
         std::vector<ImagePtr> depthimages;
         bool ignoreocclusion = true;
         unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
         _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, request, false);
         if (depthimages.size() == depthcameranames.size()) {
+            std::vector<Real> totalpoints;
+            int isregionoccluded = -2;
             for (size_t i=0; i<depthimages.size(); ++i) {
                 std::string cameraname = depthcameranames.at(i);
                 CameraPtr camera= _mNameCamera[cameraname];
@@ -3448,19 +3450,32 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                 }
                 std::stringstream ss;
 
-                int isoccluded = -1;
-                if (!!depthimage && depthimage->GetMetadata().size() > 0) {
+                // check only if we are not sure region is occluded
+                if (isregionoccluded < 1 && !!depthimage && depthimage->GetMetadata().size() > 0) {
                     ptree tmppt;
                     ss << depthimage->GetMetadata();
                     read_json(ss, tmppt);
-                    isoccluded = tmppt.get<int>("isoccluded", -1);
+                    int iscameraoccluded = tmppt.get<int>("isoccluded", -1);
+                    if (isregionoccluded == -2 || isregionoccluded == 0) { // use camera occlusion status if region occlusion status is never set or not occluded
+                        isregionoccluded = iscameraoccluded;
+                    } else if (isregionoccluded == -1) { // if region occlusion status is unknown
+                        if (iscameraoccluded == 0 || iscameraoccluded == -1) { // stay unknown if we don't know the camera is occluded
+                            isregionoccluded = -1;
+                        } else if (iscameraoccluded == 1) { // set region to be occluded if the camera is occluded
+                            isregionoccluded = 1;
+                        }
+                    } else if (isregionoccluded == 1) { // should not get here
+                        MUJIN_LOG_WARN("should not get here!");
+                    }
                 }
-
-                ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
-                _SetStatusMessage(TT_Command, ss.str());
-                _pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "mm", isoccluded);
-                _lastSendPointCloudObstacleTimestamp = imageStartTimestamp;
+                MUJIN_LOG_DEBUG("adding " << (points.size()/3) << " points from " << cameraname);
+                totalpoints.insert(totalpoints.end(), points.begin(), points.end());
             }
+            std::stringstream ss;
+            ss <<"Sending over " << (totalpoints.size()/3) << " points";
+            _SetStatusMessage(TT_Command, ss.str());
+            _pBinpickingTask->AddPointCloudObstacle(totalpoints, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "mm", isregionoccluded);
+            _lastSendPointCloudObstacleTimestamp = imageStartTimestamp;
         } else {
             MUJIN_LOG_WARN("failed to get image for getting pointcloud obstacle");
         }
@@ -3498,8 +3513,6 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
     double pointsize = params.pointsize;
     std::string obstaclename = params.obstaclename;
     std::vector<CameraCaptureHandlePtr> capturehandles;
-    MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-    _StartAndGetCaptureHandle(cameranames, cameranames, regionname, capturehandles);
 
     if (!_pImagesubscriberManager) {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
@@ -3515,6 +3528,8 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
         pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 
         std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
+        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(depthcameranames));
+        _StartAndGetCaptureHandle(depthcameranames, depthcameranames, regionname, capturehandles);
         // set up images
         std::vector<ImagePtr> depthimages;
         bool ignoreocclusion = true;
@@ -3527,6 +3542,8 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
             _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, true, false);
             MUJIN_LOG_DEBUG(str(boost::format("got %d images in SendPointCloudObstacleToControllerThread imageStartTimestamp=%u newerthantimestamp=%u")%depthimages.size()%imageStartTimestamp%newerthantimestamp));
             if (depthimages.size() == depthcameranames.size()) {
+                std::vector<Real> totalpoints;
+                int isregionoccluded = -2;
                 for (size_t i=0; i<depthimages.size(); ++i) {
                     std::string cameraname = depthcameranames.at(i);
                     CameraPtr camera= _mNameCamera[cameraname];
@@ -3570,20 +3587,33 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
 
                     std::stringstream ss;
 
-                    int isoccluded = -1;
-                    if (!!depthimage && depthimage->GetMetadata().size() > 0) {
+                    // check only if we are not sure region is occluded
+                    if (isregionoccluded < 1 && !!depthimage && depthimage->GetMetadata().size() > 0) {
                         ptree tmppt;
                         ss << depthimage->GetMetadata();
                         read_json(ss, tmppt);
-                        isoccluded = tmppt.get<int>("isoccluded", -1);
+                        int iscameraoccluded = tmppt.get<int>("isoccluded", -1);
+                        if (isregionoccluded == -2 || isregionoccluded == 0) { // use camera occlusion status if region occlusion status is never set or not occluded
+                            isregionoccluded = iscameraoccluded;
+                        } else if (isregionoccluded == -1) { // if region occlusion status is unknown
+                            if (iscameraoccluded == 0 || iscameraoccluded == -1) { // stay unknown if we don't know the camera is occluded
+                                isregionoccluded = -1;
+                            } else if (iscameraoccluded == 1) { // set region to be occluded if the camera is occluded
+                                isregionoccluded = 1;
+                            }
+                        } else if (isregionoccluded == 1) { // should not get here
+                            MUJIN_LOG_WARN("should not get here!");
+                        }
                     }
-
                     ss.str(std::string()); ss.clear();
-                    ss <<"Sending over " << (points.size()/3) << " points from " << cameraname << ".";
-                    _SetStatusMessage(TT_SendPointcloudObstacle, ss.str());
-                    pBinpickingTask->AddPointCloudObstacle(points, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "mm", isoccluded);
-                    _lastSendPointCloudObstacleTimestamp = imageStartTimestamp;
+                    MUJIN_LOG_DEBUG("adding " << (points.size()/3) << " points from " << cameraname);
+                    totalpoints.insert(totalpoints.end(), points.begin(), points.end());
                 }
+                std::stringstream ss;
+                ss <<"Sending over " << (totalpoints.size()/3) << " points";
+                _SetStatusMessage(TT_SendPointcloudObstacle, ss.str());
+                pBinpickingTask->AddPointCloudObstacle(totalpoints, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "mm", isregionoccluded);
+                _lastSendPointCloudObstacleTimestamp = imageStartTimestamp;
                 _SetStatus(TT_SendPointcloudObstacle, MS_Succeeded);
                 break;
             } else {

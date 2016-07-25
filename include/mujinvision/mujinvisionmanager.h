@@ -350,7 +350,6 @@ private:
     };
 
     struct SendExecutionVerificationPointCloudParams {
-        std::string regionname;
         std::vector<std::string> cameranames;
         std::vector<std::string> executionverificationcameranames;
         double voxelsize;
@@ -480,7 +479,7 @@ private:
     /** \brief thread that sends the execution verification point cloud
      */
     void _SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params);
-    void _StartExecutionVerificationPointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _StartExecutionVerificationPointCloudThread(const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopExecutionVerificationPointCloudThread();
 
     void _ControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
@@ -566,7 +565,11 @@ private:
     bool _CheckPreemptSubscriber();
     bool _CheckPreemptDetector(const unsigned int checkpreemptbits);
 
-    void _StartAndGetCaptureHandle(const std::vector<std::string>& camreaids, const std::vector<std::string>& cameranamestocheckocclusion, const std::string& regionname, std::vector<CameraCaptureHandlePtr>& capturehandles, bool force=false);
+    /** \brief checks if region camera mapping has changed for specified region and cameras, if so, reset cached data, detector, and streamer accordingly
+     */
+    void _CheckAndUpdateRegionCameraMapping(const std::string& regionname, const std::vector<std::string>& cameranames);
+
+    void _StartAndGetCaptureHandle(const std::vector<std::string>& camreaids, const std::vector<std::string>& cameranamestocheckocclusion, std::vector<CameraCaptureHandlePtr>& capturehandles, bool force=false);
 
     boost::mutex _mutexCaptureHandles; ///< lock for _mCameranameCaptureHandles
     std::map<std::string, CameraCaptureHandleWeakPtr> _mCameranameCaptureHandles; ///< list of handles that maintain the runtime capture state of cameras, protected by _mutexCaptureHandles
@@ -613,12 +616,17 @@ private:
     std::string _targetname; ///< name of the target object
     std::string _targeturi; ///< uri of the target
     std::string _targetupdatename; ///< prefix of the detected object name used to update environment
+
+    //@{ info related to region. protected by _mutexDetectedInfo
+    boost::mutex _mutexRegion;  ///< lock protecting region info
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
     std::map<std::string, std::string> _mCameranameRegionname; ///< cameraname -> regionname
-    std::map<std::string, CameraParametersPtr> _mNameCameraParameters; ///< name->camera param
-    std::map<std::string, CameraPtr > _mNameCamera; ///< name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
     std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
+    //@}
+
+    std::map<std::string, CameraParametersPtr> _mNameCameraParameters; ///< name->camera param
+    std::map<std::string, CameraPtr > _mNameCamera; ///< name->camera
     std::map<std::string, boost::shared_ptr<CustomCommand> > _mNameCommand; ///< all registered commands, command name -> custom command
     std::map<std::string, std::string> _mCameraNameHardwareId; ///< camera name -> camera hardware id
     std::map<std::string, std::string> _mHardwareIdCameraName; ///< camera hardware id -> name

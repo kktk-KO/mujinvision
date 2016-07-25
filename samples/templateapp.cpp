@@ -116,7 +116,7 @@ public:
     virtual ~UserDetectorManager() {
     }
 
-    ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, std::map<std::string, RegionPtr > mNameRegion, std::map<std::string, std::map<std::string, CameraPtr > > mRegionColorCameraMap, std::map<std::string, std::map<std::string, CameraPtr > > mRegionDepthCameraMap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn, const std::map<std::string, std::string>& extraInitializationOptions = std::map<std::string, std::string>(), const CheckPreemptFn& preemptfn=CheckPreemptFn())
+    ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn, const std::map<std::string, std::string>& extraInitializationOptions = std::map<std::string, std::string>(), const CheckPreemptFn& preemptfn=CheckPreemptFn())
     {
         UserObjectDetectorPtr detector(new UserObjectDetector());
         return boost::dynamic_pointer_cast<ObjectDetector>(detector);

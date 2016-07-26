@@ -145,6 +145,7 @@ public:
         \param sendVerificationPointCloud whether send verification point cloud or not from current detection loop
         \param worldresultoffsettransform in millimeter
         \param voxelsize in millimeter
+        \param targetupdatename name of the detected objects, if not specified, uses the name from the Initialize 
      */
     virtual void StartDetectionLoop(const std::string& regionname,
                                     const std::vector<std::string>& cameranames,
@@ -161,7 +162,8 @@ public:
                                     const unsigned int maxnumfastdetection=1,
                                     const unsigned int maxnumdetection=0,
                                     const bool sendVerificationPointCloud=true,
-                                    const bool stopOnLeftInOrder=false);
+                                    const bool stopOnLeftInOrder=false,
+                                    const std::string& targetupdatename="");
 
 
     virtual void StopDetectionLoop();
@@ -458,7 +460,7 @@ private:
     /** \brief runs detection in a loop
      */
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long detectionstarttimestamp, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const unsigned long long detectionstarttimestamp, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder, const std::string& targetupdatename="");
     void _StopDetectionThread();
 
     void _VisualizePointCloudThread(VisualizePointcloudThreadParams params);

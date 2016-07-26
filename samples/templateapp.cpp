@@ -37,7 +37,7 @@ public:
     {
         return ImagePtr();
     }
-    ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0/*sec*/)
+    ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/)
     {
         return ImagePtr();
     }
@@ -73,10 +73,13 @@ public:
     virtual ~UserObjectDetector() {
     }
 
-    void Initialize(const std::string& detectorconf, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), const CheckPreemptFn& preemptfn = CheckPreemptFn(), const bool getgil=false) {
+    void Initialize(const std::string& detectorconf, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, CameraPtr >& mNameCamera, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), const CheckPreemptFn& preemptfn = CheckPreemptFn(), const bool getgil=false) {
     }
 
     void DeInitialize() {
+    }
+
+    void UpdateRegions(const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, CameraPtr >& mNameCamera) {
     }
 
     void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection, const bool bindetection, const bool checkcontaineremptyonly, const unsigned int checkpreemptbits) {
@@ -116,7 +119,7 @@ public:
     virtual ~UserDetectorManager() {
     }
 
-    ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn, const std::map<std::string, std::string>& extraInitializationOptions = std::map<std::string, std::string>(), const CheckPreemptFn& preemptfn=CheckPreemptFn())
+    ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, CameraPtr >& mNameCamera, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn, const std::map<std::string, std::string>& extraInitializationOptions = std::map<std::string, std::string>(), const CheckPreemptFn& preemptfn=CheckPreemptFn())
     {
         UserObjectDetectorPtr detector(new UserObjectDetector());
         return boost::dynamic_pointer_cast<ObjectDetector>(detector);

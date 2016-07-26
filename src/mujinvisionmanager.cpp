@@ -976,7 +976,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "VisualizePointCloudOnController") {
-            if (!_pDetector || !_pBinpickingTask) {
+            if (!_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
             std::string regionname = command_pt.get<std::string>("regionname", "");
@@ -1007,7 +1007,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
             result_ss << "}";
         } else if (command == "StartVisualizePointCloudThread") {
-            if (!_pDetector || !_pBinpickingTask) {
+            if (!_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
             std::string regionname = command_pt.get<std::string>("regionname", "");
@@ -3188,11 +3188,8 @@ void MujinVisionManager::Initialize(
     {
         boost::mutex::scoped_lock lock(_mutexRegion);
         _mCameranameRegionname.clear();
-        _mRegionColorCameraMap.clear();
-        _mRegionDepthCameraMap.clear();
         FOREACH(itr, _mNameRegion) {
             std::string regionname = itr->first;
-            std::map<std::string, CameraPtr> mNameColorCamera, mNameDepthCamera;
             RegionPtr region = _mNameRegion[regionname];
             std::string cameraname;
             CameraParametersPtr pcameraparameters;
@@ -3208,18 +3205,8 @@ void MujinVisionManager::Initialize(
                 } else {
                     throw MujinVisionException("does not support same camera mapped to more than one region.", MVE_CommandNotSupported);
                 }
-                if (pcameraparameters->isColorCamera) {
-                    _SetStatusMessage(TT_Command, "Loading parameters for color camera " + cameraname +" for region " + regionname +".");
-                    mNameColorCamera[cameraname] = _mNameCamera[cameraname];
-                }
-                if (pcameraparameters->isDepthCamera) {
-                    _SetStatusMessage(TT_Command, "Loading parameters for depth camera " + cameraname +" for region " + regionname +".");
-                    mNameDepthCamera[cameraname] = _mNameCamera[cameraname];
-                }
                 _mCameranameRegionname[cameraname] = regionname;
             }
-            _mRegionColorCameraMap[regionname] = mNameColorCamera;
-            _mRegionDepthCameraMap[regionname] = mNameDepthCamera;
         }
     }
     MUJIN_LOG_DEBUG("sync cameras took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
@@ -3261,7 +3248,7 @@ void MujinVisionManager::Initialize(
     _targetupdatename = targetupdatename;
     {
         boost::mutex::scoped_lock lock(_mutexRegion);
-        _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions, boost::bind(&MujinVisionManager::_CheckPreemptDetector, this, _1));
+        _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mNameCamera, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions, boost::bind(&MujinVisionManager::_CheckPreemptDetector, this, _1));
     }
     MUJIN_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     MUJIN_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
@@ -3692,6 +3679,7 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
     std::vector<double> points;
     std::vector<ImagePtr> dummyimages;
     std::string actualregionname;
+    unsigned long long cloudstarttime, cloudendtime;
     for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
         points.resize(0);
         std::string cameraname = cameranamestobeused.at(i);
@@ -3710,14 +3698,11 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
         }
         if (regionname == "") {
             boost::mutex::scoped_lock lock(_mutexRegion);
-            actualregionname = _mCameranameRegionname[cameranamestobeused[i]];
+            actualregionname = _mCameranameRegionname[cameraname];
         } else {
             actualregionname = regionname;
         }
-        {
-            boost::mutex::scoped_lock lock(_mutexDetector);
-            _pDetector->GetCameraPointCloud(regionname, cameranamestobeused[i], depthimages.at(0), points, voxelsize);
-        }
+        int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, voxelsize, _filteringstddev, _filteringnumnn);
         if (points.size()>0) {
             pointslist.push_back(points);
             std::stringstream name_ss;
@@ -3783,9 +3768,7 @@ void MujinVisionManager::SyncCameras(const std::string& regionname, const std::v
     // update cameras in detector
     if (!!_pDetector) {
         boost::mutex::scoped_lock lock(_mutexRegion);
-        _pDetector.reset();
-        MUJIN_LOG_DEBUG("reset detector");
-        _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions);
+        _pDetector->UpdateRegions(_mNameRegion, _mNameCamera);
     }
     _SetStatus(TT_Command, MS_Succeeded);
 }
@@ -3973,29 +3956,16 @@ void MujinVisionManager::_CheckAndUpdateRegionCameraMapping(const std::string& r
             MUJIN_LOG_INFO("region info changed, need to reset region/camera mapping");
             RegionPtr region = _mNameRegion[regionname];
             region->pRegionParameters->cameranames = cameranames;
-            std::map<std::string, CameraPtr> mNameColorCamera, mNameDepthCamera;
-            CameraParametersPtr pcameraparameters;
             for (size_t i = 0; i < cameranames.size(); ++i) {
                 cameraname = cameranames[i];
                 _mCameranameRegionname[cameraname] = regionname;
                 if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
                     throw MujinVisionException("cameraname " + cameraname + " is unknown, cannot start detection");
                 }
-                pcameraparameters = _mNameCamera[cameraname]->pCameraParameters;
-                if (pcameraparameters->isColorCamera) {
-                    mNameColorCamera[cameraname] = _mNameCamera[cameraname];
-                }
-                if (pcameraparameters->isDepthCamera) {
-                    mNameDepthCamera[cameraname] = _mNameCamera[cameraname];
-                }
             }
-            _mRegionColorCameraMap[regionname] = mNameColorCamera;
-            _mRegionDepthCameraMap[regionname] = mNameDepthCamera;
             MUJIN_LOG_INFO("updated region/camera mapping for region " << regionname);
 
-            MUJIN_LOG_INFO("need to reset detector");
-            _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mRegionColorCameraMap, _mRegionDepthCameraMap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions, boost::bind(&MujinVisionManager::_CheckPreemptDetector, this, _1));
-
+            _pDetector->UpdateRegions(_mNameRegion, _mNameCamera);
         }
     }
 

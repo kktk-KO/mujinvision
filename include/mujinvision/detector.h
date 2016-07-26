@@ -21,7 +21,7 @@
 
 namespace mujinvision {
 
-typedef boost::function<bool(const unsigned int)> CheckPreemptFn;
+typedef boost::function<bool (const unsigned int)> CheckPreemptFn;
 
 class MUJINVISION_API ObjectDetector : public MujinInterruptable
 {
@@ -35,14 +35,14 @@ public:
     /** \brief sets up object detector
         \param detectorconf json string describing detector config
         \param mNameRegion map to detection regions from names
-        \param mRegionColorCameraMap map to color camera maps from region names
-        \param mRegionDepthCameraMap map to depth camera maps from region names
         \param extraInitializationOptions optional extra options
         \param whether to get python gil
      */
-    virtual void Initialize(const std::string& detectorconf, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionColorCameraMap, const std::map<std::string, std::map<std::string, CameraPtr > >& mRegionDepthCameraMap, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), const CheckPreemptFn& preemptfn=CheckPreemptFn(), const bool getgil=true) = 0;
+    virtual void Initialize(const std::string& detectorconf, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, CameraPtr >& mNameCamera, const std::map< std::string, std::string>& extraInitializationOptions = std::map< std::string, std::string>(), const CheckPreemptFn& preemptfn=CheckPreemptFn(), const bool getgil=true) = 0;
 
     virtual void DeInitialize() = 0;
+
+    virtual void UpdateRegions(const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, CameraPtr >& mNameCamera) = 0;
 
     /** Detects objects from color and depth images.
         \param regionname

@@ -623,8 +623,6 @@ private:
     boost::mutex _mutexRegion;  ///< lock protecting region info
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
     std::map<std::string, std::string> _mCameranameRegionname; ///< cameraname -> regionname
-    std::map<std::string, std::map<std::string, CameraPtr > > _mRegionColorCameraMap; ///< regionname -> name->camera
-    std::map<std::string, std::map<std::string, CameraPtr > > _mRegionDepthCameraMap; ///< regionname -> name->camera
     //@}
 
     std::map<std::string, CameraParametersPtr> _mNameCameraParameters; ///< name->camera param

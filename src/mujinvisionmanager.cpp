@@ -388,6 +388,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _filteringvoxelsize = 0.001 * 1000;
     _filteringstddev = 0.01;
     _filteringnumnn = 1;
+    _detectionRegionName = "";
     char hostname[150];
     __GetMachineName(hostname);
     _commandMessageQueue.push("");
@@ -1281,6 +1282,9 @@ std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long ti
         ss << ParametersBase::GetJsonString("sendpointclouderrorcode", sendpclerr) << ", ";
     }
     ss << ParametersBase::GetJsonString("isdetectionrunning", IsDetectionRunning());
+    if (_detectionRegionName != "") {
+        ss << ", " << ParametersBase::GetJsonString("detectionRegionName", _detectionRegionName);
+    }
     ss << ", " << ParametersBase::GetJsonString("isvisualizepointcloudrunning", _bIsVisualizePointcloudRunning);
     ss << ", " << ParametersBase::GetJsonString("issendpointcloudrunning", _bIsSendPointcloudRunning);
     ss << ", " << ParametersBase::GetJsonString("isenvironmentupdaterunning", _bIsEnvironmentUpdateRunning);
@@ -1439,7 +1443,7 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
         params.stoponleftinorder = stoponleftinorder;
 
         _bIsDetectionRunning = true;
-
+        _detectionRegionName = regionname;
         // reset cached binpicking state to ensure clean state, e.g. lastGrabbedTargetTimestamp
         {
             boost::mutex::scoped_lock lock(_mutexControllerBinpickingState);

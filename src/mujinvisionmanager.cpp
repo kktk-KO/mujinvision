@@ -2297,7 +2297,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                     }
                 }
 
-                int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn);
+                int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname);
                 if (isoccluded == -2 ) {
                     MUJIN_LOG_DEBUG("did not get depth from " << cameraname << ", so do not send to controller");
                     MUJIN_LOG_DEBUG("try to force capturing");
@@ -3700,7 +3700,7 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
         if (depthimages.size() == 0) {
             throw MujinVisionException("failed to get depth image for " + cameraname + ", cannot visualize point cloud", MVE_Failed);
         }
-        int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, voxelsize, _filteringstddev, _filteringnumnn);
+        _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, voxelsize, _filteringstddev, _filteringnumnn);
         if (points.size()>0) {
             pointslist.push_back(points);
             std::stringstream name_ss;

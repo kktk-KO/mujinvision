@@ -55,7 +55,7 @@ public:
     {
     }
 
-    int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize, const double stddev, const size_t numnn) {
+    int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize, const double stddev, const size_t numnn, const std::string& regionnameforocclusionchecking="") {
         return -2;
     }
 };

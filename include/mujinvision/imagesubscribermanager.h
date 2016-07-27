@@ -40,7 +40,7 @@ public:
         \params_pt boost property tree defining the image subscriber parameters
      */
     virtual void Initialize(const std::map<std::string, CameraPtr >&mNameCamera, const std::string& streamerIp, const unsigned int streamerPort, const ptree& params_pt, boost::shared_ptr<zmq::context_t> context) = 0;
-    
+
     virtual void DeInitialize() = 0;
 
     /** \brief Resets imagesubscriber connections
@@ -60,7 +60,7 @@ public:
         \param endtimestamp endtimestamp of the color image
         \return pointer to the color image
      */
-    virtual ImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout=1.0/*sec*/) = 0;
+    virtual ImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout=1.0 /*sec*/) = 0;
 
     /** \brief Gets the depth image from the latest n images with depth data, and the min/max timestamps of the images used.
         \param cameraname name of the camera
@@ -79,10 +79,10 @@ public:
     virtual void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout=10.0, const unsigned long long newerthan=0) = 0;
 
     /** \brief Gets a point cloud from the camera name and prunes and subsamples it.
-
+        \param regionnameforocclusionchecking regionname for occlusion checking, if not specified, do not check for occlusion
         \return occlusion status of robot with the container: -2 if did not get any depth image, -1 if unknown, 0 if not occluding, 1 if robot is occluding container in camera
      */
-    virtual int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize=0.01, const double stddev=0.01, const size_t numnn=80) = 0;
+    virtual int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize=0.01, const double stddev=0.01, const size_t numnn=80, const std::string& regionnameforocclusionchecking="") = 0;
 
     /** \brief Gets the depth image from the latest n images with depth data, and the min/max timestamps of the images used.
         \param cameraname name of the camera
@@ -90,13 +90,13 @@ public:
         \param endtime timestamp of the latest image
         \return pointer to the depth image
      */
-    virtual ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=1.0/*sec*/, const int numimages=-1) = 0;
+    virtual ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=1.0 /*sec*/, const int numimages=-1) = 0;
 
-    virtual void SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const double timeout=1.0/*sec*/, const int numimages=-1) = 0;
+    virtual void SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const double timeout=1.0 /*sec*/, const int numimages=-1) = 0;
 
     /** \brief gets detection result
      */
-    virtual ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0/*sec*/) = 0;
+    virtual ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/) = 0;
 
     virtual void StartCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="") = 0;
     virtual void StopCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0) = 0;

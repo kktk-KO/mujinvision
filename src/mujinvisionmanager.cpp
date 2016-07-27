@@ -163,7 +163,7 @@ std::string __GetString(const std::vector<std::string>& strings)
 
 namespace mujinvision {
 
-std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const ptree& visionserverpt, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameRegionname)
+std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const ptree& visionserverpt, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname)
 {
     std::string controllerclientconnectionstring = str(boost::format("tcp://%s:%d") % controllerip % binpickingTaskZmqPort);
     std::string occlusioncheckcommandtemplate = visionserverpt.get<std::string>("occlusioncheckcommandtemplate", "");
@@ -171,8 +171,8 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
     ptree cameraidfullnamemappt, cameraidregionnamept, cameraidcheckocclusionpt;
     FOREACH(v, mCameraNameHardwareId) {
         cameraidfullnamemappt.put<std::string>(v->second, v->first);
-        std::map<std::string, std::string>::const_iterator cit = mCameranameRegionname.find(v->first);
-        if (cit != mCameranameRegionname.end()) {
+        std::map<std::string, std::string>::const_iterator cit = mCameranameActiveRegionname.find(v->first);
+        if (cit != mCameranameActiveRegionname.end()) {
             cameraidregionnamept.put<std::string>(v->second, cit->second);
         } else {
             MUJIN_LOG_ERROR("failed to find regionname for camera " << v->first);
@@ -310,7 +310,7 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
         std::string extracaptureoptions;
         {
             boost::mutex::scoped_lock lock(_mutexRegion);
-            extracaptureoptions = _GetExtraCaptureOptions(ids, _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameRegionname);
+            extracaptureoptions = _GetExtraCaptureOptions(ids, _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname);
         }
         _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
     }
@@ -1025,17 +1025,6 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             unsigned long long newerthantimestamp = command_pt.get<unsigned long long>("newerthantimestamp", 0);
             unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
             bool request = command_pt.get<bool>("request", true);
-            {
-                boost::mutex::scoped_lock lock(_mutexRegion);
-                for (size_t i=0; i<cameranames.size(); ++i) {
-                    if (_mCameranameRegionname.find(cameranames[i]) == _mCameranameRegionname.end()) {
-                        throw MujinVisionException("cameraname=" + cameranames[i] + " is not supported!", MVE_InvalidArgument);
-                    }
-                    if (_mCameranameRegionname[cameranames[i]].size() == 0) {
-                        throw MujinVisionException("regionname is empty for cameraname=" + cameranames[i], MVE_InvalidArgument);
-                    }
-                }
-            }
             StartVisualizePointCloudThread(regionname, cameranames, pointsize, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, request, voxelsize);
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -2279,6 +2268,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         uint64_t lastwarnedtimestamp0 = 0;
         //uint64_t lastwarnedtimestamp1 = 0;
         std::map<std::string, uint64_t> mCameranameLastsentcloudtime;
+        std::string regionname;
         MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
         while (!_bStopExecutionVerificationPointCloudThread && evcamnames.size() > 0) {
             // send latest pointcloud for execution verification
@@ -2290,10 +2280,21 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 std::string cameraname = evcamnames.at(i);
                 unsigned long long cloudstarttime, cloudendtime;
                 double newpointsize = 0;
-                if (pointsize == 0) {
+                {
                     boost::mutex::scoped_lock lock(_mutexRegion);
-                    newpointsize = _mNameRegion[_mCameranameRegionname[cameraname]]->pRegionParameters->pointsize;
-                    MUJIN_LOG_INFO("pointsize=0, using pointsize= " << newpointsize << " in regionparam for camera " << cameraname << " of region " << _mCameranameRegionname[cameraname]);
+                    if (_mCameranameActiveRegionname.find(cameraname) == _mCameranameActiveRegionname.end()) {
+                        MUJIN_LOG_WARN("cannot check occlusion for camera " << cameraname << ", because no region is mapped to it");
+                        regionname = "";
+                    } else {
+                        regionname = _mCameranameActiveRegionname[cameraname];
+                    }
+                    if (regionname.size() > 0 && _mNameRegion.find(regionname) != _mNameRegion.end()) {
+                        newpointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
+                        MUJIN_LOG_INFO("pointsize=0, using pointsize= " << newpointsize << " in regionparam for camera " << cameraname << " of region " << regionname);
+                    } else {
+                        newpointsize = 10;
+                        MUJIN_LOG_INFO("pointsize=0 but no active region is found for this camera " << cameraname << ", use default value=" << newpointsize);
+                    }
                 }
 
                 int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn);
@@ -3187,7 +3188,7 @@ void MujinVisionManager::Initialize(
     std::vector<std::string> syncedcamera;
     {
         boost::mutex::scoped_lock lock(_mutexRegion);
-        _mCameranameRegionname.clear();
+        _mCameranameActiveRegionname.clear(); // will be set up later in SendPointCloudObstacleToController or StartDetectionLoop
         FOREACH(itr, _mNameRegion) {
             std::string regionname = itr->first;
             RegionPtr region = _mNameRegion[regionname];
@@ -3203,9 +3204,8 @@ void MujinVisionManager::Initialize(
                     _SyncCamera(cameraname, resultgetinstobjectandsensorinfo.msensortransform[cameraname]);
                     syncedcamera.push_back(cameraname);
                 } else {
-                    throw MujinVisionException("does not support same camera mapped to more than one region.", MVE_CommandNotSupported);
+                    MUJIN_LOG_DEBUG("camera " << cameraname << " is already synced, do nothing");
                 }
-                _mCameranameRegionname[cameraname] = regionname;
             }
         }
     }
@@ -3671,6 +3671,11 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
     } else {
         throw MujinVisionException("neither region name nor camera names is specified, cannot visualize pointcloud", MVE_InvalidArgument);
     }
+    if (cameranamestobeused.size() == 0) {
+        MUJIN_LOG_INFO("no camera to be used for visualization, do nothing");
+        _SetStatus(TT_Command, MS_Succeeded);
+        return;
+    }
 
     std::vector<std::string> dummycameranames;
 
@@ -3678,7 +3683,6 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
     std::vector<std::string> names;
     std::vector<double> points;
     std::vector<ImagePtr> dummyimages;
-    std::string actualregionname;
     unsigned long long cloudstarttime, cloudendtime;
     for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
         points.resize(0);
@@ -3695,12 +3699,6 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
         _GetImages(TT_Command, _pBinpickingTask, "", dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, request, false);
         if (depthimages.size() == 0) {
             throw MujinVisionException("failed to get depth image for " + cameraname + ", cannot visualize point cloud", MVE_Failed);
-        }
-        if (regionname == "") {
-            boost::mutex::scoped_lock lock(_mutexRegion);
-            actualregionname = _mCameranameRegionname[cameraname];
-        } else {
-            actualregionname = regionname;
         }
         int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, voxelsize, _filteringstddev, _filteringnumnn);
         if (points.size()>0) {
@@ -3946,7 +3944,7 @@ void MujinVisionManager::_CheckAndUpdateRegionCameraMapping(const std::string& r
             if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
                 throw MujinVisionException("cameraname " + cameraname + " is unknown, cannot start detection");
             }
-            if (_mCameranameRegionname[cameraname] != regionname) {
+            if (_mCameranameActiveRegionname[cameraname] != regionname) {
                 regioninfochanged = true;
                 break;
             }
@@ -3958,7 +3956,7 @@ void MujinVisionManager::_CheckAndUpdateRegionCameraMapping(const std::string& r
             region->pRegionParameters->cameranames = cameranames;
             for (size_t i = 0; i < cameranames.size(); ++i) {
                 cameraname = cameranames[i];
-                _mCameranameRegionname[cameraname] = regionname;
+                _mCameranameActiveRegionname[cameraname] = regionname;
                 if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
                     throw MujinVisionException("cameraname " + cameraname + " is unknown, cannot start detection");
                 }

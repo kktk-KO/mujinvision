@@ -622,7 +622,7 @@ private:
     //@{ info related to region. protected by _mutexDetectedInfo
     boost::mutex _mutexRegion;  ///< lock protecting region info
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
-    std::map<std::string, std::string> _mCameranameRegionname; ///< cameraname -> regionname
+    std::map<std::string, std::string> _mCameranameActiveRegionname; ///< cameraname -> name of region that is being detected
     //@}
 
     std::map<std::string, CameraParametersPtr> _mNameCameraParameters; ///< name->camera param

@@ -47,6 +47,10 @@ public:
      */
     virtual void Reset() = 0;
 
+    /** \brief Updates cameras
+     */
+    virtual void UpdateCameras(const std::map<std::string, CameraPtr >&mNameCamera) = 0;
+
     /** \brief Gets the latest color image from camera and its timestamp.
         \param cameraname name of the camera
         \param timestamp timestamp of the color image

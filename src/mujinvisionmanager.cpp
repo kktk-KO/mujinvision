@@ -1421,7 +1421,7 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
 {
     if (targetupdatename.size() > 0) {
         _targetupdatename = targetupdatename;
-    }    
+    }
     if (detectionstarttimestamp > 0) {
         _tsStartDetection = detectionstarttimestamp;
     } else {
@@ -2540,7 +2540,7 @@ void MujinVisionManager::_SyncCamera(const std::string& cameraname)
     utils::GetSensorTransform(_pControllerClient, _pSceneResource, camerabodyname, sensorname, O_T_C0, "mm");
     Transform O_T_C = _GetTransform(O_T_C0); // sensor transform in world frame
     _mNameCamera[cameraname]->SetWorldTransform(O_T_C);
-    MUJIN_LOG_DEBUG("setting camera transform to:\n" + _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
+    MUJIN_LOG_DEBUG("setting camera transform for " << cameraname << " to:\n" << _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
 }
 
 void MujinVisionManager::_SyncCamera(const std::string& cameraname, const mujinclient::Transform& t)
@@ -2550,7 +2550,7 @@ void MujinVisionManager::_SyncCamera(const std::string& cameraname, const mujinc
     }
     Transform O_T_C = _GetTransform(t); // sensor transform in world frame
     _mNameCamera[cameraname]->SetWorldTransform(O_T_C);
-    MUJIN_LOG_DEBUG("setting camera transform to:\n" + _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
+    MUJIN_LOG_DEBUG("setting camera transform for " << cameraname << " to:\n" + _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
 }
 
 void MujinVisionManager::_SyncRegion(const std::string& regionname)
@@ -3188,27 +3188,21 @@ void MujinVisionManager::Initialize(
             calibrationdata->pixel_height = sensordata.focal_length / sensordata.intrinsic[4];
         }
         _mNameCamera[cameraname] = CameraPtr(new Camera(cameraname, pcameraparameters, calibrationdata));
+        _SyncCamera(cameraname, resultgetinstobjectandsensorinfo.msensortransform[cameraname]);
     }
-    std::vector<std::string> syncedcamera;
+
     {
         boost::mutex::scoped_lock lock(_mutexRegion);
         _mCameranameActiveRegionname.clear(); // will be set up later in SendPointCloudObstacleToController or StartDetectionLoop
         FOREACH(itr, _mNameRegion) {
             std::string regionname = itr->first;
+            MUJIN_LOG_DEBUG("checking cameras for region " << regionname);
             RegionPtr region = _mNameRegion[regionname];
             std::string cameraname;
-            CameraParametersPtr pcameraparameters;
             for (unsigned int i=0; i<region->pRegionParameters->cameranames.size(); ++i) {
                 cameraname = region->pRegionParameters->cameranames.at(i);
                 if( _mNameCamera.find(cameraname) == _mNameCamera.end() ) {
                     throw MujinVisionException(str(boost::format("scene sensor mapping does not have camera %s coming from region %s")%cameraname%regionname), MVE_InvalidArgument);
-                }
-                pcameraparameters = _mNameCamera[cameraname]->pCameraParameters;
-                if (std::find(syncedcamera.begin(), syncedcamera.end(), cameraname) == syncedcamera.end()) {
-                    _SyncCamera(cameraname, resultgetinstobjectandsensorinfo.msensortransform[cameraname]);
-                    syncedcamera.push_back(cameraname);
-                } else {
-                    MUJIN_LOG_DEBUG("camera " << cameraname << " is already synced, do nothing");
                 }
             }
         }
@@ -3353,7 +3347,7 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
     return numresults;
 }
 
-    void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long detectionstarttimestamp, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool sendVerificationPointCloud, const bool stopOnLeftInOrder, const std::string& targetupdatename)
+void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long detectionstarttimestamp, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool sendVerificationPointCloud, const bool stopOnLeftInOrder, const std::string& targetupdatename)
 {
     if (!_pImagesubscriberManager) {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
@@ -3772,6 +3766,8 @@ void MujinVisionManager::SyncCameras(const std::string& regionname, const std::v
         boost::mutex::scoped_lock lock(_mutexRegion);
         _pDetector->UpdateRegions(_mNameRegion, _mNameCamera);
     }
+    // update cameras in subscriber
+    _pImagesubscriberManager->UpdateCameras(_mNameCamera);
     _SetStatus(TT_Command, MS_Succeeded);
 }
 

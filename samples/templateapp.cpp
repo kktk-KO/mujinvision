@@ -20,6 +20,9 @@ public:
     void Reset() {
     }
 
+    void UpdateCameras(const std::map<std::string, CameraPtr >&mNameCamera) {
+    }
+
     ImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout)
     {
         return ImagePtr();

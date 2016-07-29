@@ -145,7 +145,7 @@ public:
         \param sendVerificationPointCloud whether send verification point cloud or not from current detection loop
         \param worldresultoffsettransform in millimeter
         \param voxelsize in millimeter
-        \param targetupdatename name of the detected objects, if not specified, uses the name from the Initialize 
+        \param targetupdatename name of the detected objects, if not specified, uses the name from the Initialize
      */
     virtual void StartDetectionLoop(const std::string& regionname,
                                     const std::vector<std::string>& cameranames,

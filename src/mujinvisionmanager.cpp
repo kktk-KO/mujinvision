@@ -163,6 +163,12 @@ std::string __GetString(const std::vector<std::string>& strings)
 
 namespace mujinvision {
 
+enum CommandThreadIndex
+{
+    CDI_Command=0,
+    CDI_Configure=1,
+};
+
 std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const ptree& visionserverpt, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname)
 {
     std::string controllerclientconnectionstring = str(boost::format("tcp://%s:%d") % controllerip % binpickingTaskZmqPort);
@@ -404,8 +410,8 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _sendpointcloudMessageQueue.push("");
     _sendpointcloudErrorQueue.push("");
     _StartStatusThread(statusport);
-    _StartCommandThread(commandport);
-    _StartCommandThread(configport);
+    _StartCommandThread(commandport, CDI_Command);
+    _StartCommandThread(configport, CDI_Configure);
 }
 
 MujinVisionManager::~MujinVisionManager()
@@ -417,14 +423,16 @@ void MujinVisionManager::Destroy()
 {
     MUJIN_LOG_DEBUG("Destroying MujinVisionManager");
     Shutdown();
-    _StopCommandThread(_configport);
+    for(size_t i = 0; i < _mPortCommandThread.size(); ++i) {
+        _StopCommandThread(i);
+    }
 }
 
 void MujinVisionManager::Shutdown()
 {
     _bShutdown=true;
     _StopStatusThread();
-    _StopCommandThread(_commandport);
+    _StopCommandThread(CDI_Command); // command
     // do not stop config command thread here as this method can be called from there
     // Destroy() will stop config command thread
     // do not stop threads started by the command thread
@@ -509,22 +517,24 @@ void MujinVisionManager::_SetStatus(ThreadType tt, ManagerStatus status, const s
         MUJIN_LOG_INFO(ss.str());
     }
     boost::mutex::scoped_lock lock(_mutexStatusQueue);
-    std::string cmdmsg = "";
-    std::string cmderr = "";
-    std::string cfgmsg = "";
-    std::string cfgerr = "";
-    std::string detectormsg = "";
-    std::string detectorerr = "";
-    std::string updateenvmsg = "";
-    std::string updateenverr = "";
-    std::string controllermonmsg = "";
-    std::string controllermonerr = "";
-    std::string sendpclmsg = "";
-    std::string sendpclerr = "";
-    std::string visualizepcmsg = "";
-    std::string visualizepcerr = "";
-    std::string sendexecvpcmsg = "";
-    std::string sendexecvpcerr = "";
+    std::string cmdmsg;
+    std::string cmderr;
+    std::string cfgmsg;
+    std::string cfgerr;
+    std::string detectormsg;
+    std::string detectorerr;
+    std::string updateenvmsg;
+    std::string updateenverr;
+    std::string controllermonmsg;
+    std::string controllermonerr;
+    std::string sendpclmsg;
+    std::string sendpclerr;
+    std::string visualizepcmsg;
+    std::string visualizepcerr;
+    std::string sendexecvpcmsg;
+    std::string sendexecvpcerr;
+    std::string statusmsg;
+    std::string statuserr;
     switch (tt) {
     case TT_Command:
         cmdmsg = msg;
@@ -605,19 +615,10 @@ void MujinVisionManager::_SetStatusMessage(ThreadType tt, const std::string& msg
     }
 }
 
-void MujinVisionManager::_StartStatusPublisher(const unsigned int port)
-{
-    _pStatusPublisher.reset(new StatusPublisher(_zmqcontext, port));
-    if (!_pStatusPublisher) {
-        throw MujinVisionException("Failed to start status publisher!", MVE_Failed);
-    }
-    _SetStatus(TT_Command, MS_Pending);
-}
-
 void MujinVisionManager::_StartStatusThread(const unsigned int port, const unsigned int ms)
 {
     _bStopStatusThread = false;
-    _pStatusThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_StatusThread, this, port, ms)));
+    _pStatusThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_RunStatusThread, this, port, ms)));
 }
 
 void MujinVisionManager::_StopStatusThread()
@@ -633,38 +634,25 @@ void MujinVisionManager::_StopStatusThread()
     }
 }
 
-void MujinVisionManager::_StartCommandThread(const unsigned int port)
+void MujinVisionManager::_StartCommandThread(const unsigned int port, int commandindex)
 {
-    _mPortStopCommandThread[port] = false;
-    _mPortCommandThread[port].reset(new boost::thread(boost::bind(&MujinVisionManager::_CommandThread, this, port)));
+    _mPortStopCommandThread[commandindex] = false;
+    _mPortCommandThread[commandindex].reset(new boost::thread(boost::bind(&MujinVisionManager::_RunCommandThread, this, port, commandindex)));
 }
 
-void MujinVisionManager::_StopCommandThread(const unsigned int port)
+void MujinVisionManager::_StopCommandThread(int commandindex)
 {
-    if (_mPortStopCommandThread[port] == false) {
+    if (_mPortStopCommandThread[commandindex] == false) {
         std::stringstream ss;
-        ss << "stopping command thread (port: " << port << ").";
+        ss << "stopping command thread index " << commandindex;
         MUJIN_LOG_DEBUG(ss.str());
-        _mPortStopCommandThread[port] = true;
-        _mPortCommandThread[port]->join();
-        _mPortCommandThread[port].reset();
+        _mPortStopCommandThread[commandindex] = true;
+        _mPortCommandThread[commandindex]->join();
+        _mPortCommandThread[commandindex].reset();
     }
     std::stringstream ss;
-    ss << "Stopped command thread (port: " << port << ").";
+    ss << "Stopped command thread index " << commandindex;
     MUJIN_LOG_DEBUG(ss.str());
-}
-
-void MujinVisionManager::_StartCommandServer(const unsigned int port)
-{
-    {
-        boost::mutex::scoped_lock lock(_mutexCommandServerMap);
-        _mPortCommandServer[port].reset(new CommandServer(_zmqcontext, port));
-    }
-    if (!_mPortCommandServer[port]) {
-        std::stringstream ss;
-        ss << "Failed to start command server at port " << port << "!";
-        throw MujinVisionException(ss.str(), MVE_Failed);
-    }
 }
 
 void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, std::stringstream& result_ss)
@@ -1146,17 +1134,33 @@ bool MujinVisionManager::IsDetectionRunning()
     return !!_pDetectionThread && _bIsDetectionRunning;
 }
 
-void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned int ms)
+void MujinVisionManager::_RunStatusThread(const unsigned int port, const unsigned int ms)
 {
-    _StartStatusPublisher(port);
-    std::stringstream ss;
-    ss << "Started status thread (port: " << port << ").";
-    MUJIN_LOG_DEBUG(ss.str());
+    StatusPublisherPtr pStatusPublisher;
+    _SetStatus(TT_Command, MS_Pending); // to initialize the status messages
+
     std::vector<ManagerStatus> vstatus;
     std::vector<std::string> vcfgmsg, vcmdmsg, vdetectormsg, vupdateenvmsg, vcontrollermonmsg, vsendpclmsg;
     std::vector<std::string> vcfgerr, vcmderr, vdetectorerr, vupdateenverr, vcontrollermonerr, vsendpclerr;
     std::vector<unsigned long long> vtimestamp;
     while (!_bStopStatusThread) {
+
+        if( !pStatusPublisher ) {
+            try {
+                pStatusPublisher.reset(new StatusPublisher(_zmqcontext, port));
+                std::stringstream ss;
+                ss << "Started status thread (port: " << port << ").";
+                MUJIN_LOG_DEBUG(ss.str());
+            }
+            catch(const std::exception& ex) {
+                std::stringstream ss;
+                ss << "could not create publisher on port=" << port << ", perhaps another visionmanager instance is running? " << ex.what();
+                MUJIN_LOG_ERROR(ss.str());
+                boost::this_thread::sleep(boost::posix_time::milliseconds(1000)); // sleep a little to stop flooding the messages
+                continue;
+            }
+        }
+
         {
             boost::mutex::scoped_lock lock(_mutexStatusQueue);
             vstatus.resize(0);
@@ -1247,11 +1251,13 @@ void MujinVisionManager::_StatusThread(const unsigned int port, const unsigned i
         }
         for (unsigned int i=0; i<vstatus.size(); i++) {
             //MUJIN_LOG_ERROR(_GetStatusJsonString(vtimestamp.at(i), _GetManagerStatusString(vstatus.at(i)), vcmdmsg.at(i), vcmderr.at(i), vcfgmsg.at(i), vcfgerr.at(i), vdetectormsg.at(i), vdetectorerr.at(i), vupdateenvmsg.at(i), vupdateenverr.at(i), vcontrollermonmsg.at(i), vcontrollermonerr.at(i), vsendpclmsg.at(i), vsendpclerr.at(i)));
-            _pStatusPublisher->Publish(_GetStatusJsonString(vtimestamp.at(i), _GetManagerStatusString(vstatus.at(i)), vcmdmsg.at(i), vcmderr.at(i), vcfgmsg.at(i), vcfgerr.at(i), vdetectormsg.at(i), vdetectorerr.at(i), vupdateenvmsg.at(i), vupdateenverr.at(i), vcontrollermonmsg.at(i), vcontrollermonerr.at(i), vsendpclmsg.at(i), vsendpclerr.at(i)));
+            pStatusPublisher->Publish(_GetStatusJsonString(vtimestamp.at(i), _GetManagerStatusString(vstatus.at(i)), vcmdmsg.at(i), vcmderr.at(i), vcfgmsg.at(i), vcfgerr.at(i), vdetectormsg.at(i), vdetectorerr.at(i), vupdateenvmsg.at(i), vupdateenverr.at(i), vcontrollermonmsg.at(i), vcontrollermonerr.at(i), vsendpclmsg.at(i), vsendpclerr.at(i)));
         }
         boost::this_thread::sleep(boost::posix_time::milliseconds(ms));
     }
-    _pStatusPublisher->Publish(_GetStatusJsonString(GetMilliTime(), _GetManagerStatusString(MS_Lost), ""));
+    if( !!pStatusPublisher ) {
+        pStatusPublisher->Publish(_GetStatusJsonString(GetMilliTime(), _GetManagerStatusString(MS_Lost), ""));
+    }
     MUJIN_LOG_DEBUG("Stopped status publisher");
 }
 
@@ -1294,20 +1300,33 @@ std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long ti
     return ss.str();
 }
 
-void MujinVisionManager::_CommandThread(const unsigned int port)
+void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandindex)
 {
-    _StartCommandServer(port);
-    std::stringstream ss;
-    ss << "Started command thread (port: " << port << ").";
-    MUJIN_LOG_DEBUG(ss.str());
+    CommandServerPtr pCommandServer;
     std::string incomingmessage;
     ptree command_pt;
     std::stringstream command_ss, result_ss;
     std::string resultstr;
     while (!_mPortStopCommandThread[port]) {
         try {
+            if( !pCommandServer ) {
+                try {
+                    pCommandServer.reset(new CommandServer(_zmqcontext, port));
+                    std::stringstream ss;
+                    ss << "Started command thread (port: " << port << ").";
+                    MUJIN_LOG_DEBUG(ss.str());
+                }
+                catch(const std::exception& ex) {
+                    std::stringstream ss;
+                    ss << "could not create command on port=" << port << ", perhaps another visionmanager instance is running? " << ex.what();
+                    MUJIN_LOG_ERROR(ss.str());
+                    boost::this_thread::sleep(boost::posix_time::milliseconds(1000)); // sleep a little to stop flooding the messages
+                    continue;
+                }
+            }
+
             // receive message
-            if (_mPortCommandServer[port]->Recv(incomingmessage, 100) > 0) {
+            if (pCommandServer->Recv(incomingmessage, 100) > 0) {
                 MUJIN_LOG_DEBUG("Received command message: " + incomingmessage + ".");
                 // execute command
                 command_ss.str("");
@@ -1379,7 +1398,7 @@ void MujinVisionManager::_CommandThread(const unsigned int port)
 
                 // send output
                 ParametersBase::ValidateJsonString(result_ss.str());
-                _mPortCommandServer[port]->Send(result_ss.str());
+                pCommandServer->Send(result_ss.str());
             }
         }
         catch (const zmq::error_t& e) {

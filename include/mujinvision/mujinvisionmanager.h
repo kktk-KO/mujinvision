@@ -422,18 +422,22 @@ private:
     void _ExecuteUserCommand(const ptree& command_pt, std::stringstream& result_ss);
 
     /** \brief Receives and executes commands from the user and sends results back.
+
+        \brief commandindex is the index into _mPortStopCommandThread for seeing if the thread should be stopped.
      */
-    void _CommandThread(const unsigned int port);
-    void _StartCommandServer(const unsigned int port);
-    void _StartCommandThread(const unsigned int port);
-    void _StopCommandThread(const unsigned int port);
+    void _RunCommandThread(const unsigned int port, int commandindex);
+
+    /// \brief commandindex is the index into _mPortStopCommandThread for seeing if the thread should be stopped.
+    void _StartCommandThread(const unsigned int port, int commandindex);
+
+    /// \brief commandindex is the index into _mPortStopCommandThread for seeing if the thread should be stopped.
+    void _StopCommandThread(int commandindex);
 
     /** \brief Publishes status periodically. When there are more status messages on the status queue, then publish all of them at once, otherwise, publish the last status message.
      */
-    void _StatusThread(const unsigned int port, const unsigned int ms);
+    void _RunStatusThread(const unsigned int port, const unsigned int ms);
     void _StartStatusThread(const unsigned int port, const unsigned int ms=100);
     void _StopStatusThread();
-    void _StartStatusPublisher(const unsigned int port);
 
     /**
        \returns number of detected objects
@@ -601,7 +605,7 @@ private:
     std::queue<unsigned long long> _timestampQueue;
     boost::mutex _mutexStatusQueue; ///< protects _statusQueue, _messageQueue, and _timestampQueue
 
-    std::map<unsigned int, boost::shared_ptr<boost::thread> > _mPortCommandThread; ///< port -> thread
+    boost::array< boost::shared_ptr<boost::thread>, 2 > _mPortCommandThread; ///< command index -> thread
     boost::shared_ptr<boost::thread> _pStatusThread;
     boost::shared_ptr<boost::thread> _pDetectionThread;
     boost::shared_ptr<boost::thread> _pUpdateEnvironmentThread;
@@ -611,9 +615,6 @@ private:
     boost::shared_ptr<boost::thread> _pVisualizePointCloudThread;
 
     boost::mutex _mutexCancelCommand;
-    std::map<unsigned int, CommandServerPtr> _mPortCommandServer; ///< port -> server
-    boost::mutex _mutexCommandServerMap;
-    StatusPublisherPtr _pStatusPublisher;
 
     std::string _targetname; ///< name of the target object
     std::string _targeturi; ///< uri of the target
@@ -706,7 +707,7 @@ private:
     bool _bDetectedObjectsValid; ///< if true, then _vDetectedObject is valid and should be updated to the scene. if false, then not valid and UpdateEnvironmentState should not update the objects. protected by _mutexDetectedInfo
     bool _bUseGrabbedTargeInfoInDetectionPreempt; ///< if true, then use _lastGrabbedTargetTimestamp and numLeftInOrder to determine whether the detector should be preempted or not. by default it is false.
     bool _bDetectBin; ///< whether to detect bin
-    std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether to stop the command thread of specified port
+    boost::array<bool, 2> _mPortStopCommandThread; ///< command index -> bool, whether to stop the command thread of specified port
 
     std::string _detectionRegionName; ///< name of the region on which the last detection was started or currently running
 };

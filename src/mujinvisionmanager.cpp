@@ -1994,7 +1994,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     }
     if (stoponleftinorder && numLeftInOrder == 0) {
         MUJIN_LOG_INFO("got out of detection loop because numLeftInOrder is 0, wait for environment to update");
-        while (_resultTimestamp > _tsLastEnvUpdate) {
+        while (_resultTimestamp > _tsLastEnvUpdate && !_bStopDetectionThread) { // have to check that detection was not stopped, or else can spin here forever since update thread would have been stopped.
             boost::this_thread::sleep(boost::posix_time::milliseconds(50));
         }
         MUJIN_LOG_INFO("environment is updated with latest result, stop environment updating and capturing");
@@ -2007,7 +2007,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     }
     if (numdetection >= maxnumdetection && maxnumdetection!=0) {
         MUJIN_LOG_INFO("reached max num detection, wait for environment to update");
-        while (_resultTimestamp > _tsLastEnvUpdate) {
+        while (_resultTimestamp > _tsLastEnvUpdate && !_bStopDetectionThread) { // have to check that detection was not stopped, or else can spin here forever since update thread would have been stopped.
             boost::this_thread::sleep(boost::posix_time::milliseconds(50));
         }
         MUJIN_LOG_INFO("environment is updated with latest result, stop environment updating and capturing");

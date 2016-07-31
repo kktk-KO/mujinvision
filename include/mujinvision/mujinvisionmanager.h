@@ -708,6 +708,7 @@ private:
     bool _bDetectBin; ///< whether to detect bin
     std::map<unsigned int, bool > _mPortStopCommandThread; ///< port -> bool, whether to stop the command thread of specified port
 
+    std::string _detectionRegionName; ///< name of the region on which the last detection was started or currently running
 };
 typedef boost::shared_ptr<MujinVisionManager> MujinVisionManagerPtr;
 typedef boost::shared_ptr<MujinVisionManager const> MujinVisionManagerConstPtr;

@@ -615,7 +615,8 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     RegionParameters(const ptree& pt)
     {
         _pt = pt;
-        instobjectname = pt.get<std::string>("instobjectname");
+        instobjectname = pt.get<std::string>("instobjectname", std::string());
+        locationIOName = pt.get<std::string>("locationIOName", std::string());
         FOREACH(cv, pt.get_child("cameranames")) {
             cameranames.push_back(cv->second.data());
         }
@@ -647,7 +648,8 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     }
 
     // the following params are initialized in constructor
-    std::string instobjectname; // instobject name in mujin controller that defines the container of the objects to be detected
+    std::string instobjectname; ///< instobject name in mujin controller that defines the container of the objects to be detected
+    std::string locationIOName; ///< the location IO name to send to the controller to notify IO variables
     std::vector<std::string> cameranames;
     std::string type; ///< the type of the container, by default it is boxAxisAligned
     double cropContainerMarginsXYZXYZ[6]; ///< Margins of the container to be cropped (or enlarged if negative), in order to define 3D container region under (calibration & shape) uncertainty - for pointcloud processing.

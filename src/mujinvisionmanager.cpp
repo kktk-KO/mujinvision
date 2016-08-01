@@ -2058,10 +2058,14 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
         std::vector<std::string> cameranames = params.cameranames;
         //double voxelsize = params.voxelsize;
         double pointsize = params.pointsize;
-        if (pointsize == 0) {
+        std::string locationIOName;
+        {
             boost::mutex::scoped_lock lock(_mutexRegion);
-            pointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
-            MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
+            if (pointsize == 0) {
+                pointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
+                MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
+            }
+            locationIOName = _mNameRegion[regionname]->pRegionParameters->locationIOName;
         }
         std::string obstaclename = params.obstaclename;
         unsigned int waitinterval = params.waitinterval;
@@ -2189,7 +2193,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                     try {
                         MUJIN_LOG_DEBUG(str(boost::format("detectedobjects.size()=%d, _targetupdatename=%s")%detectedobjects.size()%_targetupdatename));
                         starttime = GetMilliTime();
-                        pBinpickingTask->UpdateEnvironmentState(_targetupdatename, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "mm", 10);
+                        pBinpickingTask->UpdateEnvironmentState(_targetupdatename, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "mm", 10, locationIOName);
                         std::stringstream ss;
                         ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                         _SetStatusMessage(TT_UpdateEnvironment, ss.str());

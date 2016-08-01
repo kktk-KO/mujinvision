@@ -1307,7 +1307,7 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
     ptree command_pt;
     std::stringstream command_ss, result_ss;
     std::string resultstr;
-    while (!_mPortStopCommandThread[port]) {
+    while (!_mPortStopCommandThread[commandindex]) {
         try {
             if( !pCommandServer ) {
                 try {
@@ -1343,10 +1343,10 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
                     }
                 }
                 catch (const UserInterruptException& ex) { // need to catch it here, otherwise zmq will be in bad state
-                    if (port == _configport) {
+                    if (commandindex == CDI_Configure) {
                         MUJIN_LOG_WARN("User requested program exit.");
                         result_ss << "{}";
-                        _mPortStopCommandThread[_configport] = true;
+                        _mPortStopCommandThread[commandindex] = true;
                     } else {
                         _SetStatus(TT_Command, MS_Preempted, "", "", false);
                         MUJIN_LOG_WARN("User interruped command execution.");
@@ -1402,7 +1402,7 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
             }
         }
         catch (const zmq::error_t& e) {
-            if (!_mPortStopCommandThread[port]) {
+            if (!_mPortStopCommandThread[commandindex]) {
                 std::string errstr = "Failed to receive command";
                 _SetStatus(TT_Command, MS_Aborted, errstr, "", false);
                 MUJIN_LOG_WARN(errstr);

@@ -29,6 +29,8 @@ MUJIN_LOGGER("mujin.mujinvision.manager");
 #if !(defined(CLOCK_GETTIME_FOUND) && (POSIX_TIMERS > 0 || _POSIX_TIMERS > 0))
 #include <sys/time.h>
 #endif
+#include <sys/types.h>
+#include <sys/stat.h>
 #else
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -1421,7 +1423,7 @@ void MujinVisionManager::_StartDetectionThread(const std::string& regionname, co
 {
     if (targetupdatename.size() > 0) {
         _targetupdatename = targetupdatename;
-    }    
+    }
     if (detectionstarttimestamp > 0) {
         _tsStartDetection = detectionstarttimestamp;
     } else {
@@ -3353,7 +3355,7 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
     return numresults;
 }
 
-    void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long detectionstarttimestamp, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool sendVerificationPointCloud, const bool stopOnLeftInOrder, const std::string& targetupdatename)
+void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const Transform& worldresultoffsettransform, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int maxage, const unsigned int fetchimagetimeout, const std::string& obstaclename, const unsigned long long detectionstarttimestamp, const std::string& locale, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool sendVerificationPointCloud, const bool stopOnLeftInOrder, const std::string& targetupdatename)
 {
     if (!_pImagesubscriberManager) {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);

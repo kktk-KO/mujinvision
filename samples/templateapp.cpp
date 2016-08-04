@@ -82,7 +82,7 @@ public:
     void DeInitialize() {
     }
 
-    void UpdateRegions(const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, CameraPtr >& mNameCamera) {
+    void UpdateRegion(const std::string& regionname, RegionPtr region, const std::map<std::string, CameraPtr >& mNameCamera) {
     }
 
     void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection, const bool bindetection, const bool checkcontaineremptyonly, const unsigned int checkpreemptbits) {

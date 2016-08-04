@@ -42,7 +42,9 @@ public:
 
     virtual void DeInitialize() = 0;
 
-    virtual void UpdateRegions(const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, CameraPtr >& mNameCamera) = 0;
+    /** \brief updates the region cameras mapping in detector
+     */
+    virtual void UpdateRegion(const std::string& regionname, RegionPtr region, const std::map<std::string, CameraPtr >& mNameCamera) = 0;
 
     /** Detects objects from color and depth images.
         \param regionname

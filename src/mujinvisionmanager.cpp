@@ -3829,7 +3829,10 @@ void MujinVisionManager::SyncCameras(const std::string& regionname, const std::v
     // update cameras in detector
     if (!!_pDetector) {
         boost::mutex::scoped_lock lock(_mutexRegion);
-        _pDetector->UpdateRegions(_mNameRegion, _mNameCamera);
+        if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
+            throw MujinVisionException("region " + regionname + " is unknown!");
+        }
+        _pDetector->UpdateRegion(regionname, _mNameRegion[regionname], _mNameCamera);
     }
     // update cameras in subscriber
     _pImagesubscriberManager->UpdateCameras(_mNameCamera);
@@ -4031,7 +4034,10 @@ void MujinVisionManager::_CheckAndUpdateRegionCameraMapping(const std::string& r
         MUJIN_LOG_INFO("updated region/camera mapping for region " << regionname);
 
 
-        _pDetector->UpdateRegions(_mNameRegion, _mNameCamera);
+        if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
+            throw MujinVisionException("region " + regionname + " is unknown!");
+        }
+        _pDetector->UpdateRegion(regionname, _mNameRegion[regionname], _mNameCamera);
 
         // do nothing for now, assuming binpickingui re-initializes visionmanager when mapping changes
         // TODO: there is a race condition to be debugged

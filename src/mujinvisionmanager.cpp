@@ -311,19 +311,21 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
     if( tostart.size() > 0 ) {
         double timeout = 5.0;
         int numimages = -1;
-        MUJIN_LOG_INFO("Start capturing of cameras " << __GetString(tostart));
+        MUJIN_LOG_INFO("force=" << force << " Start capturing of cameras " << __GetString(tostart));
         std::vector<std::string> ids = _GetHardwareIds(tostart);
         std::string extracaptureoptions;
         {
             boost::mutex::scoped_lock lock(_mutexRegion);
             extracaptureoptions = _GetExtraCaptureOptions(ids, _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname);
         }
-        _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
-    }
-    else {
+        try {
+            _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
+        } catch (...) {
+            MUJIN_LOG_WARN("failed to start capturing for cameras " << __GetString(tostart));
+        }
+    } else {
         MUJIN_LOG_INFO("capturing of cameras " << __GetString(cameranames) << " have already been started");
     }
-
     capturehandles = tempcapturehandles;
     tempcapturehandles.clear();
 }
@@ -2715,12 +2717,14 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
             colorimages.clear();
             depthimages.clear();
-            MUJIN_LOG_WARN("reset image subscriber and capture handles, then get out of _GetImages()");
-            _pImagesubscriberManager->Reset();
-            {
-                boost::mutex::scoped_lock lock(_mutexCaptureHandles);
-                _mCameranameCaptureHandles.clear();
-            }
+            // do nothing for now
+            // TODO: there is a race condition to be debugged
+            //MUJIN_LOG_WARN("reset image subscriber and capture handles, then get out of _GetImages()");
+            // _pImagesubscriberManager->Reset();
+            // {
+            //     boost::mutex::scoped_lock lock(_mutexCaptureHandles);
+            //     _mCameranameCaptureHandles.clear();
+            // }
             break;
         }
 
@@ -3571,8 +3575,6 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
         pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 
         std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
-        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(depthcameranames));
-        _StartAndGetCaptureHandle(depthcameranames, depthcameranames, capturehandles);
         // set up images
         std::vector<ImagePtr> depthimages;
         bool ignoreocclusion = true;
@@ -3582,6 +3584,8 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
         unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
         //uint64_t lastwarnedtimestamp = 0;
         while (!_bStopSendPointCloudObstacleToControllerThread) {
+            MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(depthcameranames));
+            _StartAndGetCaptureHandle(depthcameranames, depthcameranames, capturehandles);
             _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, true, false);
             MUJIN_LOG_DEBUG(str(boost::format("got %d images in SendPointCloudObstacleToControllerThread imageStartTimestamp=%u newerthantimestamp=%u")%depthimages.size()%imageStartTimestamp%newerthantimestamp));
             if (depthimages.size() == depthcameranames.size()) {
@@ -3959,48 +3963,48 @@ void MujinVisionManager::_ParseCameraName(const std::string& cameraname, std::st
 void MujinVisionManager::_CheckAndUpdateRegionCameraMapping(const std::string& regionname, const std::vector<std::string>& cameranames)
 {
     bool regioninfochanged = false;
-    {
-        boost::mutex::scoped_lock lock(_mutexRegion);
-        if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
-            throw MujinVisionException("regionname " + regionname + " is unknown, cannot start detection");
+    boost::mutex::scoped_lock lock(_mutexRegion);
+    if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
+        throw MujinVisionException("regionname " + regionname + " is unknown, cannot start detection");
+    }
+    std::string cameraname;
+    for (size_t i = 0; i < cameranames.size(); ++i) {
+        cameraname = cameranames[i];
+        if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
+            throw MujinVisionException("cameraname " + cameraname + " is unknown, cannot start detection");
         }
-        std::string cameraname;
-        for (size_t i = 0; i < cameranames.size(); ++i) {
-            cameraname = cameranames[i];
-            if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
-                throw MujinVisionException("cameraname " + cameraname + " is unknown, cannot start detection");
+        if (_mCameranameActiveRegionname.find(cameraname) == _mCameranameActiveRegionname.end() || _mCameranameActiveRegionname[cameraname] != regionname) {
+            if (_mCameranameActiveRegionname.find(cameraname) != _mCameranameActiveRegionname.end()) {
+                MUJIN_LOG_DEBUG("cameraname active regionname changed from " << _mCameranameActiveRegionname[cameraname] << " to " << regionname);
             }
-            if (_mCameranameActiveRegionname.find(cameraname) == _mCameranameActiveRegionname.end() || _mCameranameActiveRegionname[cameraname] != regionname) {
-                if (_mCameranameActiveRegionname.find(cameraname) != _mCameranameActiveRegionname.end()) {
-                    MUJIN_LOG_DEBUG("cameraname active regionname changed from " << _mCameranameActiveRegionname[cameraname] << " to " << regionname);
-                }
-                regioninfochanged = true;
-                break;
-            }
-        }
-
-        if (regioninfochanged) {
-            MUJIN_LOG_INFO("region info changed, need to reset region/camera mapping");
-            RegionPtr region = _mNameRegion[regionname];
-            region->pRegionParameters->cameranames = cameranames;
-            for (size_t i = 0; i < cameranames.size(); ++i) {
-                cameraname = cameranames[i];
-                _mCameranameActiveRegionname[cameraname] = regionname;
-                if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
-                    throw MujinVisionException("cameraname " + cameraname + " is unknown, cannot start detection");
-                }
-            }
-            MUJIN_LOG_INFO("updated region/camera mapping for region " << regionname);
-
-            _pDetector->UpdateRegions(_mNameRegion, _mNameCamera);
+            regioninfochanged = true;
+            break;
         }
     }
 
     if (regioninfochanged) {
-        MUJIN_LOG_WARN("region info changed, need to force start capture for all sensors again to reload new region camera mappings");
-        std::vector<CameraCaptureHandlePtr> capturehandles;
-        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
+        MUJIN_LOG_INFO("region info changed, need to reset region/camera mapping");
+        RegionPtr region = _mNameRegion[regionname];
+        region->pRegionParameters->cameranames = cameranames;
+        for (size_t i = 0; i < cameranames.size(); ++i) {
+            cameraname = cameranames[i];
+            _mCameranameActiveRegionname[cameraname] = regionname;
+            if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
+                throw MujinVisionException("cameraname " + cameraname + " is unknown, cannot start detection");
+            }
+        }
+        MUJIN_LOG_INFO("updated region/camera mapping for region " << regionname);
+
+
+        _pDetector->UpdateRegions(_mNameRegion, _mNameCamera);
+
+        // do nothing for now, assuming binpickingui re-initializes visionmanager when mapping changes
+        // TODO: there is a race condition to be debugged
+        //MUJIN_LOG_WARN("region info changed, need to force start capture for all sensors again to reload new region camera mappings");
+        // std::vector<std::string> ids = _GetHardwareIds(cameranames);
+        // std::string extracaptureoptions;
+        // extracaptureoptions = _GetExtraCaptureOptions(ids, ids, _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname);
+        // _pImagesubscriberManager->StartCaptureThread(ids, 2.0, 1, extracaptureoptions);
     }
 }
 

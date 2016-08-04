@@ -2327,10 +2327,12 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                         MUJIN_LOG_INFO("pointsize=0 but no active region is found for this camera " << cameraname << ", use default value=" << newpointsize);
                     }
                 }
-
-                int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname);
+                double timeout = 3.0; // secs
+                int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout);
                 if (isoccluded == -2 ) {
                     MUJIN_LOG_DEBUG("did not get depth from " << cameraname << ", so do not send to controller");
+                    MUJIN_LOG_WARN("reset image subscriber");
+                    _pImagesubscriberManager->Reset();
                     MUJIN_LOG_DEBUG("try to force capturing");
                     MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
                     _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true);

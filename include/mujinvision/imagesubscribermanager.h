@@ -84,9 +84,10 @@ public:
 
     /** \brief Gets a point cloud from the camera name and prunes and subsamples it.
         \param regionnameforocclusionchecking regionname for occlusion checking, if not specified, do not check for occlusion
+        \param timeout in seconds
         \return occlusion status of robot with the container: -2 if did not get any depth image, -1 if unknown, 0 if not occluding, 1 if robot is occluding container in camera
      */
-    virtual int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize=0.01, const double stddev=0.01, const size_t numnn=80, const std::string& regionnameforocclusionchecking="") = 0;
+    virtual int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize=0.01, const double stddev=0.01, const size_t numnn=80, const std::string& regionnameforocclusionchecking="", const double timeout=20.0) = 0;
 
     /** \brief Gets the depth image from the latest n images with depth data, and the min/max timestamps of the images used.
         \param cameraname name of the camera

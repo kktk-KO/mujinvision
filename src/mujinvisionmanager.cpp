@@ -320,8 +320,9 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
         }
         try {
             _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
-        } catch (...) {
-            MUJIN_LOG_WARN("failed to start capturing for cameras " << __GetString(tostart));
+        } catch(const std::exception& ex) {
+            MUJIN_LOG_ERROR("caught exception " << ex.what());
+            MUJIN_LOG_ERROR("failed to start capturing for cameras " << __GetString(tostart));
         }
     } else {
         MUJIN_LOG_INFO("capturing of cameras " << __GetString(cameranames) << " have already been started");
@@ -2845,11 +2846,11 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                         //MUJIN_LOG_ERROR("done occlusioncheck for " << cameraname);
                     }
                 }
-            } catch (...) {
+            } catch(const std::exception& ex) {
                 if (GetMilliTime() - lastocclusioncheckfailurewarnts > 1000.0) {
                     lastocclusioncheckfailurewarnts = GetMilliTime();
                     std::stringstream ss;
-                    ss << "Failed to check for occluded, will try again";
+                    ss << "Failed to check for occluded, will try again (" << ex.what() << ")";
                     MUJIN_LOG_WARN(ss.str());
                     _SetStatusMessage(tt, "", ss.str());
                 }

@@ -2296,11 +2296,12 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         //uint64_t lastwarnedtimestamp1 = 0;
         std::map<std::string, uint64_t> mCameranameLastsentcloudtime;
         std::string regionname;
-        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
+
         while (!_bStopExecutionVerificationPointCloudThread && evcamnames.size() > 0) {
             // send latest pointcloud for execution verification
             for (unsigned int i=0; i<evcamnames.size(); ++i) {
                 // ensure publishing
+                MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
                 _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles);
 
                 std::vector<double> points;
@@ -2328,7 +2329,8 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 if (isoccluded == -2 ) {
                     MUJIN_LOG_DEBUG("did not get depth from " << cameraname << ", so do not send to controller");
                     MUJIN_LOG_DEBUG("try to force capturing");
-                    _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles);
+                    MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
+                    _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true);
                 } else if (mCameranameLastsentcloudtime.find(cameraname) == mCameranameLastsentcloudtime.end() || cloudstarttime > mCameranameLastsentcloudtime[cameraname]) {
                     if( points.size() == 0 ) {
                         MUJIN_LOG_WARN("sending 0 points from camera " << cameraname);
@@ -2355,7 +2357,8 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 } else {
                     MUJIN_LOG_WARN("got old point cloud from camera " << cameraname << ", do not send to controller. cloudstarttime=" << cloudstarttime << " oldtime=" << mCameranameLastsentcloudtime[cameraname]);
                     MUJIN_LOG_DEBUG("try to force capturing");
-                    _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles);
+                    MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
+                    _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true);
                 }
             }
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
@@ -3967,7 +3970,10 @@ void MujinVisionManager::_CheckAndUpdateRegionCameraMapping(const std::string& r
             if (_mNameCamera.find(cameraname) == _mNameCamera.end()) {
                 throw MujinVisionException("cameraname " + cameraname + " is unknown, cannot start detection");
             }
-            if (_mCameranameActiveRegionname[cameraname] != regionname) {
+            if (_mCameranameActiveRegionname.find(cameraname) == _mCameranameActiveRegionname.end() || _mCameranameActiveRegionname[cameraname] != regionname) {
+                if (_mCameranameActiveRegionname.find(cameraname) != _mCameranameActiveRegionname.end()) {
+                    MUJIN_LOG_DEBUG("cameraname active regionname changed from " << _mCameranameActiveRegionname[cameraname] << " to " << regionname);
+                }
                 regioninfochanged = true;
                 break;
             }
@@ -3991,11 +3997,10 @@ void MujinVisionManager::_CheckAndUpdateRegionCameraMapping(const std::string& r
     }
 
     if (regioninfochanged) {
-        MUJIN_LOG_INFO("need to reset capture handles");
-        {
-            boost::mutex::scoped_lock lock(_mutexCaptureHandles);
-            _mCameranameCaptureHandles.clear();
-        }
+        MUJIN_LOG_WARN("region info changed, need to force start capture for all sensors again to reload new region camera mappings");
+        std::vector<CameraCaptureHandlePtr> capturehandles;
+        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
+        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
     }
 }
 

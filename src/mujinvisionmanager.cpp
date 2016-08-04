@@ -2695,7 +2695,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // get images from subscriber
         if (usecache) {
-            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp);
+            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0 / 3.0, oldimagepacktimestamp); // use 1/3 of the timeout to try to recover at least once
         } else {
             BOOST_ASSERT(colorcameranames.size() == 1); // TODO supports only one color camera
             BOOST_ASSERT(depthcameranames.size() == 1); // TODO supports only one depth camera
@@ -2716,17 +2716,47 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             MUJIN_LOG_WARN("Could not get all images, ensure capturing thread, will try again" << ": # color " << colorimages.size() << "," << colorcameranames.size() << ", # depth " << depthimages.size() << "," << depthcameranames.size() << ", # result images = " << resultimages.size() << ", use_cache = " << usecache);
             //lastcouldnotcapturewarnts = GetMilliTime();
 
+            MUJIN_LOG_WARN("reset image subscriber");
+            _pImagesubscriberManager->Reset();
+            std::vector<std::string> ids;
+            std::string id;
+            for (size_t i = 0; i < colorcameranames.size(); ++i) {
+                if (_mCameraNameHardwareId.find(colorcameranames[i]) == _mCameraNameHardwareId.end()) {
+                    MUJIN_LOG_WARN("cameraname " << colorcameranames[i] << " is not mapped to a hardware id");
+                    continue;
+                }
+                id = _mCameraNameHardwareId[colorcameranames[i]];
+                if (std::find(ids.begin(), ids.end(), id) == ids.end()) {
+                    ids.push_back(id);
+                }
+            }
+            for (size_t i = 0; i < depthcameranames.size(); ++i) {
+                if (_mCameraNameHardwareId.find(depthcameranames[i]) == _mCameraNameHardwareId.end()) {
+                    MUJIN_LOG_WARN("cameraname " << depthcameranames[i] << " is not mapped to a hardware id");
+                    continue;
+                }
+                id = _mCameraNameHardwareId[depthcameranames[i]];
+                if (std::find(ids.begin(), ids.end(), id) == ids.end()) {
+                    ids.push_back(id);
+                }
+            }
+            std::string extracaptureoptions;
+            extracaptureoptions = _GetExtraCaptureOptions(ids, ids, _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname);
+            double timeout = 5.0;
+            int numimages = -1;
+            MUJIN_LOG_WARN("start publishing for cameras " << __GetString(ids));
+            _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
+
             colorimages.clear();
             depthimages.clear();
-            // do nothing for now
+            continue;
             // TODO: there is a race condition to be debugged
-            //MUJIN_LOG_WARN("reset image subscriber and capture handles, then get out of _GetImages()");
-            // _pImagesubscriberManager->Reset();
+            //MUJIN_LOG_WARN("reset capture handles, then get out of _GetImages()");
             // {
             //     boost::mutex::scoped_lock lock(_mutexCaptureHandles);
             //     _mCameranameCaptureHandles.clear();
             // }
-            break;
+            //break;
         }
 
         // throw exception if acquired images are from the future
@@ -2747,6 +2777,8 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 MUJIN_LOG_WARN("Image is more than " << maxage << " ms old (" << (GetMilliTime() - imageStartTimestamp) << "), will try to get again" << ", use_cache = " << usecache);
                 lastimageagecheckfailurets = GetMilliTime();
             }
+            MUJIN_LOG_WARN("reset imagesubscriber");
+            _pImagesubscriberManager->Reset();
 
             colorimages.clear();
             depthimages.clear();

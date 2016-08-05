@@ -2720,6 +2720,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
             MUJIN_LOG_WARN("reset image subscriber");
             _pImagesubscriberManager->Reset();
+            /*
             std::vector<std::string> ids;
             std::string id;
             for (size_t i = 0; i < colorcameranames.size(); ++i) {
@@ -2748,10 +2749,11 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             int numimages = -1;
             MUJIN_LOG_WARN("start publishing for cameras " << __GetString(ids));
             _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
-
+            */
             colorimages.clear();
             depthimages.clear();
-            continue;
+            //continue;
+            break;
             // TODO: there is a race condition to be debugged
             //MUJIN_LOG_WARN("reset capture handles, then get out of _GetImages()");
             // {

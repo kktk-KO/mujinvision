@@ -3255,7 +3255,7 @@ void MujinVisionManager::Initialize(
         _mNameCamera[cameraname] = CameraPtr(new Camera(cameraname, pcameraparameters, calibrationdata));
         _SyncCamera(cameraname, resultgetinstobjectandsensorinfo.msensortransform[cameraname]);
     }
-
+    std::map<std::string, std::map<std::string, CameraPtr> > mRegionnameCameramap;
     {
         boost::mutex::scoped_lock lock(_mutexRegion);
         _mCameranameActiveRegionname.clear(); // will be set up later in SendPointCloudObstacleToController or StartDetectionLoop
@@ -3264,12 +3264,15 @@ void MujinVisionManager::Initialize(
             MUJIN_LOG_DEBUG("checking cameras for region " << regionname);
             RegionPtr region = _mNameRegion[regionname];
             std::string cameraname;
+            std::map<std::string, CameraPtr> mCameranameCamera;
             for (unsigned int i=0; i<region->pRegionParameters->cameranames.size(); ++i) {
                 cameraname = region->pRegionParameters->cameranames.at(i);
                 if( _mNameCamera.find(cameraname) == _mNameCamera.end() ) {
                     throw MujinVisionException(str(boost::format("scene sensor mapping does not have camera %s coming from region %s")%cameraname%regionname), MVE_InvalidArgument);
                 }
+                mCameranameCamera[cameraname] = _mNameCamera[cameraname];
             }
+            mRegionnameCameramap[regionname] = mCameranameCamera;
         }
     }
     MUJIN_LOG_DEBUG("sync cameras took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
@@ -3311,7 +3314,7 @@ void MujinVisionManager::Initialize(
     _targetupdatename = targetupdatename;
     {
         boost::mutex::scoped_lock lock(_mutexRegion);
-        _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, _mNameCamera, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions, boost::bind(&MujinVisionManager::_CheckPreemptDetector, this, _1));
+        _pDetector = _pDetectorManager->CreateObjectDetector(_detectorconfig, _targetname, _mNameRegion, mRegionnameCameramap, boost::bind(&MujinVisionManager::_SetDetectorStatusMessage, this, _1, _2), _mDetectorExtraInitializationOptions, boost::bind(&MujinVisionManager::_CheckPreemptDetector, this, _1));
     }
     MUJIN_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     MUJIN_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");

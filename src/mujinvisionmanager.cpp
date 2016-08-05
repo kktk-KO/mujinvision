@@ -3270,6 +3270,7 @@ void MujinVisionManager::Initialize(
                 if( _mNameCamera.find(cameraname) == _mNameCamera.end() ) {
                     throw MujinVisionException(str(boost::format("scene sensor mapping does not have camera %s coming from region %s")%cameraname%regionname), MVE_InvalidArgument);
                 }
+                MUJIN_LOG_DEBUG("adding camera " << cameraname << " to region " << regionname);
                 mCameranameCamera[cameraname] = _mNameCamera[cameraname];
             }
             mRegionnameCameramap[regionname] = mCameranameCamera;
@@ -4040,7 +4041,15 @@ void MujinVisionManager::_CheckAndUpdateRegionCameraMapping(const std::string& r
         if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
             throw MujinVisionException("region " + regionname + " is unknown!");
         }
-        _pDetector->UpdateRegion(regionname, _mNameRegion[regionname], _mNameCamera);
+        std::map<std::string, CameraPtr> mNameCamera;
+        std::string cameraname;
+        CameraPtr camera;
+        for (unsigned int i=0; i<region->pRegionParameters->cameranames.size(); ++i) {
+            cameraname = region->pRegionParameters->cameranames.at(i);
+            camera = _mNameCamera[cameraname];
+            mNameCamera[cameraname] = camera;
+        }
+        _pDetector->UpdateRegion(regionname, region, mNameCamera);
 
         // do nothing for now, assuming binpickingui re-initializes visionmanager when mapping changes
         // TODO: there is a race condition to be debugged

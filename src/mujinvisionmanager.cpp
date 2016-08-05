@@ -1837,6 +1837,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     MUJIN_LOG_ERROR("lastGrabbedTargetTimestamp should not be 0!");
                 }
                 numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, lastGrabbedTargetTimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
+                if (numresults == -1) {
+                    MUJIN_LOG_INFO("force capturing, in case streamer crashed");
+                    MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
+                    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
+                }
             }
             else if (numfastdetection > 0 || bindetectiononly) {
                 while (!_bStopDetectionThread && numresults == 0 && (numfastdetection > 0 || bindetectiononly)) {
@@ -2095,10 +2100,10 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
         std::map<std::string, std::vector<Real> > mResultPoints;
         std::vector<Real> newpoints;
         std::vector<CameraCaptureHandlePtr> capturehandles;
-        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles);
 
         while (!_bStopUpdateEnvironmentThread) {
+            MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
+            _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles);
             bool update = false;
             bool bDetectedObjectsValid = false;
             {
@@ -2507,9 +2512,9 @@ void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadPar
         bool request = params.request;
         double voxelsize = params.voxelsize;
         std::vector<CameraCaptureHandlePtr> capturehandles;
-        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
         while (!_bStopVisualizePointCloudThread) {
+            MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
+            _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
             SyncCameras(regionname, cameranames);
             if (_bStopVisualizePointCloudThread) {
                 break;
@@ -2787,7 +2792,8 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             colorimages.clear();
             depthimages.clear();
             resultimages.clear();
-            continue;
+            // continue;
+            break;
         }
 
         // try to get images again if images are older than the specified timestamp
@@ -3389,10 +3395,8 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
         }
     } else {
         MUJIN_LOG_ERROR("Not enough images, cannot detect! colorimages=" << colorimages.size() << " depthimages=" << depthimages.size() << " resultimages=" << resultimages.size());
-        MUJIN_LOG_INFO("force capturing, in case streamer crashed");
-        MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
-        std::vector<CameraCaptureHandlePtr> capturehandles;
-        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
+        // do not ensure capturehandles here, do it at the caller because the handles here would be removed too quickly before all desired images are captured
+        return -1;
     }
     int numresults = 0;
     if (resultstate == "") {
@@ -3493,7 +3497,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
         std::vector<CameraCaptureHandlePtr> capturehandles;
         std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
         MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(depthcameranames));
-        _StartAndGetCaptureHandle(depthcameranames, depthcameranames, capturehandles);
+        _StartAndGetCaptureHandle(depthcameranames, depthcameranames, capturehandles, true); // always force it for SendPointCloudObstacleToController
         // set up images
         std::vector<ImagePtr> depthimages;
         bool ignoreocclusion = true;
@@ -3626,7 +3630,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
         //uint64_t lastwarnedtimestamp = 0;
         while (!_bStopSendPointCloudObstacleToControllerThread) {
             MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(depthcameranames));
-            _StartAndGetCaptureHandle(depthcameranames, depthcameranames, capturehandles);
+            _StartAndGetCaptureHandle(depthcameranames, depthcameranames, capturehandles, true);  // always force for SendPointCloudObstacleToController
             _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, true, false);
             MUJIN_LOG_DEBUG(str(boost::format("got %d images in SendPointCloudObstacleToControllerThread imageStartTimestamp=%u newerthantimestamp=%u")%depthimages.size()%imageStartTimestamp%newerthantimestamp));
             if (depthimages.size() == depthcameranames.size()) {

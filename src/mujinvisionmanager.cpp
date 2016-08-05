@@ -2794,8 +2794,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             colorimages.clear();
             depthimages.clear();
             resultimages.clear();
-            // continue;
-            break;
+            continue;
         }
 
         // try to get images again if images are older than the specified timestamp

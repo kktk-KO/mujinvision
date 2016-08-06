@@ -292,8 +292,8 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
             if( itcapture != _mCameranameCaptureHandles.end() ) {
                 CameraCaptureHandlePtr phandle = itcapture->second.lock();
                 if( !!phandle ) {
+                    tempcapturehandles[i] = phandle;
                     if (!force) {
-                        tempcapturehandles[i] = phandle;
                         MUJIN_LOG_DEBUG("do not start capturing for " << cameranames[i]  << " (" << _GetHardwareId(cameranames[i]) << ") as it is already running");
                     } else {
                         tostart.push_back(cameranames[i]);

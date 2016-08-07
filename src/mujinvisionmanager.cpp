@@ -3456,7 +3456,7 @@ void MujinVisionManager::StopDetectionLoop()
     _StopUpdateEnvironmentThread();
     _StopExecutionVerificationPointCloudThread();
     _StopControllerMonitorThread();
-    _StopSendPointCloudObstacleToControllerThread();
+    //_StopSendPointCloudObstacleToControllerThread(); // do not stop SendPointCloudObstacleToControllerThread because it is not started by detection loop
     _SetStatus(TT_Command, MS_Succeeded);
 }
 

@@ -181,7 +181,7 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
         if (cit != mCameranameActiveRegionname.end()) {
             cameraidregionnamept.put<std::string>(v->second, cit->second);
         } else {
-            MUJIN_LOG_ERROR("failed to find regionname for camera " << v->first);
+            MUJIN_LOG_VERBOSE("failed to find regionname for camera " << v->first);
         }
     }
     BOOST_ASSERT(cameraids.size() <= cameraidstocheckocclusion.size());
@@ -294,6 +294,7 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
                 if( !!phandle ) {
                     if (!force) {
                         MUJIN_LOG_DEBUG("do not start capturing for " << cameranames[i] << " as it is already running");
+                        MUJIN_LOG_DEBUG("do not start capturing for " << cameranames[i]  << " (" << _GetHardwareId(cameranames[i]) << ") as it is already running");
                     } else {
                         tostart.push_back(cameranames[i]);
                     }
@@ -311,8 +312,8 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
     if( tostart.size() > 0 ) {
         double timeout = 5.0;
         int numimages = -1;
-        MUJIN_LOG_INFO("force=" << force << " Start capturing of cameras " << __GetString(tostart));
         std::vector<std::string> ids = _GetHardwareIds(tostart);
+        MUJIN_LOG_INFO("force=" << force << " Start capturing of cameras " << __GetString(tostart) << "(" << __GetString(ids) << ")");
         std::string extracaptureoptions;
         {
             boost::mutex::scoped_lock lock(_mutexRegion);
@@ -2321,24 +2322,24 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 {
                     boost::mutex::scoped_lock lock(_mutexRegion);
                     if (_mCameranameActiveRegionname.find(cameraname) == _mCameranameActiveRegionname.end()) {
-                        MUJIN_LOG_WARN("cannot check occlusion for camera " << cameraname << ", because no region is mapped to it");
+                        MUJIN_LOG_WARN("cannot check occlusion for camera " << cameraname << " (" << _GetHardwareId(cameraname) << "), because no region is mapped to it");
                         regionname = "";
                     } else {
                         regionname = _mCameranameActiveRegionname[cameraname];
                     }
                     if (regionname.size() > 0 && _mNameRegion.find(regionname) != _mNameRegion.end()) {
                         newpointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
-                        MUJIN_LOG_INFO("pointsize=0, using pointsize= " << newpointsize << " in regionparam for camera " << cameraname << " of region " << regionname);
+                        MUJIN_LOG_INFO("pointsize=0, using pointsize= " << newpointsize << " in regionparam for camera " << cameraname  << " (" << _GetHardwareId(cameraname) << ") of region " << regionname);
                     } else {
                         newpointsize = 10;
-                        MUJIN_LOG_INFO("pointsize=0 but no active region is found for this camera " << cameraname << ", use default value=" << newpointsize);
+                        MUJIN_LOG_INFO("pointsize=0 but no active region is found for this camera " << cameraname << " (" << _GetHardwareId(cameraname) << "), use default value=" << newpointsize);
                     }
                 }
                 double timeout = 3.0; // secs
                 
                 int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout);
                 if (isoccluded == -2 ) {
-                    MUJIN_LOG_DEBUG("did not get depth from " << cameraname << ", so do not send to controller");
+                    MUJIN_LOG_DEBUG("did not get depth from " << cameraname << " (" << _GetHardwareId(cameraname) << "), so do not send to controller");
                     MUJIN_LOG_WARN("reset image subscriber");
                     _pImagesubscriberManager->Reset();
                     MUJIN_LOG_DEBUG("try to force capturing");
@@ -2346,20 +2347,20 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                     _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true);
                 } else if (mCameranameLastsentcloudtime.find(cameraname) == mCameranameLastsentcloudtime.end() || cloudstarttime > mCameranameLastsentcloudtime[cameraname]) {
                     if( points.size() == 0 ) {
-                        MUJIN_LOG_WARN("sending 0 points from camera " << cameraname);
+                        MUJIN_LOG_WARN("sending 0 points from camera " << cameraname << " (" << _GetHardwareId(cameraname) << ")");
                     }
                     try {
                         uint64_t starttime = GetMilliTime();
                         pBinpickingTask->AddPointCloudObstacle(points, newpointsize, "latestobstacle_"+cameraname, cloudstarttime, cloudendtime, true, "mm", isoccluded);
                         mCameranameLastsentcloudtime[cameraname] = cloudstarttime;
                         std::stringstream ss;
-                        ss << "Sent latest pointcloud of " << cameraname << " with " << (points.size()/3.) << " points, region=" << regionname << ", isoccluded=" << isoccluded << ", took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
+                        ss << "Sent latest pointcloud of " << cameraname << " (" << _GetHardwareId(cameraname) << ") with " << (points.size()/3.) << " points, region=" << regionname << ", isoccluded=" << isoccluded << ", took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                         MUJIN_LOG_DEBUG(ss.str());
                     } catch(const std::exception& ex) {
                         if (GetMilliTime() - lastwarnedtimestamp0 > 1000.0) {
                             lastwarnedtimestamp0 = GetMilliTime();
                             std::stringstream ss;
-                            ss << "Failed to send latest pointcloud of " << cameraname << " ex.what()=" << ex.what() << ".";
+                            ss << "Failed to send latest pointcloud of " << cameraname << " (" << _GetHardwareId(cameraname) << ") ex.what()=" << ex.what() << ".";
                             std::string whatstr = ss.str();
                             boost::replace_all(whatstr, "\"", ""); // need to remove " in the message so that json parser works
                             boost::replace_all(whatstr, "\\", ""); // need to remove \ in the message so that json parser works
@@ -2368,7 +2369,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                         }
                     }
                 } else {
-                    MUJIN_LOG_WARN("got old point cloud from camera " << cameraname << ", do not send to controller. cloudstarttime=" << cloudstarttime << " oldtime=" << mCameranameLastsentcloudtime[cameraname]);
+                    MUJIN_LOG_WARN("got old point cloud from camera " << cameraname << " (" << _GetHardwareId(cameraname) << "), do not send to controller. cloudstarttime=" << cloudstarttime << " oldtime=" << mCameranameLastsentcloudtime[cameraname]);
                     MUJIN_LOG_DEBUG("try to force capturing");
                     MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
                     _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true);
@@ -2579,7 +2580,7 @@ void MujinVisionManager::_SyncCamera(const std::string& cameraname)
     utils::GetSensorTransform(_pControllerClient, _pSceneResource, camerabodyname, sensorname, O_T_C0, "mm");
     Transform O_T_C = _GetTransform(O_T_C0); // sensor transform in world frame
     _mNameCamera[cameraname]->SetWorldTransform(O_T_C);
-    MUJIN_LOG_DEBUG("setting camera transform for " << cameraname << " to:\n" << _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
+    MUJIN_LOG_DEBUG("setting camera transform for " << cameraname  << " (" << _GetHardwareId(cameraname) << ") to:\n" << _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
 }
 
 void MujinVisionManager::_SyncCamera(const std::string& cameraname, const mujinclient::Transform& t)
@@ -2589,7 +2590,7 @@ void MujinVisionManager::_SyncCamera(const std::string& cameraname, const mujinc
     }
     Transform O_T_C = _GetTransform(t); // sensor transform in world frame
     _mNameCamera[cameraname]->SetWorldTransform(O_T_C);
-    MUJIN_LOG_DEBUG("setting camera transform for " << cameraname << " to:\n" + _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
+    MUJIN_LOG_DEBUG("setting camera transform for " << cameraname  << " (" << _GetHardwareId(cameraname) << ") to:\n" + _GetString(_mNameCamera[cameraname]->GetWorldTransform()));
 }
 
 void MujinVisionManager::_SyncRegion(const std::string& regionname)
@@ -2858,7 +2859,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                             //MUJIN_LOG_ERROR(image->GetMetadata());
                             starttime0 = GetMilliTime();
                             pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, image->GetStartTimestamp(), image->GetEndTimestamp(), isoccluding);
-                            MUJIN_LOG_DEBUG("IsRobotOccludingBody for " << cameraname << " took " << (GetMilliTime() - starttime0)/1000.0f << " secs");
+                            MUJIN_LOG_DEBUG("IsRobotOccludingBody for " << cameraname  << " (" << _GetHardwareId(cameraname) << ") took " << (GetMilliTime() - starttime0)/1000.0f << " secs");
                             checkedcameranames.push_back(cameraname);
                         } else {
                             isoccluding = isoccluded == 1;
@@ -3280,7 +3281,7 @@ void MujinVisionManager::Initialize(
                 if( _mNameCamera.find(cameraname) == _mNameCamera.end() ) {
                     throw MujinVisionException(str(boost::format("scene sensor mapping does not have camera %s coming from region %s")%cameraname%regionname), MVE_InvalidArgument);
                 }
-                MUJIN_LOG_DEBUG("adding camera " << cameraname << " to region " << regionname);
+                MUJIN_LOG_DEBUG("adding camera " << cameraname  << " (" << _GetHardwareId(cameraname) << ") to region " << regionname);
                 mCameranameCamera[cameraname] = _mNameCamera[cameraname];
             }
             mRegionnameCameramap[regionname] = mCameranameCamera;
@@ -3562,7 +3563,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                         MUJIN_LOG_WARN("should not get here!");
                     }
                 }
-                MUJIN_LOG_DEBUG("adding " << (points.size()/3) << " points from " << cameraname);
+                MUJIN_LOG_DEBUG("adding " << (points.size()/3) << " points from " << cameraname  << " (" << _GetHardwareId(cameraname) << ")");
                 totalpoints.insert(totalpoints.end(), points.begin(), points.end());
             }
             std::stringstream ss;
@@ -3710,7 +3711,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                         }
                     }
                     ss.str(std::string()); ss.clear();
-                    MUJIN_LOG_DEBUG("adding " << (points.size()/3) << " points from " << cameraname);
+                    MUJIN_LOG_DEBUG("adding " << (points.size()/3) << " points from " << cameraname << " (" << _GetHardwareId(cameraname) << ")");
                     totalpoints.insert(totalpoints.end(), points.begin(), points.end());
                 }
                 std::stringstream ss;
@@ -3781,7 +3782,7 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
         std::vector<ImagePtr> depthimages;
         std::vector<std::string> dcamnames;
         dcamnames.push_back(cameraname);
-        MUJIN_LOG_DEBUG("Visualize for depth camera " << cameraname);
+        MUJIN_LOG_DEBUG("Visualize for depth camera " << cameraname << " (" << _GetHardwareId(cameraname) << ")");
         unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
         _GetImages(TT_Command, _pBinpickingTask, "", dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, request, false);
         if (depthimages.size() == 0) {
@@ -3968,6 +3969,16 @@ std::vector<std::string> MujinVisionManager::_GetHardwareIds(const std::vector<s
         }
     }
     return hardwareids;
+}
+
+std::string MujinVisionManager::_GetHardwareId(const std::string& cameraname)
+{
+    if (_mCameraNameHardwareId.find(cameraname) != _mCameraNameHardwareId.end()) {
+        return _mCameraNameHardwareId[cameraname];
+    } else {
+        MUJIN_LOG_WARN("cameraname " << cameraname << " is not in _mCameraNameHardwareId");
+        return "";
+    }
 }
 
 Transform MujinVisionManager::_GetTransform(const mujinclient::Transform& t)

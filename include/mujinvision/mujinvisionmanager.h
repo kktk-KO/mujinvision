@@ -544,6 +544,7 @@ private:
      */
     std::vector<std::string> _GetDepthCameraNames(const std::string& regionname, const std::vector<std::string>& cameranames);
 
+    std::string _GetHardwareId(const std::string& cameraname);
     std::vector<std::string> _GetHardwareIds(const std::vector<std::string>& cameranames);
 
     /** \brief Converts mujinclient::Transform to Transform.

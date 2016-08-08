@@ -1864,6 +1864,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                         MUJIN_LOG_DEBUG("call DetectObjects() with bindetection=true");
                     }
                     numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
+                    if (numresults == -1) {
+                        MUJIN_LOG_INFO("force capturing, in case streamer crashed");
+                        MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
+                        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
+                        numresults = 0;
+                    }
                     if (isContainerPresent == 0) {
                         numresults = 0;
                         MUJIN_LOG_WARN("container is not present, detect again");

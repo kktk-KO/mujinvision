@@ -3515,6 +3515,9 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
         if (depthimages.size() == depthcameranames.size()) {
             std::vector<Real> totalpoints;
             int isregionoccluded = -2;
+            int isoccluded = -1;
+            unsigned long long cloudstarttime, cloudendtime;
+            double timeout = 3.0; // secs
             for (size_t i=0; i<depthimages.size(); ++i) {
                 std::string cameraname = depthcameranames.at(i);
                 CameraPtr camera= _mNameCamera[cameraname];
@@ -3522,11 +3525,12 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                 std::vector<Real> points;
                 ImagePtr depthimage = depthimages.at(i);
 
-                {
-                    boost::mutex::scoped_lock lock(_mutexDetector);
-                    _pDetector->SetDepthImage(depthimages.at(i));
-                    _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 2);
-                }
+                // {
+                //     boost::mutex::scoped_lock lock(_mutexDetector);
+                //     _pDetector->SetDepthImage(depthimages.at(i));
+                //     _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 2);
+                // }
+                isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout);
                 if (points.size() / 3 == 0) {
                     _SetStatusMessage(TT_Command, "got 0 point from GetPointCloudObstacle()");
                     int numretries = 3;
@@ -3537,12 +3541,13 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                         points.clear();
                         _SetStatusMessage(TT_Command, "re-try getting depthimage and pointcloudobstacle");
                         _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames1, dummyimages, depthimages1, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, request, false);
-                        depthimage = depthimages1.at(i);
-                        {
-                            boost::mutex::scoped_lock lock(_mutexDetector);
-                            _pDetector->SetDepthImage(depthimages1.at(0));
-                            _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 2);
-                        }
+                        // depthimage = depthimages1.at(i);
+                        // {
+                        //     boost::mutex::scoped_lock lock(_mutexDetector);
+                        //     _pDetector->SetDepthImage(depthimages1.at(0));
+                        //     _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 2);
+                        // }
+                        isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout);
                         numretries--;
                     }
                     if (points.size() / 3 == 0) {
@@ -3641,7 +3646,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
         while (!_bStopSendPointCloudObstacleToControllerThread) {
             MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(depthcameranames));
             _StartAndGetCaptureHandle(depthcameranames, depthcameranames, capturehandles);  // always force for SendPointCloudObstacleToController
-            _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, true, false);
+            _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, true, false); // TODO update GetCollisionPointCloud() to remove this
             MUJIN_LOG_DEBUG(str(boost::format("got %d images in SendPointCloudObstacleToControllerThread imageStartTimestamp=%u newerthantimestamp=%u")%depthimages.size()%imageStartTimestamp%newerthantimestamp));
             if (depthimages.size() == depthcameranames.size()) {
                 std::vector<Real> totalpoints;
@@ -3679,16 +3684,17 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                             points.clear();
                             _SetStatusMessage(TT_SendPointcloudObstacle, "re-try getting depthimage and pointcloudobstacle");
                             //_GetDepthImages(TT_SendPointcloudObstacle, regionname, depthcameranames, depthimages, ignoreocclusion, maxage, fetchimagetimeout, true);
-                            _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames1, dummyimages, depthimages1, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, true, false);
-                            depthimage = depthimages1.at(i);
-                            if (!!_pDetector) {
-                                boost::mutex::scoped_lock lock(_mutexDetector);
-                                _pDetector->SetDepthImage(depthimages1.at(0));
-                                _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn, 2);
-                            } else {
-                                MUJIN_LOG_WARN("detector is reset, stop async SendPointCloudObstacleToController call");
-                                return;
-                            }
+                            _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames1, dummyimages, depthimages1, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, true, false); // TODO update GetCollisionPointCloud() to remove this
+                            // depthimage = depthimages1.at(i);
+                            // if (!!_pDetector) {
+                            //     boost::mutex::scoped_lock lock(_mutexDetector);
+                            //     _pDetector->SetDepthImage(depthimages1.at(0));
+                            //     _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, false, true, _filteringstddev, _filteringnumnn, 2);
+                            // } else {
+                            //     MUJIN_LOG_WARN("detector is reset, stop async SendPointCloudObstacleToController call");
+                            //     return;
+                            // }
+                            isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout);
                             numretries--;
                         }
                         if (points.size() / 3 == 0) {

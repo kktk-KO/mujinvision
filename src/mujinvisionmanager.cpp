@@ -2712,7 +2712,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // get images from subscriber
         if (usecache) {
-            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0 / 3.0, oldimagepacktimestamp); // use 1/3 of the timeout to try to recover at least once
+            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp);
         } else {
             BOOST_ASSERT(colorcameranames.size() == 1); // TODO supports only one color camera
             BOOST_ASSERT(depthcameranames.size() == 1); // TODO supports only one depth camera

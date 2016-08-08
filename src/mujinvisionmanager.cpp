@@ -1518,7 +1518,7 @@ void MujinVisionManager::_StartExecutionVerificationPointCloudThread(const std::
         params.executionverificationcameranames = evcamnames;
         params.voxelsize = voxelsize;
         params.pointsize = pointsize;
-        params.obstaclename = obstaclename;
+        //params.obstaclename = obstaclename;
         params.waitinterval = waitinterval;
         params.locale = locale;
         _pExecutionVerificationPointCloudThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendExecutionVerificationPointCloudThread, this, params)));
@@ -2290,7 +2290,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         MUJIN_LOG_INFO("starting SendExecutionVerificationPointCloudThread " + ParametersBase::GetJsonString(evcamnames));
         //double voxelsize = params.voxelsize;
         double pointsize = params.pointsize;
-        std::string obstaclename = params.obstaclename;
+        //std::string obstaclename = params.obstaclename;
         unsigned int waitinterval = params.waitinterval;
         std::string locale = params.locale;
         std::vector<DetectedObjectPtr> vDetectedObject; ///< latest detection result
@@ -2346,8 +2346,8 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout);
                 if (isoccluded == -2 ) {
                     MUJIN_LOG_DEBUG("did not get depth from " << cameraname << " (" << _GetHardwareId(cameraname) << "), so do not send to controller");
-                    MUJIN_LOG_WARN("reset image subscriber");
-                    _pImagesubscriberManager->Reset();
+                    //MUJIN_LOG_WARN("reset image subscriber");
+                    //_pImagesubscriberManager->Reset();
                     MUJIN_LOG_DEBUG("try to force capturing");
                     MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
                     _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true);
@@ -2712,7 +2712,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // get images from subscriber
         if (usecache) {
-            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp);
+            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp); // use 1/3 of the timeout to try to recover at least once
         } else {
             BOOST_ASSERT(colorcameranames.size() == 1); // TODO supports only one color camera
             BOOST_ASSERT(depthcameranames.size() == 1); // TODO supports only one depth camera
@@ -2733,8 +2733,8 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             MUJIN_LOG_WARN("Could not get all images, ensure capturing thread, will try again" << ": # color " << colorimages.size() << "," << colorcameranames.size() << ", # depth " << depthimages.size() << "," << depthcameranames.size() << ", # result images = " << resultimages.size() << ", use_cache = " << usecache);
             //lastcouldnotcapturewarnts = GetMilliTime();
 
-            MUJIN_LOG_WARN("reset image subscriber");
-            _pImagesubscriberManager->Reset();
+            //MUJIN_LOG_WARN("reset image subscriber");
+            //_pImagesubscriberManager->Reset();
             /*
             std::vector<std::string> ids;
             std::string id;

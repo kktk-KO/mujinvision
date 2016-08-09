@@ -634,6 +634,7 @@ private:
     std::map<std::string, std::string> _mHardwareIdCameraName; ///< camera hardware id -> name
     std::map<std::string, std::string> _mDetectorExtraInitializationOptions; ///< extra init options for detector
     ImageSubscriberManagerPtr _pImagesubscriberManager;
+    std::string _subscriberid; ///< the unique subscriber id for this subscriber to notify the streamer
 
     ObjectDetectorPtr _pDetector;
     DetectorManagerPtr _pDetectorManager;

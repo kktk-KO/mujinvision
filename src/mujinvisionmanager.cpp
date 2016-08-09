@@ -169,7 +169,7 @@ enum CommandThreadIndex
     CDI_Configure=1,
 };
 
-std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const ptree& visionserverpt, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname)
+std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const ptree& visionserverpt, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname, const std::string& subscriberid)
 {
     std::string controllerclientconnectionstring = str(boost::format("tcp://%s:%d") % controllerip % binpickingTaskZmqPort);
     std::string occlusioncheckcommandtemplate = visionserverpt.get<std::string>("occlusioncheckcommandtemplate", "");
@@ -198,6 +198,7 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
     extraoptionspt.put_child("cameraidfullnamemap", cameraidfullnamemappt);
     extraoptionspt.put_child("cameraidregionnamemap", cameraidregionnamept);
     extraoptionspt.put_child("cameraidcheckocclusionmap", cameraidcheckocclusionpt);
+    extraoptionspt.put<std::string>("subscriberid", subscriberid);
     std::stringstream ss;
     write_json(ss, extraoptionspt);
     //MUJIN_LOG_DEBUG(ss.str());
@@ -317,7 +318,7 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
         std::string extracaptureoptions;
         {
             boost::mutex::scoped_lock lock(_mutexRegion);
-            extracaptureoptions = _GetExtraCaptureOptions(ids, _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname);
+            extracaptureoptions = _GetExtraCaptureOptions(ids, _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid);
         }
         try {
             _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
@@ -2376,9 +2377,11 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                     }
                 } else {
                     MUJIN_LOG_WARN("got old point cloud from camera " << cameraname << " (" << _GetHardwareId(cameraname) << "), do not send to controller. cloudstarttime=" << cloudstarttime << " oldtime=" << mCameranameLastsentcloudtime[cameraname]);
-                    MUJIN_LOG_DEBUG("try to force capturing");
-                    MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
-                    _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true);
+                    // not sure if a good idea to force capturing so much
+                    
+                    //MUJIN_LOG_DEBUG("try to force capturing");
+                    //MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
+                    //_StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles); // necessary?
                 }
             }
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
@@ -3305,7 +3308,8 @@ void MujinVisionManager::Initialize(
     read_json(imagesubscriberconfigss, imagesubscriberpt);
 
     // set up image subscriber manager
-    _SetStatusMessage(TT_Command, "Setting up image manager.");
+    _subscriberid = imagesubscriberpt.get<std::string>("subscriberid", "");
+    _SetStatusMessage(TT_Command, str(boost::format("Setting up image manager %s.")%_subscriberid));
     _pImagesubscriberManager->Initialize(_mNameCamera, streamerIp, streamerPort, imagesubscriberpt, _zmqcontext);
 
     // set up detectors

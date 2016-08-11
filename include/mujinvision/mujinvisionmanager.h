@@ -105,7 +105,7 @@ public:
                             const double controllertimeout=10.0, /*seconds*/
                             const std::string& locale="en_US",
                             const std::string& slaverequestid="",
-                            const std::string& targetdetectionarchiveurl="");
+                            const std::vector<std::string>& targetdetectionarchiveurls=std::vector<std::string>());
 
     /** \brief Detects objects in specified region with specified cameras
         \param regionname name of the region

@@ -213,7 +213,7 @@ void ParametersBase::Print()
 
 bool MujinVisionManager::_CheckPreemptSubscriber()
 {
-    bool bpreempt = _bShutdown || _bCancelCommand;// || _bStopDetectionThread || _bStopUpdateEnvironmentThread;// || _bStopExecutionVerificationPointCloudThread;
+    bool bpreempt = _bShutdown || _bCancelCommand; // || _bStopDetectionThread || _bStopUpdateEnvironmentThread;// || _bStopExecutionVerificationPointCloudThread;
     if (bpreempt ) {
         MUJIN_LOG_DEBUG("preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread << " _bStopUpdateEnvironmentThread=" << _bStopUpdateEnvironmentThread << " _bStopExecutionVerificationPointCloudThread " << _bStopExecutionVerificationPointCloudThread);
     }
@@ -908,6 +908,28 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 _bInitialized = true;
             }
             std::string locale = command_pt.get<std::string>("locale", "en_US");
+            std::vector<std::string> targetdetectionarchiveurls;
+            std::string targetdetectionarchiveurl;
+            if (command_pt.count("targetdetectionarchiveurl") > 0) {
+                try {
+                    targetdetectionarchiveurl = command_pt.get<std::string>("targetdetectionarchiveurl");
+                    if (targetdetectionarchiveurl.size() == 0) {
+                        try {
+                            MUJIN_LOG_DEBUG("try parsing targetdetectionarchiveurl as a list");
+                            FOREACH(v, command_pt.get_child("targetdetectionarchiveurl")) {
+                                targetdetectionarchiveurls.push_back(boost::lexical_cast<std::string>(v->second.data()));
+                            }
+                        } catch (std::exception& e) {
+                            MUJIN_LOG_ERROR("failed to parse targetdetectionarchiveurl");
+                        }
+                    } else {
+                        MUJIN_LOG_DEBUG("parsing targetdetectionarchiveurl as a string");
+                        targetdetectionarchiveurls.push_back(targetdetectionarchiveurl);
+                    }
+                } catch (std::exception& e) {
+                    MUJIN_LOG_ERROR("failed to parse targetdetectionarchiveurl");
+                }
+            }
             Initialize(command_pt.get<std::string>("visionmanagerconfig"),
                        command_pt.get<std::string>("detectorconfigname"),
                        command_pt.get<std::string>("imagesubscriberconfig"),
@@ -929,7 +951,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                        command_pt.get<unsigned int>("controllertimeout", 10),
                        command_pt.get<std::string>("locale", "en_US"),
                        command_pt.get<std::string>("slaverequestid", ""),
-                       command_pt.get<std::string>("targetdetectionarchiveurl", "")
+                       targetdetectionarchiveurls
                        );
             result_ss << "{";
             result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
@@ -2343,7 +2365,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                     }
                 }
                 double timeout = 3.0; // secs
-                
+
                 int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout);
                 if (isoccluded == -2 ) {
                     MUJIN_LOG_DEBUG("did not get depth from " << cameraname << " (" << _GetHardwareId(cameraname) << "), so do not send to controller");
@@ -2378,7 +2400,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 } else {
                     MUJIN_LOG_WARN("got old point cloud from camera " << cameraname << " (" << _GetHardwareId(cameraname) << "), do not send to controller. cloudstarttime=" << cloudstarttime << " oldtime=" << mCameranameLastsentcloudtime[cameraname]);
                     // not sure if a good idea to force capturing so much
-                    
+
                     //MUJIN_LOG_DEBUG("try to force capturing");
                     //MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
                     //_StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles); // necessary?
@@ -2739,9 +2761,9 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             //MUJIN_LOG_WARN("reset image subscriber");
             //_pImagesubscriberManager->Reset();
             /*
-            std::vector<std::string> ids;
-            std::string id;
-            for (size_t i = 0; i < colorcameranames.size(); ++i) {
+               std::vector<std::string> ids;
+               std::string id;
+               for (size_t i = 0; i < colorcameranames.size(); ++i) {
                 if (_mCameraNameHardwareId.find(colorcameranames[i]) == _mCameraNameHardwareId.end()) {
                     MUJIN_LOG_WARN("cameraname " << colorcameranames[i] << " is not mapped to a hardware id");
                     continue;
@@ -2750,8 +2772,8 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 if (std::find(ids.begin(), ids.end(), id) == ids.end()) {
                     ids.push_back(id);
                 }
-            }
-            for (size_t i = 0; i < depthcameranames.size(); ++i) {
+               }
+               for (size_t i = 0; i < depthcameranames.size(); ++i) {
                 if (_mCameraNameHardwareId.find(depthcameranames[i]) == _mCameraNameHardwareId.end()) {
                     MUJIN_LOG_WARN("cameraname " << depthcameranames[i] << " is not mapped to a hardware id");
                     continue;
@@ -2760,14 +2782,14 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 if (std::find(ids.begin(), ids.end(), id) == ids.end()) {
                     ids.push_back(id);
                 }
-            }
-            std::string extracaptureoptions;
-            extracaptureoptions = _GetExtraCaptureOptions(ids, ids, _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname);
-            double timeout = 5.0;
-            int numimages = -1;
-            MUJIN_LOG_WARN("start publishing for cameras " << __GetString(ids));
-            _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
-            */
+               }
+               std::string extracaptureoptions;
+               extracaptureoptions = _GetExtraCaptureOptions(ids, ids, _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname);
+               double timeout = 5.0;
+               int numimages = -1;
+               MUJIN_LOG_WARN("start publishing for cameras " << __GetString(ids));
+               _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
+             */
             colorimages.clear();
             depthimages.clear();
             //continue;
@@ -2999,7 +3021,7 @@ void MujinVisionManager::Initialize(
     const double controllertimeout,
     const std::string& locale,
     const std::string& slaverequestid,
-    const std::string& targetdetectionarchiveurl
+    const std::vector<std::string>& targetdetectionarchiveurls
     )
 {
     _mNameCommand.clear();
@@ -3065,62 +3087,65 @@ void MujinVisionManager::Initialize(
     // update target archive if needed
     std::string detectionpath = _detectiondir + "/" + targetname;
     std::string detectorconfigfilename = detectionpath + "/detector.json";
-    if (targetdetectionarchiveurl != "" && boost::starts_with(targetdetectionarchiveurl, "mujin:/")) {
-        starttime = GetMilliTime();
-
-        // get local modified time
-        std::string archivefilename = detectionpath + "/" + targetname + ".tar.gz";
-        struct stat filestat;
-        long localtimeval = 0;
-        if (stat(archivefilename.c_str(), &filestat) == 0) {
-            localtimeval = mktime(localtime(&filestat.st_mtime));
-        }
-
-        long remotetimeval = 0;
-        std::vector<unsigned char> data;
-        _pControllerClient->DownloadFileFromControllerIfModifiedSince_UTF8(targetdetectionarchiveurl, localtimeval, remotetimeval, data);
-        if (remotetimeval > 0) {
-            // write file
-            {
-                boost::filesystem::create_directory(detectionpath);
-                std::ofstream outfile(archivefilename.c_str(), std::ios::out | std::ios::binary);
-                outfile.write(reinterpret_cast<char *>(&data[0]), data.size());
-                outfile.close();
-            }
-
-            // set file modification time
-            {
-                struct utimbuf newtimes;
-                newtimes.actime = filestat.st_atime;
-                newtimes.modtime = remotetimeval;
-                utime(archivefilename.c_str(), &newtimes);
-            }
-        }
-
-        MUJIN_LOG_DEBUG("fetching archive " << targetdetectionarchiveurl << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs, downloaded " << data.size() << " bytes");
-
-        if (remotetimeval > 0) {
-            // extract files if downloaded
+    std::string targetdetectionarchiveurl;
+    for (size_t iurl=0; iurl<targetdetectionarchiveurls.size(); ++iurl) {
+        targetdetectionarchiveurl = targetdetectionarchiveurls[iurl];
+        if (targetdetectionarchiveurl != "" && boost::starts_with(targetdetectionarchiveurl, "mujin:/")) {
             starttime = GetMilliTime();
-            try {
-                std::stringstream commandss;
-                commandss << "tar xzf " << archivefilename << " -C " << detectionpath;
-                system(commandss.str().c_str()); // TODO: check process exit code here
-            } catch (...) {
-                std::stringstream errss;
-                errss << "Failed to prepare config files because " << archivefilename << " could not be decompressed.";
-                MUJIN_LOG_ERROR(errss.str());
-                throw MujinVisionException(errss.str(), MVE_Failed);
-            }
-            MUJIN_LOG_DEBUG("extracting archive " << archivefilename << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
-        }
 
-        // when target archive uri is supplied, the detector.json should always exists
-        if (!boost::filesystem::exists(detectorconfigfilename)) {
-            throw MujinVisionException("Failed to sync target detection archive. Detector conf " + detectorconfigfilename + " does not exist!", MVE_InvalidArgument);
+            // get local modified time
+            std::string archivefilename = detectionpath + "/" + targetname + ".tar.gz";
+            struct stat filestat;
+            long localtimeval = 0;
+            if (stat(archivefilename.c_str(), &filestat) == 0) {
+                localtimeval = mktime(localtime(&filestat.st_mtime));
+            }
+
+            long remotetimeval = 0;
+            std::vector<unsigned char> data;
+            _pControllerClient->DownloadFileFromControllerIfModifiedSince_UTF8(targetdetectionarchiveurl, localtimeval, remotetimeval, data);
+            if (remotetimeval > 0) {
+                // write file
+                {
+                    boost::filesystem::create_directory(detectionpath);
+                    std::ofstream outfile(archivefilename.c_str(), std::ios::out | std::ios::binary);
+                    outfile.write(reinterpret_cast<char *>(&data[0]), data.size());
+                    outfile.close();
+                }
+
+                // set file modification time
+                {
+                    struct utimbuf newtimes;
+                    newtimes.actime = filestat.st_atime;
+                    newtimes.modtime = remotetimeval;
+                    utime(archivefilename.c_str(), &newtimes);
+                }
+            }
+
+            MUJIN_LOG_DEBUG("fetching archive " << targetdetectionarchiveurl << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs, downloaded " << data.size() << " bytes");
+
+            if (remotetimeval > 0) {
+                // extract files if downloaded
+                starttime = GetMilliTime();
+                try {
+                    std::stringstream commandss;
+                    commandss << "tar xzf " << archivefilename << " -C " << detectionpath;
+                    system(commandss.str().c_str()); // TODO: check process exit code here
+                } catch (...) {
+                    std::stringstream errss;
+                    errss << "Failed to prepare config files because " << archivefilename << " could not be decompressed.";
+                    MUJIN_LOG_ERROR(errss.str());
+                    throw MujinVisionException(errss.str(), MVE_Failed);
+                }
+                MUJIN_LOG_DEBUG("extracting archive " << archivefilename << " took " << ((GetMilliTime() - starttime)/1000.0f) << " secs");
+            }
+
+            // when target archive uri is supplied, the detector.json should always exists
+            if (!boost::filesystem::exists(detectorconfigfilename)) {
+                throw MujinVisionException("Failed to sync target detection archive. Detector conf " + detectorconfigfilename + " does not exist!", MVE_InvalidArgument);
+            }
         }
     }
-
     // prepare config files
     _mDetectorExtraInitializationOptions.clear();
     if (boost::filesystem::exists(detectorconfigfilename)) {
@@ -3672,10 +3697,10 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                     unsigned long long cloudstarttime, cloudendtime;
                     double newpointsize = 0;
                     double timeout = 3.0; // secs
-                    
+
                     points.resize(0);
                     int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout);
-                    
+
                     if (points.size() / 3 == 0) {
                         _SetStatusMessage(TT_SendPointcloudObstacle, "got 0 point from GetPointCloudObstacle()");
                         int numretries = 3;

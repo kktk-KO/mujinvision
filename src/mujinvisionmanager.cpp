@@ -3871,9 +3871,10 @@ void MujinVisionManager::SyncCameras(const std::string& regionname, const std::v
     if (!!_pDetector) {
         boost::mutex::scoped_lock lock(_mutexRegion);
         if (_mNameRegion.find(regionname) == _mNameRegion.end()) {
-            throw MujinVisionException("region " + regionname + " is unknown!");
+            MUJIN_LOG_WARN("region " + regionname + " is unknown!");
+        } else {
+            _pDetector->UpdateRegion(regionname, _mNameRegion[regionname], _mNameCamera);
         }
-        _pDetector->UpdateRegion(regionname, _mNameRegion[regionname], _mNameCamera);
     }
     // update cameras in subscriber
     _pImagesubscriberManager->UpdateCameras(_mNameCamera);

@@ -1928,7 +1928,13 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     bool request=false;
                     bool useold=true;
                     bool checkcontaineremptyonly=false;
-                    _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
+                    numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
+                    if (numresults == -1) {
+                        MUJIN_LOG_INFO("force capturing, in case streamer crashed");
+                        MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
+                        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
+                        numresults = 0;
+                    }
                 }
             } else {
                 MUJIN_LOG_DEBUG("detect normally");
@@ -1937,7 +1943,13 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 bool request=false;
                 bool useold=false;
                 bool checkcontaineremptyonly=false;
-                _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
+                numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
+                if (numresults == -1) {
+                    MUJIN_LOG_INFO("force capturing, in case streamer crashed");
+                    MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
+                    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
+                    numresults = 0;
+                }
             }
             if (_bStopDetectionThread) {
                 break;

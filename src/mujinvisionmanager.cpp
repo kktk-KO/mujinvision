@@ -2392,7 +2392,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                     }
                     try {
                         uint64_t starttime = GetMilliTime();
-                        pBinpickingTask->AddPointCloudObstacle(points, newpointsize, "latestobstacle_"+cameraname, cloudstarttime, cloudendtime, true, "mm", isoccluded);
+                        pBinpickingTask->AddPointCloudObstacle(points, newpointsize, "latestobstacle_"+cameraname, cloudstarttime, cloudendtime, true, "mm", isoccluded, regionname);
                         mCameranameLastsentcloudtime[cameraname] = cloudstarttime;
                         std::stringstream ss;
                         ss << "Sent latest pointcloud of " << cameraname << " (" << _GetHardwareId(cameraname) << ") with " << (points.size()/3.) << " points, region=" << regionname << ", isoccluded=" << isoccluded << ", took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
@@ -3621,7 +3621,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
             std::stringstream ss;
             ss <<"Sending over " << (totalpoints.size()/3) << " points";
             _SetStatusMessage(TT_Command, ss.str());
-            _pBinpickingTask->AddPointCloudObstacle(totalpoints, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "mm", isregionoccluded);
+            _pBinpickingTask->AddPointCloudObstacle(totalpoints, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "mm", isregionoccluded, regionname);
             _lastSendPointCloudObstacleTimestamp = imageStartTimestamp;
         } else {
             MUJIN_LOG_WARN("failed to get image for getting pointcloud obstacle");
@@ -3770,7 +3770,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                 std::stringstream ss;
                 ss <<"Sending over " << (totalpoints.size()/3) << " points";
                 _SetStatusMessage(TT_SendPointcloudObstacle, ss.str());
-                pBinpickingTask->AddPointCloudObstacle(totalpoints, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "mm", isregionoccluded);
+                pBinpickingTask->AddPointCloudObstacle(totalpoints, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "mm", isregionoccluded, regionname);
                 _lastSendPointCloudObstacleTimestamp = imageStartTimestamp;
                 _SetStatus(TT_SendPointcloudObstacle, MS_Succeeded);
                 break;

@@ -3361,12 +3361,17 @@ void MujinVisionManager::Initialize(
 
     // append additional params to detectorconf string
     bool debug = _visionserverpt.get<bool>("debug", false);
-    double cleanSize = _visionserverpt.get<double>("cleanSize", 0.007);
     size_t index = detectorconfig.find_last_of("}");
     if (index == std::string::npos) {
         throw MujinVisionException("invalid detectorconfig: " + detectorconfig, MVE_InvalidArgument);
     }
-    _detectorconfig = detectorconfig.substr(0, index) + ", " + ParametersBase::GetJsonString("debug", debug) + ", " + ParametersBase::GetJsonString("cleanSize", cleanSize) + ", " + ParametersBase::GetJsonString("modelFilename", modelfilename) + "}";
+    _detectorconfig = detectorconfig.substr(0, index) + ", " + ParametersBase::GetJsonString("debug", debug) + ", ";
+    if (_visionserverpt.count("cleanParameters") > 0) {
+        std::stringstream cleanss;
+        write_json(cleanss, _visionserverpt.get_child("cleanParameters"));
+        _detectorconfig = _detectorconfig + "\"cleanParameters\": " + cleanss.str() + ", ";
+    }
+    _detectorconfig = _detectorconfig + ParametersBase::GetJsonString("modelFilename", modelfilename) + "}";
     ParametersBase::ValidateJsonString(_detectorconfig);
     _targetname = targetname;
     _targeturi = targeturi;

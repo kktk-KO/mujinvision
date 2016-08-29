@@ -2040,7 +2040,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             break;
         }
 
-        if (resultstate != "null") {
+        if (resultstate != "null" && resultstate.size() > 0) {
             boost::mutex::scoped_lock lock(_mutexDetectedInfo);
             if( !detectcontaineronly ) {
                 // only update the objects if detector actually returned them, otherwise will be erasing previously sent good results

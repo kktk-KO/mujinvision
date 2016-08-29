@@ -2416,11 +2416,10 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                     }
                 } else {
                     MUJIN_LOG_WARN("got old point cloud from camera " << cameraname << " (" << _GetHardwareId(cameraname) << "), do not send to controller. cloudstarttime=" << cloudstarttime << " oldtime=" << mCameranameLastsentcloudtime[cameraname]);
-                    // not sure if a good idea to force capturing so much
 
-                    //MUJIN_LOG_DEBUG("try to force capturing");
-                    //MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
-                    //_StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles); // necessary?
+                    MUJIN_LOG_INFO("cameras might be stopped, try to force capturing");
+                    MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
+                    _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true);
                 }
             }
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));

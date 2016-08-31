@@ -3060,7 +3060,7 @@ void MujinVisionManager::Initialize(
     _controllerIp = controllerIp;
     std::stringstream url_ss;
     url_ss << "http://" << controllerIp << ":" << controllerPort;
-    ControllerClientPtr controller = CreateControllerClient(controllerUsernamePass, url_ss.str());
+    ControllerClientPtr controller = CreateControllerClient(controllerUsernamePass, url_ss.str(), "", "", 0, controllertimeout);
     _pControllerClient = controller;
 
     // fetch or update modelfile
@@ -3081,7 +3081,7 @@ void MujinVisionManager::Initialize(
         // do the fetch
         long remotetimeval = 0;
         std::vector<unsigned char> data;
-        _pControllerClient->DownloadFileFromControllerIfModifiedSince_UTF8(targeturi, localtimeval, remotetimeval, data);
+        _pControllerClient->DownloadFileFromControllerIfModifiedSince_UTF8(targeturi, localtimeval, remotetimeval, data, controllertimeout);
         if (remotetimeval > 0) {
             // write file
             {
@@ -3121,7 +3121,7 @@ void MujinVisionManager::Initialize(
 
             long remotetimeval = 0;
             std::vector<unsigned char> data;
-            _pControllerClient->DownloadFileFromControllerIfModifiedSince_UTF8(targetdetectionarchiveurl, localtimeval, remotetimeval, data);
+            _pControllerClient->DownloadFileFromControllerIfModifiedSince_UTF8(targetdetectionarchiveurl, localtimeval, remotetimeval, data, controllertimeout);
             if (remotetimeval > 0) {
                 // write file
                 {

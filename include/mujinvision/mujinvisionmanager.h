@@ -655,6 +655,7 @@ private:
 
     ptree _visionserverpt; ///< ptree storing visionserver params
     std::vector<std::string> _vExecutionVerificationCameraNames; ///< names of cameras for exec verification
+    size_t _filteringsubsample;  ///< point cloud filting param for exec verification
     double _filteringvoxelsize;  ///< point cloud filting param for exec verification
     double _filteringstddev;  ///< point cloud filting param for exec verification
     int _filteringnumnn;  ///< point cloud filting param for exec verification

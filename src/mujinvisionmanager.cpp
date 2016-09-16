@@ -2746,6 +2746,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     uint64_t lastocclusioncheckfailurewarnts = 0;
     uint64_t lastocclusionwarnts = 0;
     //uint64_t lastcouldnotcapturewarnts = 0;
+    // TODO: currently snap is only supported when there is only one color camera and depth camera (rv)
     bool usecache = !((request || !_visionserverpt.get<bool>("runpublisher", true)) && (colorcameranames.size() == 1 && depthcameranames.size() == 1));
 
     while (!_bCancelCommand && // command is not being canceled
@@ -2756,7 +2757,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // get images from subscriber
         if (usecache) {
-            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp); // use 1/3 of the timeout to try to recover at least once
+            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp);
         } else {
             BOOST_ASSERT(colorcameranames.size() == 1); // TODO supports only one color camera
             BOOST_ASSERT(depthcameranames.size() == 1); // TODO supports only one depth camera

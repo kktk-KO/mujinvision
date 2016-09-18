@@ -2151,8 +2151,9 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
         std::vector<Real> newpoints;
         std::vector<CameraCaptureHandlePtr> capturehandles;
 
-        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles);
+        // do not ensure capturing here, it should be done inside threads that actually process the new images
+        //MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
+        //_StartAndGetCaptureHandle(cameranames, cameranames, capturehandles);
         while (!_bStopUpdateEnvironmentThread) {
             bool update = false;
             bool bDetectedObjectsValid = false;

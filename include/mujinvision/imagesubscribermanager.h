@@ -103,7 +103,7 @@ public:
 
     /** \brief gets detection result
      */
-    virtual ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/) = 0;
+    virtual ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/, const bool bindetection=false) = 0;
 
     virtual void StartCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="") = 0;
     virtual void StopCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0) = 0;

@@ -3796,6 +3796,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                 MUJIN_LOG_WARN("failed to get images in SendPointCloudObstacleToControllerThread, depthimages.size()=" << depthimages.size() << " depthcameranames.size()=" << depthcameranames.size());
                 MUJIN_LOG_DEBUG("force ensure capturing _StartAndGetCaptureHandle with cameranames " << __GetString(depthcameranames) << " current handles are " << capturehandles.size());
                 _StartAndGetCaptureHandle(depthcameranames, depthcameranames, capturehandles, true);  // always force for SendPointCloudObstacleToController
+                boost::this_thread::sleep(boost::posix_time::milliseconds(500)); // sleep a little to stop flooding the messages
             }
         }
     }

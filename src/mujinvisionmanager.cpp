@@ -3383,6 +3383,7 @@ void MujinVisionManager::Initialize(
         std::stringstream cleanss;
         write_json(cleanss, _visionserverpt.get_child("cleanParameters"));
         _detectorconfig = _detectorconfig + "\"cleanParameters\": " + cleanss.str() + ", ";
+        _detectorconfig = _detectorconfig + "\"visionManagerConfiguration\": " + visionmanagerconfigss.str() + ", ";
     }
     _detectorconfig = _detectorconfig + ParametersBase::GetJsonString("modelFilename", modelfilename) + "}";
     ParametersBase::ValidateJsonString(_detectorconfig);

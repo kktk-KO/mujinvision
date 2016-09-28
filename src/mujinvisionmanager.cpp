@@ -173,6 +173,12 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
 {
     std::string controllerclientconnectionstring = str(boost::format("tcp://%s:%d") % controllerip % binpickingTaskZmqPort);
     std::string occlusioncheckcommandtemplate = visionserverpt.get<std::string>("occlusioncheckcommandtemplate", "");
+    std::string customparameters;
+    if (visionserverpt.count("streamercustomparameters") > 0) {
+        std::stringstream ss;
+        write_json(ss, visionserverpt.get_child("streamercustomparameters"));
+        customparameters = ss.str();
+    }
     boost::replace_all(occlusioncheckcommandtemplate, "dummyslaverequestid", slaverequestid);
     ptree cameraidfullnamemappt, cameraidregionnamept, cameraidcheckocclusionpt;
     FOREACH(v, mCameraNameHardwareId) {
@@ -199,6 +205,9 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
     extraoptionspt.put_child("cameraidregionnamemap", cameraidregionnamept);
     extraoptionspt.put_child("cameraidcheckocclusionmap", cameraidcheckocclusionpt);
     extraoptionspt.put<std::string>("subscriberid", subscriberid);
+    if (customparameters.size() > 0) {
+        extraoptionspt.put<std::string>("customparameters", customparameters);
+    }
     std::stringstream ss;
     write_json(ss, extraoptionspt);
     //MUJIN_LOG_DEBUG(ss.str());

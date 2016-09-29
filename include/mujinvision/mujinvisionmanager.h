@@ -525,6 +525,7 @@ private:
         \param output imageEndTimestamp for all captured images, the endtime in ms of the image captured
         \param maxage max age in milliseconds of image to use, the call blocks until all images satisfy requirements or passed fetchimagetimeout
         \param newerthantimestamp images must be newer than the specified timestamp, the call blocks until all images satisfy requirements or passed fetchimagetimeout
+        \param bindetection whether to detect container when getting detection result, container's info is stored in result image's metadata field
      */
     void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned int maxage=0 /*ms*/, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/, const bool bindetection=false);
 

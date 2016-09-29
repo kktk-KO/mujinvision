@@ -102,6 +102,7 @@ public:
     virtual void SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const double timeout=1.0 /*sec*/, const int numimages=-1) = 0;
 
     /** \brief gets detection result
+     *  \param bindetection whether to append container detection result in the metadata, default is false
      */
     virtual ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/, const bool bindetection=false) = 0;
 

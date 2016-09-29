@@ -173,6 +173,12 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
 {
     std::string controllerclientconnectionstring = str(boost::format("tcp://%s:%d") % controllerip % binpickingTaskZmqPort);
     std::string occlusioncheckcommandtemplate = visionserverpt.get<std::string>("occlusioncheckcommandtemplate", "");
+    std::string customparameters;
+    if (visionserverpt.count("streamercustomparameters") > 0) {
+        std::stringstream ss;
+        write_json(ss, visionserverpt.get_child("streamercustomparameters"));
+        customparameters = ss.str();
+    }
     boost::replace_all(occlusioncheckcommandtemplate, "dummyslaverequestid", slaverequestid);
     ptree cameraidfullnamemappt, cameraidregionnamept, cameraidcheckocclusionpt;
     FOREACH(v, mCameraNameHardwareId) {
@@ -199,6 +205,9 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
     extraoptionspt.put_child("cameraidregionnamemap", cameraidregionnamept);
     extraoptionspt.put_child("cameraidcheckocclusionmap", cameraidcheckocclusionpt);
     extraoptionspt.put<std::string>("subscriberid", subscriberid);
+    if (customparameters.size() > 0) {
+        extraoptionspt.put<std::string>("customparameters", customparameters);
+    }
     std::stringstream ss;
     write_json(ss, extraoptionspt);
     //MUJIN_LOG_DEBUG(ss.str());
@@ -2151,8 +2160,9 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
         std::vector<Real> newpoints;
         std::vector<CameraCaptureHandlePtr> capturehandles;
 
-        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles);
+        // do not ensure capturing here, it should be done inside threads that actually process the new images
+        //MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
+        //_StartAndGetCaptureHandle(cameranames, cameranames, capturehandles);
         while (!_bStopUpdateEnvironmentThread) {
             bool update = false;
             bool bDetectedObjectsValid = false;
@@ -2746,6 +2756,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     uint64_t lastocclusioncheckfailurewarnts = 0;
     uint64_t lastocclusionwarnts = 0;
     //uint64_t lastcouldnotcapturewarnts = 0;
+    // TODO: currently snap is only supported when there is only one color camera and depth camera (rv)
     bool usecache = !((request || !_visionserverpt.get<bool>("runpublisher", true)) && (colorcameranames.size() == 1 && depthcameranames.size() == 1));
 
     while (!_bCancelCommand && // command is not being canceled
@@ -2756,7 +2767,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // get images from subscriber
         if (usecache) {
-            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp); // use 1/3 of the timeout to try to recover at least once
+            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp);
         } else {
             BOOST_ASSERT(colorcameranames.size() == 1); // TODO supports only one color camera
             BOOST_ASSERT(depthcameranames.size() == 1); // TODO supports only one depth camera
@@ -3382,6 +3393,7 @@ void MujinVisionManager::Initialize(
         std::stringstream cleanss;
         write_json(cleanss, _visionserverpt.get_child("cleanParameters"));
         _detectorconfig = _detectorconfig + "\"cleanParameters\": " + cleanss.str() + ", ";
+        _detectorconfig = _detectorconfig + "\"visionManagerConfiguration\": " + visionmanagerconfigss.str() + ", ";
     }
     _detectorconfig = _detectorconfig + ParametersBase::GetJsonString("modelFilename", modelfilename) + "}";
     ParametersBase::ValidateJsonString(_detectorconfig);
@@ -3796,6 +3808,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                 MUJIN_LOG_WARN("failed to get images in SendPointCloudObstacleToControllerThread, depthimages.size()=" << depthimages.size() << " depthcameranames.size()=" << depthcameranames.size());
                 MUJIN_LOG_DEBUG("force ensure capturing _StartAndGetCaptureHandle with cameranames " << __GetString(depthcameranames) << " current handles are " << capturehandles.size());
                 _StartAndGetCaptureHandle(depthcameranames, depthcameranames, capturehandles, true);  // always force for SendPointCloudObstacleToController
+                boost::this_thread::sleep(boost::posix_time::milliseconds(500)); // sleep a little to stop flooding the messages
             }
         }
     }

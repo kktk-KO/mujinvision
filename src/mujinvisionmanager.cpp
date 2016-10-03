@@ -2994,6 +2994,10 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 std::vector<ImagePtr> dummycolorimages, dummydepthimages; // do not override verified color/depth images
                 resultimages.clear();
                 ImagePtr image = _pImagesubscriberManager->SnapDetectionResult(resultcameraname, fetchimagetimeout / 1000.0, bindetection);
+                if (image.get() == NULL) {
+                    MUJIN_LOG_ERROR("SnapDetectionResult returned a nullptr");
+                }
+
                 if (image->GetStartTimestamp() - imageStartTimestamp < 1000.0) {  // FIXME in theory they should be the same, need this for simulation to work
                     resultimages.push_back(image);
                 } else {

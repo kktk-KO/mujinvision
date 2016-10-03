@@ -3004,6 +3004,10 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                     extracaptureoptions = _GetExtraCaptureOptions(_GetHardwareIds(depthcameranames), _GetHardwareIds(depthcameranames), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid);
                 }
                 ImagePtr image = _pImagesubscriberManager->SnapDetectionResult(resultcameraname, fetchimagetimeout / 1000.0, bindetection, extracaptureoptions);
+                if (image.get() == NULL) {
+                    MUJIN_LOG_ERROR("SnapDetectionResult returned a nullptr");
+                }
+
                 if (image->GetStartTimestamp() - imageStartTimestamp < 1000.0) {  // FIXME in theory they should be the same, need this for simulation to work
                     resultimages.push_back(image);
                 } else {

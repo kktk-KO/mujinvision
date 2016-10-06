@@ -1757,7 +1757,37 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
     std::vector<CameraCaptureHandlePtr> capturehandles;
     MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles); // force the first time
+    try {
+        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles); // force the first time
+    }
+    catch (const MujinVisionException& e) {
+        switch (e.GetCode()) {
+        case MVE_UserInterrupted:
+            MUJIN_LOG_INFO("User interrupted DetectObject!");
+            break;
+        default:
+            std::string errstr = e.message();
+            boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
+            boost::replace_all(errstr, "\\", ""); // need to remove \ in the message so that json parser works
+            MUJIN_LOG_ERROR(errstr);
+            _SetDetectorStatusMessage(errstr, GetErrorCodeString(MVE_Failed));
+            break;
+        }
+        MUJIN_LOG_INFO("caught exception, stopping detection thread");
+        _bStopDetectionThread = true;
+    }
+    catch(const std::exception& ex) {
+        std::stringstream ss;
+        ss << "Caught exception: " << ex.what();
+        //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_RecognitionError), ss.str());
+        std::string errstr = ss.str();
+        boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
+        boost::replace_all(errstr, "\\", ""); // need to remove \ in the message so that json parser works
+        MUJIN_LOG_ERROR(errstr);
+        _SetDetectorStatusMessage(errstr, GetErrorCodeString(MVE_Failed));
+        MUJIN_LOG_INFO("caught exception, stopping detection thread");
+        _bStopDetectionThread = true;
+    }
     while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimestamp > _tsStartDetection && _tsLastEnvUpdate > 0 && _resultImageEndTimestamp > 0 && lastGrabbedTargetTimestamp < _resultImageEndTimestamp && !_bIsGrabbingLastTarget)) {
         detectcontaineronly = false;
         starttime = GetMilliTime();
@@ -3575,6 +3605,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
     if (!_pImagesubscriberManager) {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
     }
+    try {
     // reset region info when necessary
     _CheckAndUpdateRegionCameraMapping(regionname, cameranames);
     uint64_t starttime = GetMilliTime();
@@ -3688,6 +3719,32 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
     ss << "SendPointCloudObstacleToController async " << int(async) << " took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
     MUJIN_LOG_INFO(ss.str());
     _SetStatus(TT_Command, MS_Succeeded);
+    }
+    catch (const MujinVisionException& e) {
+        switch (e.GetCode()) {
+        case MVE_UserInterrupted:
+            MUJIN_LOG_INFO("User interrupted DetectObject!");
+            break;
+        default:
+            std::string errstr = e.message();
+            boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
+            boost::replace_all(errstr, "\\", ""); // need to remove \ in the message so that json parser works
+            MUJIN_LOG_ERROR(errstr);
+            _SetStatusMessage(TT_Command, errstr, GetErrorCodeString(MVE_Failed));
+            break;
+        }
+    }
+    catch(const std::exception& ex) {
+        std::stringstream ss;
+        ss << "Caught exception: " << ex.what();
+        //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_RecognitionError), ss.str());
+        std::string errstr = ss.str();
+        boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
+        boost::replace_all(errstr, "\\", ""); // need to remove \ in the message so that json parser works
+        MUJIN_LOG_ERROR(errstr);
+        _SetStatusMessage(TT_Command, errstr, GetErrorCodeString(MVE_Failed));
+    }
+
 }
 
 void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params)
@@ -3831,12 +3888,23 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
             MUJIN_LOG_INFO("User interrupted GetPointCloudObstacle!");
             break;
         default:
-            MUJIN_LOG_WARN("got MujinVisionException: " << e.message());
+            std::string errstr = e.message();
+            boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
+            boost::replace_all(errstr, "\\", ""); // need to remove \ in the message so that json parser works
+            MUJIN_LOG_ERROR(errstr);
+            _SetStatusMessage(TT_SendPointcloudObstacle, errstr, GetErrorCodeString(MVE_Failed));
             break;
         }
     }
     catch (const std::exception& ex) {
-        MUJIN_LOG_WARN(str(boost::format("threw exception while sending pointcloud: %s")%ex.what()));
+        std::stringstream ss;
+        ss << "Caught exception: " << ex.what();
+        //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_RecognitionError), ss.str());
+        std::string errstr = ss.str();
+        boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
+        boost::replace_all(errstr, "\\", ""); // need to remove \ in the message so that json parser works
+        MUJIN_LOG_ERROR(errstr);
+        _SetStatusMessage(TT_SendPointcloudObstacle, errstr, GetErrorCodeString(MVE_Failed));
     }
     MUJIN_LOG_DEBUG("end of SendPointCloudObstacleToControllerThread");
 }

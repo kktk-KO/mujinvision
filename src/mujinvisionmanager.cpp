@@ -337,7 +337,7 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
             errss << "failed to start capturing for cameras " << __GetString(tostart);
             MUJIN_LOG_ERROR(errss.str());
             MUJIN_LOG_WARN("need to clear out old images");
-            _pImagesubscriberManager->Reset();
+            //_pImagesubscriberManager->Reset();
             _lastresultimages.clear();
             _lastcolorimages.clear();
             _lastdepthimages.clear();
@@ -2859,8 +2859,8 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 MUJIN_LOG_WARN("Image is more than " << maxage << " ms old (" << (GetMilliTime() - imageStartTimestamp) << "), will try to get again" << ", use_cache = " << usecache);
                 lastimageagecheckfailurets = GetMilliTime();
             }
-            MUJIN_LOG_WARN("reset imagesubscriber");
-            _pImagesubscriberManager->Reset();
+            //MUJIN_LOG_WARN("reset imagesubscriber");
+            //_pImagesubscriberManager->Reset();
 
             colorimages.clear();
             depthimages.clear();

@@ -169,7 +169,7 @@ enum CommandThreadIndex
     CDI_Configure=1,
 };
 
-std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const ptree& visionserverpt, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname, const std::string& subscriberid)
+std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const ptree& visionserverpt, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname, const std::string& subscriberid, const bool ignoreocclusion=false)
 {
     std::string controllerclientconnectionstring = str(boost::format("tcp://%s:%d") % controllerip % binpickingTaskZmqPort);
     std::string occlusioncheckcommandtemplate = visionserverpt.get<std::string>("occlusioncheckcommandtemplate", "");
@@ -205,6 +205,7 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
     extraoptionspt.put_child("cameraidregionnamemap", cameraidregionnamept);
     extraoptionspt.put_child("cameraidcheckocclusionmap", cameraidcheckocclusionpt);
     extraoptionspt.put<std::string>("subscriberid", subscriberid);
+    extraoptionspt.put<bool>("ignoreocclusion", ignoreocclusion);
     if (customparameters.size() > 0) {
         extraoptionspt.put<std::string>("customparameters", customparameters);
     }
@@ -287,7 +288,7 @@ MujinVisionManager::CameraCaptureHandle::~CameraCaptureHandle() {
     _pImagesubscriberManager->StopCaptureThread(tostop);
 }
 
-void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion, std::vector<CameraCaptureHandlePtr>& capturehandles, const bool force)
+void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion, std::vector<CameraCaptureHandlePtr>& capturehandles, const bool force, const bool ignoreocclusion)
 {
     if (!force && !_visionserverpt.get<bool>("runpublisher", true)) {
         capturehandles.resize(0);
@@ -327,7 +328,7 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
         std::string extracaptureoptions;
         {
             boost::mutex::scoped_lock lock(_mutexRegion);
-            extracaptureoptions = _GetExtraCaptureOptions(ids, _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid);
+            extracaptureoptions = _GetExtraCaptureOptions(ids, _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid, ignoreocclusion);
         }
         try {
             _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
@@ -1754,7 +1755,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
     std::vector<CameraCaptureHandlePtr> capturehandles;
     MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles); // force the first time
+    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, /*force=*/false, ignoreocclusion); // force the first time
     while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimestamp > _tsStartDetection && _tsLastEnvUpdate > 0 && _resultImageEndTimestamp > 0 && lastGrabbedTargetTimestamp < _resultImageEndTimestamp && !_bIsGrabbingLastTarget)) {
         detectcontaineronly = false;
         starttime = GetMilliTime();
@@ -1802,12 +1803,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 MUJIN_LOG_INFO("numLeftInOrder=" << numLeftInOrder << " orderNumber=" << orderNumber << " stoponleftinorder=" << stoponleftinorder << ", check container empty only.");
                 // have to guarantee that capture is started
                 MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-                _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles);
+                _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, /*force=*/false, ignoreocclusion);
                 detectcontaineronly = true;
             } else if (!isControllerPickPlaceRunning || forceRequestDetectionResults) { // detect if forced or not during pick and place
                 MUJIN_LOG_INFO("force detection, start capturing..." << (int)isControllerPickPlaceRunning << " " << (int)forceRequestDetectionResults);
                 MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-                _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles);
+                _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, /*force=*/false, ignoreocclusion);
             } else {  // do the following only if pick and place thread is running and detection is not forced
                 if (numPickAttempt <= lastPickedId) { // if robot has picked
                     if (GetMilliTime() - binpickingstateTimestamp < maxage) { // only do the following if the binpicking state message is up-to-date
@@ -1825,7 +1826,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             // 2, or, the result of this detection call could arrive after placing is done but before the next detection call, therefore saving another round of detection
                             MUJIN_LOG_INFO("need to detect for this picking attempt, starting image capturing... numPickAttempt=" << numPickAttempt << " lastPickedId=" << lastPickedId << " forceRequestDetectionResults=" << int(forceRequestDetectionResults) << " lastDetectedId=" << lastDetectedId << " numLeftInOrder=" << numLeftInOrder << " stoponleftinorder=" << stoponleftinorder << " lastGrabbedTargetTimestamp=" << lastGrabbedTargetTimestamp);
                             MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-                            _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles);
+                            _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, /*force=*/false, ignoreocclusion);
                         }
                     } else { // do not detect if binpicking status message is old (controller in bad state)
                         if (GetMilliTime() - lastbinpickingstatewarningts > 1000.0) {
@@ -1881,7 +1882,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 if (numresults == -1) {
                     MUJIN_LOG_INFO("force capturing, in case streamer crashed");
                     MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
-                    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
+                    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
                 }
             }
             else if (numfastdetection > 0 || bindetectiononly) {
@@ -1905,7 +1906,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     if (numresults == -1) {
                         MUJIN_LOG_INFO("force capturing, in case streamer crashed");
                         MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
-                        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
+                        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
                         numresults = 0;
                     }
                     if (isContainerPresent == 0) {
@@ -1947,7 +1948,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     if (numresults == -1) {
                         MUJIN_LOG_INFO("force capturing, in case streamer crashed");
                         MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
-                        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
+                        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
                         numresults = 0;
                     }
                 }
@@ -1962,7 +1963,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 if (numresults == -1) {
                     MUJIN_LOG_INFO("force capturing, in case streamer crashed");
                     MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
-                    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
+                    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
                     numresults = 0;
                 }
             }
@@ -2779,7 +2780,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             std::string extracaptureoptions;
             {
                 boost::mutex::scoped_lock lock(_mutexRegion);
-                extracaptureoptions = _GetExtraCaptureOptions(_GetHardwareIds(depthcameranames), _GetHardwareIds(depthcameranames), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid);
+                extracaptureoptions = _GetExtraCaptureOptions(_GetHardwareIds(depthcameranames), _GetHardwareIds(depthcameranames), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid, ignoreocclusion);
             }
             _pImagesubscriberManager->SnapColorAndDepthImages(depthcameranames.at(0), imageStartTimestamp, imageEndTimestamp, colorimages, depthimages, fetchimagetimeout / 1000.0, /*numimages=*/-1, extracaptureoptions);
         }
@@ -3451,7 +3452,7 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
     }
     std::vector<CameraCaptureHandlePtr> capturehandles;
     MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles);
+    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, /*force=*/false, ignoreocclusion);
     _DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold);
 }
 

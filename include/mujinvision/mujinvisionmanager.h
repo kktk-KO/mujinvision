@@ -577,7 +577,7 @@ private:
      */
     void _CheckAndUpdateRegionCameraMapping(const std::string& regionname, const std::vector<std::string>& cameranames);
 
-    void _StartAndGetCaptureHandle(const std::vector<std::string>& camreaids, const std::vector<std::string>& cameranamestocheckocclusion, std::vector<CameraCaptureHandlePtr>& capturehandles, bool force=false);
+    void _StartAndGetCaptureHandle(const std::vector<std::string>& camreaids, const std::vector<std::string>& cameranamestocheckocclusion, std::vector<CameraCaptureHandlePtr>& capturehandles, const bool force=false, const bool ignoreocclusion=false);
 
     boost::mutex _mutexCaptureHandles; ///< lock for _mCameranameCaptureHandles
     std::map<std::string, CameraCaptureHandleWeakPtr> _mCameranameCaptureHandles; ///< list of handles that maintain the runtime capture state of cameras, protected by _mutexCaptureHandles

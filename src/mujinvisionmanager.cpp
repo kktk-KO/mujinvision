@@ -3007,7 +3007,11 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 if (!!image && image->GetStartTimestamp() - imageStartTimestamp < 1000.0) {  // FIXME in theory they should be the same, need this for simulation to work
                     resultimages.push_back(image);
                 } else {
-                    MUJIN_LOG_WARN("got new images, have to verify again. image->GetStartTimestamp()=" << image->GetStartTimestamp() << " imageStartTimestamp=" << imageStartTimestamp);
+                    if (!!image) {
+                        MUJIN_LOG_WARN("got new images, have to verify again. image->GetStartTimestamp()=" << image->GetStartTimestamp() << " imageStartTimestamp=" << imageStartTimestamp);
+                    } else {
+                        MUJIN_LOG_WARN("SnapDetectionResult returned a null ptr");
+                    }
                     colorimages.clear();
                     depthimages.clear();
                     continue;

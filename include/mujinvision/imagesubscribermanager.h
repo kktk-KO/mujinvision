@@ -109,6 +109,9 @@ public:
     virtual void StartCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="") = 0;
     virtual void StopCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0) = 0;
 
+    /// \brief ms timestamp of when the subscrbe thread was started. Used for throttling how fast subscriber resets itself. If 0, then subscriber thread is not running
+    virtual uint64_t GetSubscribeStartedTimeStamp() const = 0;
+        
 protected:
 
     std::map<std::string, CameraPtr> _mNameCamera; ///< name -> camera

@@ -336,7 +336,11 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
             MUJIN_LOG_ERROR("caught exception " << ex.what());
             MUJIN_LOG_ERROR("failed to start capturing for cameras " << __GetString(tostart));
             MUJIN_LOG_WARN("need to clear out old images");
-            _pImagesubscriberManager->Reset();
+
+            if( GetMilliTime() - _pImagesubscriberManager->GetSubscribeStartedTimeStamp() > 10000 ) { // if 10s passed, then try to recreated the socket
+                MUJIN_LOG_WARN("reset imagesubscriber");
+                _pImagesubscriberManager->Reset();
+            }
             _lastresultimages.clear();
             _lastcolorimages.clear();
             _lastdepthimages.clear();
@@ -1753,6 +1757,11 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     std::vector<DetectedObjectPtr> detectedobjects, detectedparts;
     _bUseGrabbedTargeInfoInDetectionPreempt = stoponleftinorder; // use the grabbed target info only if stoponleftinorder is set
 
+    uint64_t lastCaptureResetTimestamp = 0; // ms timestamp when the capture handles were last reset. Used to prevent too many force resets in one time.
+    uint64_t lastCaptureResetTimeout = 4000; // how long to wait until force reset is called again
+
+    bool bDetectorHasRunAtLeastOnce = false;
+    
     std::vector<CameraCaptureHandlePtr> capturehandles;
     MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
     _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, /*force=*/false, ignoreocclusion); // force the first time
@@ -1765,6 +1774,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         int numresults = 0;
         unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
         int isContainerPresent=-1;
+        
         try {
             time0=GetMilliTime();
             oldbinpickingstatets = binpickingstateTimestamp;
@@ -1880,9 +1890,18 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 }
                 numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, lastGrabbedTargetTimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
                 if (numresults == -1) {
-                    MUJIN_LOG_INFO("force capturing, in case streamer crashed");
-                    MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
-                    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
+                    if( lastCaptureResetTimestamp == 0 || GetMilliTime() - lastCaptureResetTimestamp > lastCaptureResetTimeout ) {
+                        lastCaptureResetTimestamp = GetMilliTime();
+                        MUJIN_LOG_INFO("force capturing, in case streamer crashed");
+                        MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
+                        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
+                    }
+                    else {
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(50));
+                    }
+                }
+                else if( numresults >= 0 ) {
+                    bDetectorHasRunAtLeastOnce = true;
                 }
             }
             else if (numfastdetection > 0 || bindetectiononly) {
@@ -1904,11 +1923,21 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     }
                     numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
                     if (numresults == -1) {
-                        MUJIN_LOG_INFO("force capturing, in case streamer crashed");
-                        MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
-                        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
+                        if( lastCaptureResetTimestamp == 0 || GetMilliTime() - lastCaptureResetTimestamp > lastCaptureResetTimeout ) {
+                            lastCaptureResetTimestamp = GetMilliTime();
+                            MUJIN_LOG_INFO("force capturing, in case streamer crashed");
+                            MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
+                            _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
+                        }
+                        else {
+                            boost::this_thread::sleep(boost::posix_time::milliseconds(50));
+                        }
                         numresults = 0;
                     }
+                    else if( numresults >= 0 ) {
+                        bDetectorHasRunAtLeastOnce = true;
+                    }
+
                     if (isContainerPresent == 0) {
                         numresults = 0;
                         MUJIN_LOG_WARN("container is not present, detect again");
@@ -1946,10 +1975,19 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     bool checkcontaineremptyonly=false;
                     numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
                     if (numresults == -1) {
-                        MUJIN_LOG_INFO("force capturing, in case streamer crashed");
-                        MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
-                        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
+                        if( lastCaptureResetTimestamp == 0 || GetMilliTime() - lastCaptureResetTimestamp > lastCaptureResetTimeout ) {
+                            lastCaptureResetTimestamp = GetMilliTime();
+                            MUJIN_LOG_INFO("force capturing, in case streamer crashed");
+                            MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
+                            _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
+                        }
+                        else {
+                            boost::this_thread::sleep(boost::posix_time::milliseconds(50));
+                        }
                         numresults = 0;
+                    }
+                    else if( numresults >= 0 ) {
+                        bDetectorHasRunAtLeastOnce = true;
                     }
                 }
             } else {
@@ -1961,16 +1999,26 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 bool checkcontaineremptyonly=false;
                 numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
                 if (numresults == -1) {
-                    MUJIN_LOG_INFO("force capturing, in case streamer crashed");
-                    MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
-                    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
+                    if( lastCaptureResetTimestamp == 0 || GetMilliTime() - lastCaptureResetTimestamp > lastCaptureResetTimeout ) {
+                        lastCaptureResetTimestamp = GetMilliTime();    
+                        MUJIN_LOG_INFO("force capturing, in case streamer crashed");
+                        MUJIN_LOG_DEBUG("try to start capturing with cameranames " << __GetString(cameranames));
+                        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
+                    }
+                    else {
+                        boost::this_thread::sleep(boost::posix_time::milliseconds(50));
+                    }
                     numresults = 0;
                 }
+                else if( numresults >= 0 ) {
+                    bDetectorHasRunAtLeastOnce = true;
+                }
+
             }
             if (_bStopDetectionThread) {
                 break;
             }
-            if (!detectcontaineronly) {  // skip getting pointcloud obstacle if detecting container only
+            if (bDetectorHasRunAtLeastOnce && !detectcontaineronly) {  // skip getting pointcloud obstacle if detecting container only
                 // call GetPointCloudObstacle on parts only
                 {
                     boost::mutex::scoped_lock lock(_mutexRegion);
@@ -2066,10 +2114,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             _resultImageStartTimestamp = imageStartTimestamp;
             _resultImageEndTimestamp = imageEndTimestamp;
             if (_bDetectedObjectsValid) {
-                MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
+                MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u resultstate=%s")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp%resultstate));
             }
             else {
-                MUJIN_LOG_INFO(str(boost::format("send resultstate with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
+                MUJIN_LOG_INFO(str(boost::format("send resultstate with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u resultstate=%s")%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp%resultstate));
             }
         }
         else {
@@ -2366,6 +2414,9 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         std::map<std::string, uint64_t> mCameranameLastsentcloudtime;
         std::string regionname;
 
+        uint64_t lastCaptureResetTimestamp = 0; // ms timestamp when the capture handles were last reset. Used to prevent too many force resets in one time.
+        uint64_t lastCaptureResetTimeout = 4000; // how long to wait until force reset is called again
+        
         while (!_bStopExecutionVerificationPointCloudThread && evcamnames.size() > 0) {
             // send latest pointcloud for execution verification
             for (unsigned int i=0; i<evcamnames.size(); ++i) {
@@ -2398,11 +2449,15 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout, 0, _filteringsubsample);
                 if (isoccluded == -2 ) {
                     MUJIN_LOG_DEBUG("did not get depth from " << cameraname << " (" << _GetHardwareId(cameraname) << "), so do not send to controller");
-                    //MUJIN_LOG_WARN("reset image subscriber");
-                    //_pImagesubscriberManager->Reset();
-                    MUJIN_LOG_DEBUG("try to force capturing");
-                    MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
-                    _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true);
+                    if( lastCaptureResetTimestamp == 0 || GetMilliTime() - lastCaptureResetTimestamp > lastCaptureResetTimeout ) {
+                        lastCaptureResetTimestamp = GetMilliTime();    
+                        
+                        //MUJIN_LOG_WARN("reset image subscriber");
+                        //_pImagesubscriberManager->Reset();
+                        MUJIN_LOG_DEBUG("try to force capturing");
+                        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
+                        _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true);
+                    }
                 } else if (mCameranameLastsentcloudtime.find(cameraname) == mCameranameLastsentcloudtime.end() || cloudstarttime > mCameranameLastsentcloudtime[cameraname]) {
                     if( points.size() == 0 ) {
                         MUJIN_LOG_WARN("sending 0 points from camera " << cameraname << " (" << _GetHardwareId(cameraname) << ")");
@@ -2857,8 +2912,11 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 MUJIN_LOG_WARN("Image is more than " << maxage << " ms old (" << (GetMilliTime() - imageStartTimestamp) << "), will try to get again" << ", use_cache = " << usecache);
                 lastimageagecheckfailurets = GetMilliTime();
             }
-            MUJIN_LOG_WARN("reset imagesubscriber");
-            _pImagesubscriberManager->Reset();
+
+            if( GetMilliTime() - _pImagesubscriberManager->GetSubscribeStartedTimeStamp() > 10000 ) { // if 10s passed, then try to recreated the socket
+                MUJIN_LOG_WARN("reset imagesubscriber");
+                _pImagesubscriberManager->Reset();
+            }
 
             colorimages.clear();
             depthimages.clear();
@@ -3491,6 +3549,7 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
     } else {
         MUJIN_LOG_ERROR("Not enough images, cannot detect! colorimages=" << colorimages.size() << " depthimages=" << depthimages.size() << " resultimages=" << resultimages.size());
         // do not ensure capturehandles here, do it at the caller because the handles here would be removed too quickly before all desired images are captured
+        resultstate = "null";
         return -1;
     }
     int numresults = 0;

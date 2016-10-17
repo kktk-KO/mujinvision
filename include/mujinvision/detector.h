@@ -72,7 +72,7 @@ public:
         \param whether to get python gil
         \param checkpreemptbits bits to check for preempt
      */
-    virtual void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsworld, std::vector<double>& points, const double voxelsize=0.01, const bool fast=false, const bool getgil=false, const double stddev=0.01, const size_t numnn=80, const unsigned int checkpreemptbits=2) = 0;
+    virtual void GetPointCloudObstacle(const std::string& regionname, const std::string& depthcameraname, const std::vector<DetectedObjectPtr>& resultsworld, std::vector<float>& points, const double voxelsize=0.01, const bool fast=false, const bool getgil=false, const double stddev=0.01, const size_t numnn=80, const unsigned int checkpreemptbits=2) = 0;
 
     /** \brief Gets point cloud in world frame from depth image.
         \param regionname

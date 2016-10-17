@@ -671,7 +671,7 @@ private:
     boost::mutex _mutexDetectedInfo; ///< lock for detection result
     std::vector<DetectedObjectPtr> _vDetectedObject; ///< latest detection result. protected by _mutexDetectedInfo
     std::string _resultState; ///< additional information about the detection result. protected by _mutexDetectedInfo
-    std::map<std::string, std::vector<Real> > _mResultPoints; ///< result pointcloud obstacle, cameraname -> points. protected by _mutexDetectedInfo
+    std::map<std::string, std::vector<float> > _mResultPoints; ///< result pointcloud obstacle, cameraname -> points. protected by _mutexDetectedInfo
     //@}
 
     double _controllerCommandTimeout; ///< controller command timeout in seconds

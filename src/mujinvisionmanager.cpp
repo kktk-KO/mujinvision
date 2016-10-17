@@ -2044,7 +2044,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
                 for (unsigned int i=0; i<cameranamestobeused.size(); i++) {
                     std::string cameraname = cameranamestobeused[i];
-                    std::vector<Real> points;
+                    std::vector<float> points;
                     std::stringstream ss;
                     uint64_t starttime = GetMilliTime();
                     {
@@ -2218,7 +2218,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
 
         std::vector<BinPickingTaskResource::DetectedObject> detectedobjects;
         std::vector<Real> totalpoints;
-        std::map<std::string, std::vector<Real> > mResultPoints;
+        std::map<std::string, std::vector<float> > mResultPoints;
         std::vector<Real> newpoints;
         std::vector<CameraCaptureHandlePtr> capturehandles; CREATE_SAFE_DELETER_CAMERAHANDLES(capturehandles);
 
@@ -2307,7 +2307,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                     }
                     for(unsigned int i=0; i<cameranamestobeused.size(); i++) {
                         std::string cameraname = cameranamestobeused[i];
-                        std::map<std::string, std::vector<Real> >::const_iterator itpoints = mResultPoints.find(cameraname);
+                        std::map<std::string, std::vector<float> >::const_iterator itpoints = mResultPoints.find(cameraname);
                         if( itpoints != mResultPoints.end() ) {
                             // get point cloud obstacle
                             newpoints.resize(itpoints->second.size());

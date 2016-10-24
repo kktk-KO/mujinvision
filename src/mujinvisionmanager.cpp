@@ -2214,6 +2214,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     }
 
     MUJIN_LOG_INFO("ending detection thread. numdetection=" << numdetection << " numLeftInOrder=" << numLeftInOrder << " _bStopDetectionThread=" << _bStopDetectionThread << " lastGrabbedTargetTimestamp=" << lastGrabbedTargetTimestamp << " _tsLastEnvUpdate=" << _tsLastEnvUpdate << " _tsStartDetection=" << _tsStartDetection << " _resultImageEndTimestamp" << _resultImageEndTimestamp << " _resultTimestamp=" << _resultTimestamp);
+    _bIsDetectionRunning = false;
 }
 
 void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams params)

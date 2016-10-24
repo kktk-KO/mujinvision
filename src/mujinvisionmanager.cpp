@@ -2116,7 +2116,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
                 boost::replace_all(errstr, "\\", ""); // need to remove \ in the message so that json parser works
                 MUJIN_LOG_ERROR(errstr);
-                _SetDetectorStatusMessage(errstr, GetErrorCodeString(MVE_RecognitionError));
+                _SetDetectorStatusMessage(errstr, e.GetCodeString());
                 break;
             }
             numdetection += 1;

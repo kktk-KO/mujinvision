@@ -284,10 +284,14 @@ MujinVisionManager::CameraCaptureHandle::CameraCaptureHandle(ImageSubscriberMana
 }
 
 MujinVisionManager::CameraCaptureHandle::~CameraCaptureHandle() {
-    std::vector<std::string> tostop;
-    tostop.push_back(_cameraid);
-    MUJIN_LOG_INFO("stop capturing for camera " << _cameraname << "(" << _cameraid << ")");
-    _pImagesubscriberManager->StopCaptureThread(tostop);
+    try {
+        std::vector<std::string> tostop;
+        tostop.push_back(_cameraid);
+        MUJIN_LOG_INFO("stop capturing for camera " << _cameraname << "(" << _cameraid << ")");
+        _pImagesubscriberManager->StopCaptureThread(tostop);
+    } catch (...) {
+        MUJIN_LOG_ERROR("failed to stop capturing for camera " << _cameraname << "(" << _cameraid << ")");
+    }
 }
 
 void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion, std::vector<CameraCaptureHandlePtr>& capturehandles, const bool force, const bool ignoreocclusion)

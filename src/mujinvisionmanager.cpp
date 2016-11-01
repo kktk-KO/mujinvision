@@ -211,10 +211,15 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
     if (customparameters.size() > 0) {
         extraoptionspt.put<std::string>("customparameters", customparameters);
     }
-    std::stringstream ss;
-    write_json(ss, extraoptionspt);
-    //MUJIN_LOG_DEBUG(ss.str());
-    return ss.str();
+    try {
+        std::stringstream ss;
+        write_json(ss, extraoptionspt);
+        //MUJIN_LOG_DEBUG(ss.str());
+        return ss.str();
+    } catch (const std::exception& ex) {
+        MUJIN_LOG_WARN("failed to get extraoptions string. controllerclientconnectionstring=" << controllerclientconnectionstring << " occlusioncheckcommandtemplate=" << occlusioncheckcommandtemplate);
+        return "";
+    }
 }
 
 
@@ -1745,7 +1750,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     MUJIN_LOG_DEBUG("pBinpickingTask->Initialize() took " << (GetMilliTime()-time0)/1000.0f << " secs");
     int numfastdetection = maxnumfastdetection; // max num of times to run fast detection
     bool bindetectiononly = false;
-    if (numfastdetection == 0 && _bDetectBin) {
+    if (numfastdetection == 0 && _bindetectionMode > 0) {
         MUJIN_LOG_INFO("maxnumfastdetection is set to 0, need to do bin detection for at least once");
         bindetectiononly = true;
     }
@@ -1920,7 +1925,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             else if (numfastdetection > 0 || bindetectiononly) {
                 while (!_bStopDetectionThread && numresults == 0 && (numfastdetection > 0 || bindetectiononly)) {
                     bool fastdetection=true;
-                    bool bindetection=_bDetectBin;
+                    bool bindetection=_bindetectionMode > 0;
                     bool request=false;
                     bool useold=false;
                     bool checkcontaineremptyonly=false;
@@ -1931,7 +1936,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     } else {
                         MUJIN_LOG_DEBUG("DetectObjects() in fast mode");
                     }
-                    if (_bDetectBin) {
+                    if (_bindetectionMode > 0) {
                         MUJIN_LOG_DEBUG("call DetectObjects() with bindetection=true");
                     }
                     numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, maxage, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
@@ -1982,7 +1987,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 if (!_bStopDetectionThread && numresults == 0 && numfastdetection == 0) {
                     MUJIN_LOG_DEBUG("DetectObjects() in fast mode found no object, detect in normal mode");
                     bool fastdetection=false;
-                    bool bindetection=false;
+                    bool bindetection=_bindetectionMode == 2;
                     bool request=false;
                     bool useold=true;
                     bool checkcontaineremptyonly=false;
@@ -2006,7 +2011,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             } else {
                 MUJIN_LOG_DEBUG("detect normally");
                 bool fastdetection=false;
-                bool bindetection=false;
+                bool bindetection=_bindetectionMode == 2;
                 bool request=false;
                 bool useold=false;
                 bool checkcontaineremptyonly=false;
@@ -3290,7 +3295,7 @@ void MujinVisionManager::Initialize(
         _filteringvoxelsize = _filteringvoxelsize * 1000;
     }
     _filteringnumnn = _visionserverpt.get<int>("filteringnumnn", 80);
-    _bDetectBin = _visionserverpt.get<bool>("detectbin", true);
+    _bindetectionMode = _visionserverpt.get<int>("detectbin", 1);
     std::string detectormodulename = _visionserverpt.get<std::string>("modulename", "");
     std::string detectorclassname = _visionserverpt.get<std::string>("classname", "");
     if (detectormodulename.size() > 0 && detectorclassname.size() > 0) {

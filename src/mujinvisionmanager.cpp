@@ -3295,7 +3295,12 @@ void MujinVisionManager::Initialize(
         _filteringvoxelsize = _filteringvoxelsize * 1000;
     }
     _filteringnumnn = _visionserverpt.get<int>("filteringnumnn", 80);
-    _bindetectionMode = _visionserverpt.get<int>("detectbin", 1);
+    if (_visionserverpt.count("bindetectionMode") > 0) {
+        _bindetectionMode = _visionserverpt.get<int>("bindetectionMode", 1);
+    } else if (_visionserverpt.count("bindetection") > 0) {
+        MUJIN_LOG_WARN("bindetection is deprecated, please use bindetectionMode instead");
+        _bindetectionMode = _visionserverpt.get<int>("bindetection", 1);
+    }
     std::string detectormodulename = _visionserverpt.get<std::string>("modulename", "");
     std::string detectorclassname = _visionserverpt.get<std::string>("classname", "");
     if (detectormodulename.size() > 0 && detectorclassname.size() > 0) {

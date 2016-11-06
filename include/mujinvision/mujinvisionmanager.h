@@ -356,6 +356,7 @@ private:
         std::vector<std::string> executionverificationcameranames;
         double voxelsize;
         double pointsize;
+        bool ignoreocclusion;
         std::string obstaclename;
         unsigned int waitinterval;
         std::string locale;
@@ -485,7 +486,7 @@ private:
     /** \brief thread that sends the execution verification point cloud
      */
     void _SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params);
-    void _StartExecutionVerificationPointCloudThread(const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _StartExecutionVerificationPointCloudThread(const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopExecutionVerificationPointCloudThread();
 
     void _ControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");

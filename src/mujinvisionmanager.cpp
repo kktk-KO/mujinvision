@@ -1567,7 +1567,7 @@ void MujinVisionManager::_StartUpdateEnvironmentThread(const std::string& region
     }
 }
 
-void MujinVisionManager::_StartExecutionVerificationPointCloudThread(const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval, const std::string& locale)
+void MujinVisionManager::_StartExecutionVerificationPointCloudThread(const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const std::string& obstaclename, const unsigned int waitinterval, const std::string& locale)
 {
     if (!!_pExecutionVerificationPointCloudThread && !_bStopExecutionVerificationPointCloudThread) {
         _SetStatusMessage(TT_Command, "ExecutionVerificationPointCloud thread is already running, do nothing.");
@@ -1579,6 +1579,7 @@ void MujinVisionManager::_StartExecutionVerificationPointCloudThread(const std::
         params.executionverificationcameranames = evcamnames;
         params.voxelsize = voxelsize;
         params.pointsize = pointsize;
+        params.ignoreocclusion = ignoreocclusion;
         //params.obstaclename = obstaclename;
         params.waitinterval = waitinterval;
         params.locale = locale;
@@ -2408,6 +2409,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         MUJIN_LOG_INFO("starting SendExecutionVerificationPointCloudThread " + ParametersBase::GetJsonString(evcamnames));
         //double voxelsize = params.voxelsize;
         double pointsize = params.pointsize;
+        bool ignoreocclusion = params.ignoreocclusion;
         //std::string obstaclename = params.obstaclename;
         unsigned int waitinterval = params.waitinterval;
         std::string locale = params.locale;
@@ -2440,7 +2442,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
             for (unsigned int i=0; i<evcamnames.size(); ++i) {
                 // ensure publishing
                 MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
-                _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles);
+                _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, false, ignoreocclusion);
 
                 std::vector<double> points;
                 std::string cameraname = evcamnames.at(i);
@@ -2474,7 +2476,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                         //_pImagesubscriberManager->Reset();
                         MUJIN_LOG_DEBUG("try to force capturing");
                         MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
-                        _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true);
+                        _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true, ignoreocclusion);
                     }
                 } else if (mCameranameLastsentcloudtime.find(cameraname) == mCameranameLastsentcloudtime.end() || cloudstarttime > mCameranameLastsentcloudtime[cameraname]) {
                     if( points.size() == 0 ) {
@@ -2505,7 +2507,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                     if (GetMilliTime() - mCameranameLastsentcloudtime[cameraname] > 10 * 1000.0) {
                         MUJIN_LOG_INFO("it has been " << (GetMilliTime() - mCameranameLastsentcloudtime[cameraname]) / 1000.0f << " secs since we got the last pointcloud, cameras might be stopped, try to force capturing");
                         MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
-                        _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true);
+                        _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, true, ignoreocclusion);
                     }
                 }
             }
@@ -2652,7 +2654,7 @@ void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadPar
         std::vector<CameraCaptureHandlePtr> capturehandles; CREATE_SAFE_DELETER_CAMERAHANDLES(capturehandles);
         while (!_bStopVisualizePointCloudThread) {
             MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-            _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true);
+            _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
             SyncCameras(regionname, cameranames);
             if (_bStopVisualizePointCloudThread) {
                 break;
@@ -3620,7 +3622,7 @@ void MujinVisionManager::StartDetectionLoop(const std::string& regionname, const
     _StartDetectionThread(regionname, cameranames, voxelsize, pointsize, ignoreocclusion, maxage, fetchimagetimeout, detectionstarttimestamp, maxnumfastdetection, maxnumdetection, stopOnLeftInOrder, targetupdatename);
     _StartUpdateEnvironmentThread(regionname, cameranames, voxelsize, pointsize, obstaclename, 50, locale);
     if( _bSendVerificationPointCloud ) {
-        _StartExecutionVerificationPointCloudThread(evcamnames, evcamnames, voxelsize, pointsize, obstaclename, 50, locale);
+        _StartExecutionVerificationPointCloudThread(evcamnames, evcamnames, voxelsize, pointsize, ignoreocclusion, obstaclename, 50, locale);
     }
     _StartControllerMonitorThread(50, locale);
     _SetStatus(TT_Command, MS_Succeeded);

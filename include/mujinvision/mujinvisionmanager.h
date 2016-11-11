@@ -356,6 +356,7 @@ private:
         std::vector<std::string> executionverificationcameranames;
         double voxelsize;
         double pointsize;
+        bool ignoreocclusion;
         std::string obstaclename;
         unsigned int waitinterval;
         std::string locale;
@@ -485,7 +486,7 @@ private:
     /** \brief thread that sends the execution verification point cloud
      */
     void _SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params);
-    void _StartExecutionVerificationPointCloudThread(const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _StartExecutionVerificationPointCloudThread(const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopExecutionVerificationPointCloudThread();
 
     void _ControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
@@ -688,6 +689,7 @@ private:
     int _numLeftInOrder; ///< num of order to go
     int _numLeftInSupply; ///< num of items left in supply
     int _placedInDest; ///< num placed in destination
+    int _bindetectionMode; ///< 0: do not detect; 1: detect once; 2: always detect
     bool _bIsControllerPickPlaceRunning; ///< whether pick and place thread is running on the controller
     bool _bIsRobotOccludingSourceContainer; ///< whether robot is occluding the source container
     bool _bForceRequestDetectionResults; ///< whether to run detection ignoring _numPickAttempt
@@ -713,7 +715,6 @@ private:
     bool _bSendVerificationPointCloud; ///< whether send verification point cloud or not
     bool _bDetectedObjectsValid; ///< if true, then _vDetectedObject is valid and should be updated to the scene. if false, then not valid and UpdateEnvironmentState should not update the objects. protected by _mutexDetectedInfo
     bool _bUseGrabbedTargeInfoInDetectionPreempt; ///< if true, then use _lastGrabbedTargetTimestamp and numLeftInOrder to determine whether the detector should be preempted or not. by default it is false.
-    bool _bDetectBin; ///< whether to detect bin
     boost::array<bool, 2> _mPortStopCommandThread; ///< command index -> bool, whether to stop the command thread of specified port
 
     std::string _detectionRegionName; ///< name of the region on which the last detection was started or currently running

@@ -2430,23 +2430,35 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
         //uint64_t starttime;
         uint64_t lastwarnedtimestamp0 = 0;
-        //uint64_t lastwarnedtimestamp1 = 0;
+        uint64_t lastwarnedtimestamp1 = 0;
         std::map<std::string, uint64_t> mCameranameLastsentcloudtime;
         std::string regionname;
 
         uint64_t lastCaptureResetTimestamp = 0; // ms timestamp when the capture handles were last reset. Used to prevent too many force resets in one time.
         uint64_t lastCaptureResetTimeout = 4000; // how long to wait until force reset is called again
-
+        uint64_t lastUpdateTimestamp = 0;
         while (!_bStopExecutionVerificationPointCloudThread && evcamnames.size() > 0) {
+            if (_visionserverpt.get<bool>("rv", false)) { // for rv system, use the last result as execution verification pointcloud
+                boost::mutex::scoped_lock lock(_mutexDetectedInfo);
+                if (_resultTimestamp == 0 || _resultTimestamp <= lastUpdateTimestamp) {
+                    if (GetMilliTime() - lastwarnedtimestamp1 > 1000.0) {
+                        lastwarnedtimestamp1 = GetMilliTime();
+                        MUJIN_LOG_DEBUG("there is no detection result yet, wait a bit");
+                    }
+                    boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+                    continue;
+                } else {
+                    lastUpdateTimestamp = _resultTimestamp;
+                }
+            }
             // send latest pointcloud for execution verification
             for (unsigned int i=0; i<evcamnames.size(); ++i) {
-                // ensure publishing
-                MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
-                _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, false, ignoreocclusion);
-
                 std::vector<double> points;
                 std::string cameraname = evcamnames.at(i);
                 unsigned long long cloudstarttime, cloudendtime;
+                // ensure publishing
+                MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
+                _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, false, ignoreocclusion);
                 double newpointsize = 0;
                 {
                     boost::mutex::scoped_lock lock(_mutexRegion);
@@ -2465,8 +2477,19 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                     }
                 }
                 double timeout = 3.0; // secs
-
-                int isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout, 0, _filteringsubsample);
+                int isoccluded = -1;
+                if (_visionserverpt.get<bool>("rv", false)) { // for rv system, use the last result as execution verification pointcloud
+                    if (_mResultPoints.find(cameraname) == _mResultPoints.end()) {
+                        MUJIN_LOG_DEBUG("no result points found for cameraname=" << cameraname << ", do nothing");
+                        continue;
+                    }
+                    boost::mutex::scoped_lock lock(_mutexDetectedInfo);
+                    points = _mResultPoints[cameraname];
+                    cloudstarttime = _resultImageStartTimestamp;
+                    cloudendtime = _resultImageEndTimestamp;
+                } else {
+                    isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout, 0, _filteringsubsample);
+                }
                 if (isoccluded == -2 ) {
                     MUJIN_LOG_DEBUG("did not get depth from " << cameraname << " (" << _GetHardwareId(cameraname) << "), so do not send to controller");
                     if( lastCaptureResetTimestamp == 0 || GetMilliTime() - lastCaptureResetTimestamp > lastCaptureResetTimeout ) {

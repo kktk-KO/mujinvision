@@ -3074,6 +3074,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             // for rv system, if bindetetion is true, always get detection result
             if (_visionserverpt.get<bool>("rv", false) && ((colorimages.size() > 0 && depthimages.size() > 0) || bindetection)) {
                 MUJIN_LOG_DEBUG("color/depth pair (imageStartTimestamp=" << imageStartTimestamp << " imageEndTimestamp=" << imageEndTimestamp << ") passed occlusion and age checks, get result image");
+                start0 = GetMilliTime(); // reset fetchimagetimeout starting timestamp
                 std::string resultcameraname = depthcameranames.at(0); // assuming that the first depth camera provides the result image
                 std::vector<ImagePtr> dummycolorimages, dummydepthimages; // do not override verified color/depth images
                 resultimages.clear();

@@ -171,7 +171,7 @@ enum CommandThreadIndex
     CDI_Configure=1,
 };
 
-std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const ptree& visionserverpt, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname, const std::string& subscriberid, const bool ignoreocclusion=false)
+std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const ptree& visionserverpt, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname, const std::string& subscriberid, const bool ignoreocclusion=false, const int bindetection=0)
 {
     std::string controllerclientconnectionstring = str(boost::format("tcp://%s:%d") % controllerip % binpickingTaskZmqPort);
     std::string occlusioncheckcommandtemplate = visionserverpt.get<std::string>("occlusioncheckcommandtemplate", "");
@@ -208,6 +208,7 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
     extraoptionspt.put_child("cameraidcheckocclusionmap", cameraidcheckocclusionpt);
     extraoptionspt.put<std::string>("subscriberid", subscriberid);
     extraoptionspt.put<int>("ignoreocclusion", ignoreocclusion);
+    extraoptionspt.put<int>("bindetection", bindetection);
     if (customparameters.size() > 0) {
         extraoptionspt.put<std::string>("customparameters", customparameters);
     }
@@ -335,7 +336,7 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
         std::string extracaptureoptions;
         {
             boost::mutex::scoped_lock lock(_mutexRegion);
-            extracaptureoptions = _GetExtraCaptureOptions(ids, _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid, ignoreocclusion);
+            extracaptureoptions = _GetExtraCaptureOptions(ids, _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid, ignoreocclusion, _bindetectionMode);
         }
         try {
             _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
@@ -1014,7 +1015,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             unsigned long long newerthantimestamp = command_pt.get<unsigned long long>("newerthantimestamp", 0);
             unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
             bool fastdetection = command_pt.get<bool>("fastdetection", false);
-            bool bindetection = command_pt.get<bool>("bindetection", false);
+            int bindetection = command_pt.get<int>("bindetection", 0);
             std::vector<DetectedObjectPtr> detectedobjects;
             std::string resultstate;
             unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
@@ -1783,7 +1784,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     
     std::vector<CameraCaptureHandlePtr> capturehandles; CREATE_SAFE_DELETER_CAMERAHANDLES(capturehandles);
     MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, /*force=*/ false, ignoreocclusion); // force the first time
+    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, /*force=*/ false, ignoreocclusion);
     while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimestamp > _tsStartDetection && _tsLastEnvUpdate > 0 && _resultImageEndTimestamp > 0 && lastGrabbedTargetTimestamp < _resultImageEndTimestamp && !_bIsGrabbingLastTarget)) {
         detectcontaineronly = false;
         starttime = GetMilliTime();
@@ -2438,19 +2439,6 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         uint64_t lastCaptureResetTimeout = 4000; // how long to wait until force reset is called again
         uint64_t lastUpdateTimestamp = 0;
         while (!_bStopExecutionVerificationPointCloudThread && evcamnames.size() > 0) {
-            if (_visionserverpt.get<bool>("rv", false)) { // for rv system, use the last result as execution verification pointcloud
-                boost::mutex::scoped_lock lock(_mutexDetectedInfo);
-                if (_resultTimestamp == 0 || _resultTimestamp <= lastUpdateTimestamp) {
-                    if (GetMilliTime() - lastwarnedtimestamp1 > 1000.0) {
-                        lastwarnedtimestamp1 = GetMilliTime();
-                        MUJIN_LOG_DEBUG("there is no detection result yet, wait a bit");
-                    }
-                    boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
-                    continue;
-                } else {
-                    lastUpdateTimestamp = _resultTimestamp;
-                }
-            }
             // send latest pointcloud for execution verification
             for (unsigned int i=0; i<evcamnames.size(); ++i) {
                 std::vector<double> points;
@@ -2478,18 +2466,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 }
                 double timeout = 3.0; // secs
                 int isoccluded = -1;
-                if (_visionserverpt.get<bool>("rv", false)) { // for rv system, use the last result as execution verification pointcloud
-                    if (_mResultPoints.find(cameraname) == _mResultPoints.end()) {
-                        MUJIN_LOG_DEBUG("no result points found for cameraname=" << cameraname << ", do nothing");
-                        continue;
-                    }
-                    boost::mutex::scoped_lock lock(_mutexDetectedInfo);
-                    points = _mResultPoints[cameraname];
-                    cloudstarttime = _resultImageStartTimestamp;
-                    cloudendtime = _resultImageEndTimestamp;
-                } else {
-                    isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout, 0, _filteringsubsample);
-                }
+                isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout, 0, _filteringsubsample);
                 if (isoccluded == -2 ) {
                     MUJIN_LOG_DEBUG("did not get depth from " << cameraname << " (" << _GetHardwareId(cameraname) << "), so do not send to controller");
                     if( lastCaptureResetTimestamp == 0 || GetMilliTime() - lastCaptureResetTimestamp > lastCaptureResetTimeout ) {
@@ -2872,8 +2849,6 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             BOOST_ASSERT(depthcameranames.size() == 1); // TODO supports only one depth camera
             colorimages.clear();
             depthimages.clear();
-            //colorimages.push_back(_pImagesubscriberManager->SnapColorImage(colorcameranames.at(0), imageStartTimestamp, imageEndTimestamp, fetchimagetimeout / 1000.0));
-            //depthimages.push_back(_pImagesubscriberManager->SnapDepthImage(depthcameranames.at(0), imageStartTimestamp, imageEndTimestamp, fetchimagetimeout / 1000.0));
             // assuming that the depth camera will return color image as well (with color camera name)
             std::string extracaptureoptions;
             {
@@ -2892,49 +2867,9 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             MUJIN_LOG_WARN("Could not get all images, ensure capturing thread, will try again" << ": # color " << colorimages.size() << "," << colorcameranames.size() << ", # depth " << depthimages.size() << "," << depthcameranames.size() << ", # result images = " << resultimages.size() << ", use_cache = " << usecache);
             //lastcouldnotcapturewarnts = GetMilliTime();
 
-            //MUJIN_LOG_WARN("reset image subscriber");
-            //_pImagesubscriberManager->Reset();
-            /*
-               std::vector<std::string> ids;
-               std::string id;
-               for (size_t i = 0; i < colorcameranames.size(); ++i) {
-                if (_mCameraNameHardwareId.find(colorcameranames[i]) == _mCameraNameHardwareId.end()) {
-                    MUJIN_LOG_WARN("cameraname " << colorcameranames[i] << " is not mapped to a hardware id");
-                    continue;
-                }
-                id = _mCameraNameHardwareId[colorcameranames[i]];
-                if (std::find(ids.begin(), ids.end(), id) == ids.end()) {
-                    ids.push_back(id);
-                }
-               }
-               for (size_t i = 0; i < depthcameranames.size(); ++i) {
-                if (_mCameraNameHardwareId.find(depthcameranames[i]) == _mCameraNameHardwareId.end()) {
-                    MUJIN_LOG_WARN("cameraname " << depthcameranames[i] << " is not mapped to a hardware id");
-                    continue;
-                }
-                id = _mCameraNameHardwareId[depthcameranames[i]];
-                if (std::find(ids.begin(), ids.end(), id) == ids.end()) {
-                    ids.push_back(id);
-                }
-               }
-               std::string extracaptureoptions;
-               extracaptureoptions = _GetExtraCaptureOptions(ids, ids, _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname);
-               double timeout = 5.0;
-               int numimages = -1;
-               MUJIN_LOG_WARN("start publishing for cameras " << __GetString(ids));
-               _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
-             */
             colorimages.clear();
             depthimages.clear();
-            //continue;
             break;
-            // TODO: there is a race condition to be debugged
-            //MUJIN_LOG_WARN("reset capture handles, then get out of _GetImages()");
-            // {
-            //     boost::mutex::scoped_lock lock(_mutexCaptureHandles);
-            //     _mCameranameCaptureHandles.clear();
-            // }
-            //break;
         }
 
         // throw exception if acquired images are from the future
@@ -3093,33 +3028,6 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             resultimages.clear();
             continue;
         } else {
-            // capture for result images if it is rv system and both color and depth images are captured, if only depth is captured, then this is invoked by VisualizePointcloudThread and there is no need for result image
-            // for rv system, if bindetetion is true, always get detection result
-            if (_visionserverpt.get<bool>("rv", false) && ((colorimages.size() > 0 && depthimages.size() > 0) || bindetection)) {
-                MUJIN_LOG_DEBUG("color/depth pair (imageStartTimestamp=" << imageStartTimestamp << " imageEndTimestamp=" << imageEndTimestamp << ") passed occlusion and age checks, get result image");
-                start0 = GetMilliTime(); // reset fetchimagetimeout starting timestamp
-                std::string resultcameraname = depthcameranames.at(0); // assuming that the first depth camera provides the result image
-                std::vector<ImagePtr> dummycolorimages, dummydepthimages; // do not override verified color/depth images
-                resultimages.clear();
-                std::string extracaptureoptions;
-                {
-                    boost::mutex::scoped_lock lock(_mutexRegion);
-                    extracaptureoptions = _GetExtraCaptureOptions(_GetHardwareIds(depthcameranames), _GetHardwareIds(depthcameranames), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid);
-                }
-                ImagePtr image = _pImagesubscriberManager->SnapDetectionResult(resultcameraname, fetchimagetimeout / 1000.0, bindetection, extracaptureoptions);
-                if (!!image && image->GetStartTimestamp() - imageStartTimestamp < 1000.0) {  // FIXME in theory they should be the same, need this for simulation to work
-                    resultimages.push_back(image);
-                } else {
-                    if (!!image) {
-                        MUJIN_LOG_WARN("got new images, have to verify again. image->GetStartTimestamp()=" << image->GetStartTimestamp() << " imageStartTimestamp=" << imageStartTimestamp);
-                    } else {
-                        MUJIN_LOG_WARN("SnapDetectionResult returned a null ptr");
-                    }
-                    colorimages.clear();
-                    depthimages.clear();
-                    continue;
-                }
-            }
             std::stringstream ss;
             ss << "got good imagepack. imageStartTimestamp=" << imageStartTimestamp << " imageEndTimestamp=" << imageEndTimestamp << " total=" << (imageEndTimestamp-imageStartTimestamp)/1000.0f << " " << (GetMilliTime()-imageStartTimestamp) / 1000.0f << " secs old";
             MUJIN_LOG_DEBUG(ss.str());

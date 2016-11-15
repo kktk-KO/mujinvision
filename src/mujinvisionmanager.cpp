@@ -195,9 +195,9 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
     BOOST_ASSERT(cameraids.size() <= cameraidstocheckocclusion.size());
     for (size_t i=0; i<cameraids.size(); ++i) {
         if (std::find(cameraidstocheckocclusion.begin(), cameraidstocheckocclusion.end(), cameraids[i]) == cameraidstocheckocclusion.end()) {
-            cameraidcheckocclusionpt.put<bool>(cameraids[i], false);
+            cameraidcheckocclusionpt.put<int>(cameraids[i], false);
         } else {
-            cameraidcheckocclusionpt.put<bool>(cameraids[i], true);
+            cameraidcheckocclusionpt.put<int>(cameraids[i], true);
         }
     }
     ptree extraoptionspt;
@@ -207,7 +207,7 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
     extraoptionspt.put_child("cameraidregionnamemap", cameraidregionnamept);
     extraoptionspt.put_child("cameraidcheckocclusionmap", cameraidcheckocclusionpt);
     extraoptionspt.put<std::string>("subscriberid", subscriberid);
-    extraoptionspt.put<bool>("ignoreocclusion", ignoreocclusion);
+    extraoptionspt.put<int>("ignoreocclusion", ignoreocclusion);
     if (customparameters.size() > 0) {
         extraoptionspt.put<std::string>("customparameters", customparameters);
     }

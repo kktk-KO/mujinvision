@@ -192,7 +192,6 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
             MUJIN_LOG_VERBOSE("failed to find regionname for camera " << v->first);
         }
     }
-    BOOST_ASSERT(cameraids.size() <= cameraidstocheckocclusion.size());
     for (size_t i=0; i<cameraids.size(); ++i) {
         if (std::find(cameraidstocheckocclusion.begin(), cameraidstocheckocclusion.end(), cameraids[i]) == cameraidstocheckocclusion.end()) {
             cameraidcheckocclusionpt.put<int>(cameraids[i], false);

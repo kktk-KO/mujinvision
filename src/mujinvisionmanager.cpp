@@ -2639,6 +2639,7 @@ void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadPar
         FalseSetter turnOffVisualize(_bIsVisualizePointcloudRunning);
         std::string regionname = params.regionname;
         std::vector<std::string> cameranames = params.cameranames;
+        std::vector<std::string> emptycameranames;
         double pointsize = params.pointsize;
         if (pointsize == 0) {
             boost::mutex::scoped_lock lock(_mutexRegion);
@@ -2654,7 +2655,7 @@ void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadPar
         std::vector<CameraCaptureHandlePtr> capturehandles; CREATE_SAFE_DELETER_CAMERAHANDLES(capturehandles);
         while (!_bStopVisualizePointCloudThread) {
             MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-            _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
+            _StartAndGetCaptureHandle(cameranames, emptycameranames, capturehandles, true, ignoreocclusion);
             SyncCameras(regionname, cameranames);
             if (_bStopVisualizePointCloudThread) {
                 break;

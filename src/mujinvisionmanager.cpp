@@ -2259,7 +2259,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                     unsigned int nameind = 0;
                     DetectedObjectPtr detectedobject;
                     RegionPtr region;
-                    TransformMatrix O_T_region, O_T_baselinkcenter, tBaseLinkInInnerRegionTopCenter;
+                    TransformMatrix O_T_region, O_T_baselinkcenter, baselinkcenter_T_region;
                     unsigned int numUpdatedRegions = 0;
                     for (unsigned int i=0; i<vDetectedObject.size(); i++) {
                         Transform newtransform;
@@ -2280,9 +2280,9 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                                 detectedobject.name = vDetectedObject[i]->name;
                                 // convert O_T_baselinkcenter to O_T_region, because detector assumes O_T_baselinkcenter, controller asumes O_T_region
                                 region = _mNameRegion[detectedobject.name];
-                                tBaseLinkInInnerRegionTopCenter = region->pRegionParameters->tBaseLinkInInnerRegionTopCenter;
+                                baselinkcenter_T_region = region->pRegionParameters->baselinkcenter_T_region;
                                 O_T_baselinkcenter = newtransform;
-                                O_T_region = O_T_baselinkcenter * tBaseLinkInInnerRegionTopCenter;
+                                O_T_region = O_T_baselinkcenter * baselinkcenter_T_region;
                                 newtransform = O_T_region;
                                 numUpdatedRegions++;
                             } else {
@@ -2776,7 +2776,7 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinv
     O_T_baselinkcenter.rot[1] = quat[1];
     O_T_baselinkcenter.rot[2] = quat[2];
     O_T_baselinkcenter.rot[3] = quat[3];
-    _mNameRegion[regionname]->pRegionParameters->tBaseLinkInInnerRegionTopCenter = O_T_baselinkcenter.inverse() * O_T_region;
+    _mNameRegion[regionname]->pRegionParameters->baselinkcenter_T_region = O_T_baselinkcenter.inverse() * O_T_region;
 }
 
 void MujinVisionManager::RegisterCustomCommand(const std::string& cmdname, CustomCommandFn fncmd)

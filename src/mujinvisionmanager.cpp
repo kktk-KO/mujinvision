@@ -192,7 +192,6 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
             MUJIN_LOG_VERBOSE("failed to find regionname for camera " << v->first);
         }
     }
-    BOOST_ASSERT(cameraids.size() <= cameraidstocheckocclusion.size());
     for (size_t i=0; i<cameraids.size(); ++i) {
         if (std::find(cameraidstocheckocclusion.begin(), cameraidstocheckocclusion.end(), cameraids[i]) == cameraidstocheckocclusion.end()) {
             cameraidcheckocclusionpt.put<int>(cameraids[i], false);
@@ -1962,29 +1961,29 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     if (isContainerPresent == 0) {
                         numresults = 0;
                         MUJIN_LOG_WARN("container is not present, detect again");
-                    } else {
-                        if (numresults == 0) {
-                            // have to do again, so publish the current result. even if no detected objects, resultstate can have info about the container (like empty)
-                            if (resultstate != "null") {
-                                boost::mutex::scoped_lock lock(_mutexDetectedInfo);
-                                if( !detectcontaineronly ) {
-                                    // only update the objects if detector actually returned them, otherwise will be erasing previously sent good results
-                                    _vDetectedObject.swap(detectedobjects);
-                                    _bDetectedObjectsValid = true;
-                                }
-                                else {
-                                    _bDetectedObjectsValid = false;
-                                }
+                        numfastdetection = maxnumfastdetection;
+                    }
+                    if (numresults == 0) {
+                        // have to do again, so publish the current result. even if no detected objects, resultstate can have info about the container (like empty)
+                        if (resultstate != "null") {
+                            boost::mutex::scoped_lock lock(_mutexDetectedInfo);
+                            if( !detectcontaineronly ) {
+                                // only update the objects if detector actually returned them, otherwise will be erasing previously sent good results
+                                _vDetectedObject.swap(detectedobjects);
+                                _bDetectedObjectsValid = true;
                             }
-                            _resultState = resultstate;
-                            _resultTimestamp = GetMilliTime();
-                            _resultImageStartTimestamp = imageStartTimestamp;
-                            _resultImageEndTimestamp = imageEndTimestamp;
-                            MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
-                            numfastdetection -= 1;
-                        } else {
-                            numfastdetection = 0;
+                            else {
+                                _bDetectedObjectsValid = false;
+                            }
                         }
+                        _resultState = resultstate;
+                        _resultTimestamp = GetMilliTime();
+                        _resultImageStartTimestamp = imageStartTimestamp;
+                        _resultImageEndTimestamp = imageEndTimestamp;
+                        MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
+                        numfastdetection -= 1;
+                    } else {
+                        numfastdetection = 0;
                     }
                 }
                 if (!_bStopDetectionThread && numresults == 0 && numfastdetection == 0) {
@@ -2260,7 +2259,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                     unsigned int nameind = 0;
                     DetectedObjectPtr detectedobject;
                     RegionPtr region;
-                    TransformMatrix O_T_region, O_T_baselinkcenter, tBaseLinkInInnerRegionTopCenter;
+                    TransformMatrix O_T_region, O_T_baselinkcenter, baselinkcenter_T_region;
                     unsigned int numUpdatedRegions = 0;
                     for (unsigned int i=0; i<vDetectedObject.size(); i++) {
                         Transform newtransform;
@@ -2281,9 +2280,9 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                                 detectedobject.name = vDetectedObject[i]->name;
                                 // convert O_T_baselinkcenter to O_T_region, because detector assumes O_T_baselinkcenter, controller asumes O_T_region
                                 region = _mNameRegion[detectedobject.name];
-                                tBaseLinkInInnerRegionTopCenter = region->pRegionParameters->tBaseLinkInInnerRegionTopCenter;
+                                baselinkcenter_T_region = region->pRegionParameters->baselinkcenter_T_region;
                                 O_T_baselinkcenter = newtransform;
-                                O_T_region = O_T_baselinkcenter * tBaseLinkInInnerRegionTopCenter;
+                                O_T_region = O_T_baselinkcenter * baselinkcenter_T_region;
                                 newtransform = O_T_region;
                                 numUpdatedRegions++;
                             } else {
@@ -2640,6 +2639,7 @@ void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadPar
         FalseSetter turnOffVisualize(_bIsVisualizePointcloudRunning);
         std::string regionname = params.regionname;
         std::vector<std::string> cameranames = params.cameranames;
+        std::vector<std::string> emptycameranames;
         double pointsize = params.pointsize;
         if (pointsize == 0) {
             boost::mutex::scoped_lock lock(_mutexRegion);
@@ -2655,7 +2655,7 @@ void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadPar
         std::vector<CameraCaptureHandlePtr> capturehandles; CREATE_SAFE_DELETER_CAMERAHANDLES(capturehandles);
         while (!_bStopVisualizePointCloudThread) {
             MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-            _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, true, ignoreocclusion);
+            _StartAndGetCaptureHandle(cameranames, emptycameranames, capturehandles, true, ignoreocclusion);
             SyncCameras(regionname, cameranames);
             if (_bStopVisualizePointCloudThread) {
                 break;
@@ -2777,7 +2777,7 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinv
     O_T_baselinkcenter.rot[1] = quat[1];
     O_T_baselinkcenter.rot[2] = quat[2];
     O_T_baselinkcenter.rot[3] = quat[3];
-    _mNameRegion[regionname]->pRegionParameters->tBaseLinkInInnerRegionTopCenter = O_T_baselinkcenter.inverse() * O_T_region;
+    _mNameRegion[regionname]->pRegionParameters->baselinkcenter_T_region = O_T_baselinkcenter.inverse() * O_T_region;
 }
 
 void MujinVisionManager::RegisterCustomCommand(const std::string& cmdname, CustomCommandFn fncmd)

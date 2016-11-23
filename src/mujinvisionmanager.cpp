@@ -231,9 +231,10 @@ void ParametersBase::Print()
 
 bool MujinVisionManager::_CheckPreemptSubscriber()
 {
-    bool bpreempt = _bShutdown || _bCancelCommand; // || _bStopDetectionThread || _bStopUpdateEnvironmentThread;// || _bStopExecutionVerificationPointCloudThread;
+    // if SendingPointCloud is running, don't stop subscriber even we are stoping threads, so threads might get blocked when getting images
+    bool bpreempt = _bShutdown || _bCancelCommand || ((_bStopDetectionThread || _bStopUpdateEnvironmentThread) && !_bIsSendPointcloudRunning);// || _bStopExecutionVerificationPointCloudThread;
     if (bpreempt ) {
-        MUJIN_LOG_DEBUG("preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread << " _bStopUpdateEnvironmentThread=" << _bStopUpdateEnvironmentThread << " _bStopExecutionVerificationPointCloudThread " << _bStopExecutionVerificationPointCloudThread);
+        MUJIN_LOG_DEBUG("preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread << " _bStopUpdateEnvironmentThread=" << _bStopUpdateEnvironmentThread << " _bStopExecutionVerificationPointCloudThread " << _bStopExecutionVerificationPointCloudThread << "_bIsSendingPointCloudRunning" << _bIsSendPointcloudRunning);
     }
     return bpreempt;
 }

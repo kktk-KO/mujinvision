@@ -2823,6 +2823,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     uint64_t lastfirstimagecheckfailurewarnts = 0;
     uint64_t lastocclusioncheckfailurewarnts = 0;
     uint64_t lastocclusionwarnts = 0;
+    uint64_t lastresultimagecheckfailurets = 0;
     //uint64_t lastcouldnotcapturewarnts = 0;
     // TODO: currently snap is only supported when there is only one color camera and depth camera (rv)
     bool usecache = !((request || !_visionserverpt.get<bool>("runpublisher", true)) && (colorcameranames.size() == 1 && depthcameranames.size() == 1));
@@ -2856,12 +2857,24 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // ensure streamer and try to get images again if got fewer than expected images
         if (resultimages.size() == 0 && (colorimages.size() < colorcameranames.size() || depthimages.size() < depthcameranames.size())) {
-            MUJIN_LOG_WARN("Could not get all images, ensure capturing thread, will try again" << ": # color " << colorimages.size() << "," << colorcameranames.size() << ", # depth " << depthimages.size() << "," << depthcameranames.size() << ", # result images = " << resultimages.size() << ", use_cache = " << usecache);
+            MUJIN_LOG_WARN("Could not get all images, will try again" << ": # color " << colorimages.size() << "," << colorcameranames.size() << ", # depth " << depthimages.size() << "," << depthcameranames.size() << ", # result images = " << resultimages.size() << ", use_cache = " << usecache);
             //lastcouldnotcapturewarnts = GetMilliTime();
 
             colorimages.clear();
             depthimages.clear();
             break;
+        }
+        if (resultimages.size() > 0) { // if the streamer provides the result, call detector only if the images are updated, i.e. new result
+            if (imageStartTimestamp == _resultImageStartTimestamp) {
+                if (GetMilliTime() - lastresultimagecheckfailurets > 1000.0) {
+                    lastresultimagecheckfailurets = GetMilliTime();
+                    MUJIN_LOG_DEBUG(str(boost::format("skip image pack as it was used already, imageStartTimestamp=%d imageEndTimestamp=%d")%imageStartTimestamp%imageEndTimestamp));
+                }
+                colorimages.clear();
+                depthimages.clear();
+                resultimages.clear();
+                continue;
+            }
         }
 
         // throw exception if acquired images are from the future
@@ -3464,13 +3477,6 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
     MUJIN_LOG_INFO("Getting images took " << ((GetMilliTime() - starttime) / 1000.0f) << " for " << __GetString(colorcameranames) << " " << __GetString(depthcameranames));
     starttime = GetMilliTime();
     if (resultimages.size() > 0 || (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size())) {
-        if (resultimages.size() > 0) { // if the streamer provides the result, call detector only if the images are updated, i.e. new result
-            if (imageStartTimestamp == _resultImageStartTimestamp) {
-                MUJIN_LOG_DEBUG(str(boost::format("skip detection for old result image imageStartTimestamp=%d imageEndTimestamp=%d")%imageStartTimestamp%imageEndTimestamp));
-                resultstate = "null";
-                return -1;
-            }
-        }
         for (size_t i=0; i<colorimages.size(); ++i) {
             _pDetector->SetColorImage(colorimages.at(i));
         }

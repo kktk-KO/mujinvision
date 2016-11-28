@@ -231,7 +231,7 @@ void ParametersBase::Print()
 bool MujinVisionManager::_CheckPreemptSubscriber()
 {
     // if SendingPointCloud is running, don't stop subscriber even we are stoping threads, so threads might get blocked when getting images
-    bool bpreempt = _bShutdown || _bCancelCommand || ((_bStopDetectionThread || _bStopUpdateEnvironmentThread) && !_bIsSendPointcloudRunning);// || _bStopExecutionVerificationPointCloudThread;
+    bool bpreempt = _bShutdown || _bCancelCommand || ((_bStopDetectionThread || _bStopUpdateEnvironmentThread) && !_bIsSendPointcloudRunning); // || _bStopExecutionVerificationPointCloudThread;
     if (bpreempt ) {
         MUJIN_LOG_DEBUG("preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread << " _bStopUpdateEnvironmentThread=" << _bStopUpdateEnvironmentThread << " _bStopExecutionVerificationPointCloudThread=" << _bStopExecutionVerificationPointCloudThread << " _bIsSendingPointCloudRunning=" << _bIsSendPointcloudRunning);
     }
@@ -1773,7 +1773,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     uint64_t lastCaptureResetTimeout = 4000; // how long to wait until force reset is called again
 
     bool bDetectorHasRunAtLeastOnce = false;
-    
+
     std::vector<CameraCaptureHandlePtr> capturehandles; CREATE_SAFE_DELETER_CAMERAHANDLES(capturehandles);
     MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
     _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, /*force=*/ false, ignoreocclusion);
@@ -3460,9 +3460,17 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
     std::vector<ImagePtr> colorimages, depthimages, resultimages;
     unsigned int waitinterval = 50;
     _GetImages(tt, pBinpickingTask, regionname, colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, useold, waitinterval, bindetection);
+
     MUJIN_LOG_INFO("Getting images took " << ((GetMilliTime() - starttime) / 1000.0f) << " for " << __GetString(colorcameranames) << " " << __GetString(depthcameranames));
     starttime = GetMilliTime();
     if (resultimages.size() > 0 || (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size())) {
+        if (resultimages.size() > 0) { // if the streamer provides the result, call detector only if the images are updated, i.e. new result
+            if (imageStartTimestamp == _resultImageStartTimestamp) {
+                MUJIN_LOG_DEBUG(str(boost::format("skip detection for old result image imageStartTimestamp=%d imageEndTimestamp=%d")%imageStartTimestamp%imageEndTimestamp));
+                resultstate = "null";
+                return -1;
+            }
+        }
         for (size_t i=0; i<colorimages.size(); ++i) {
             _pDetector->SetColorImage(colorimages.at(i));
         }

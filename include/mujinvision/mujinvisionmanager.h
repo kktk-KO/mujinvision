@@ -568,7 +568,7 @@ private:
 
     /// \brief delete the camera handles safely by locking _mutexCaptureHandles. This prevents any shared_ptrs from being released simultaneously
     void _DeleteCameraHandlesSafely(std::vector<CameraCaptureHandlePtr>& capturehandles);
-    
+
     boost::mutex _mutexCaptureHandles; ///< lock for _mCameranameCaptureHandles
     std::map<std::string, CameraCaptureHandleWeakPtr> _mCameranameCaptureHandles; ///< list of handles that maintain the runtime capture state of cameras, protected by _mutexCaptureHandles
 
@@ -616,6 +616,7 @@ private:
     boost::mutex _mutexRegion;  ///< lock protecting region info
     std::map<std::string, RegionPtr > _mNameRegion; ///< name->region
     std::map<std::string, std::string> _mCameranameActiveRegionname; ///< cameraname -> name of region that is being detected
+    unsigned long long _resultTimestamp; ///< ms timestamp of latest detection result. protected by _mutexDetectedInfo
     //@}
 
     std::map<std::string, CameraParametersPtr> _mNameCameraParameters; ///< name->camera param
@@ -632,8 +633,6 @@ private:
 
     unsigned long long _tsStartDetection; ///< timestamp when start detection loop was first called
     unsigned long long _tsLastEnvUpdate; ///< timestamp when binpickingtask->UpdateEnvironmentState was called
-    std::set<unsigned long long> _sTimestamp; ///< set of saved timestamp in millisecond
-    unsigned long long _resultTimestamp; ///< ms timestamp of latest detection result. protected by _mutexDetectedInfo
     unsigned long long _resultImageStartTimestamp, _resultImageEndTimestamp; ///< ms timestamps for the latest detection result, the image start and end timestamps.
     unsigned long long _lastSendPointCloudObstacleTimestamp; ///< ms timestamp when pointcloud obstacle is sent
     boost::mutex _mutexControllerBinpickingState; ///< lock for controller binpicking state

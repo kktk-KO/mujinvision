@@ -2795,13 +2795,34 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
 void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& resultcolorimages, std::vector<ImagePtr>& resultdepthimages, std::vector<ImagePtr>& resultresultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval, const bool bindetection)
 {
     if (useold && _lastcolorimages.size() == colorcameranames.size() && _lastdepthimages.size() == depthcameranames.size()) {
-        MUJIN_LOG_INFO("using last images");
-        resultcolorimages = _lastcolorimages;
-        resultdepthimages = _lastdepthimages;
-        if (_lastresultimages.size() > 0) {
-            resultresultimages = _lastresultimages;
+        // check if all old images are newer than newerthantimestamp
+        bool needToGetNewImages = false;
+        for (size_t i=0; !needToGetNewImages && i < _lastdepthimages.size(); ++i) {
+            if (_lastdepthimages.at(i)->GetStartTimestamp() <= newerthantimestamp) {
+                needToGetNewImages = true;
+            }
         }
-        return;
+        for (size_t i=0; !needToGetNewImages && i < _lastcolorimages.size(); ++i) {
+            if (_lastcolorimages.at(i)->GetStartTimestamp() <= newerthantimestamp) {
+                needToGetNewImages = true;
+            }
+        }
+        for (size_t i=0; !needToGetNewImages && i < _lastresultimages.size(); ++i) {
+            if (_lastresultimages.at(i)->GetStartTimestamp() <= newerthantimestamp) {
+                needToGetNewImages = true;
+            }
+        }
+        if (!needToGetNewImages) {
+            MUJIN_LOG_INFO("using last images");
+            resultcolorimages = _lastcolorimages;
+            resultdepthimages = _lastdepthimages;
+            if (_lastresultimages.size() > 0) {
+                resultresultimages = _lastresultimages;
+            }
+            return;
+        } else {
+            MUJIN_LOG_INFO(str(boost::format("do not use last images because images are older than newerthantimestamp=%d")%newerthantimestamp));
+        }
     }
     std::vector<std::string> cameranames;
     for (size_t i=0; i<colorcameranames.size(); ++i) {

@@ -1917,6 +1917,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 }
             }
             else if (numfastdetection > 0 || bindetectiononly) {
+                bool bFailedBecauseOfNoImage = false;
                 while (!_bStopDetectionThread && numresults == 0 && (numfastdetection > 0 || bindetectiononly)) {
                     bool fastdetection=true;
                     bool bindetection=_bindetectionMode > 0;
@@ -1933,8 +1934,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     if (_bindetectionMode > 0) {
                         MUJIN_LOG_DEBUG("call DetectObjects() with bindetection=true");
                     }
+                    bFailedBecauseOfNoImage = false;
                     numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
                     if (numresults == -1) {
+                        bFailedBecauseOfNoImage = true;
                         if( lastCaptureResetTimestamp == 0 || GetMilliTime() - lastCaptureResetTimestamp > lastCaptureResetTimeout ) {
                             lastCaptureResetTimestamp = GetMilliTime();
                             MUJIN_LOG_INFO("force capturing, in case streamer crashed");
@@ -1978,12 +1981,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                         numfastdetection = 0;
                     }
                 }
-                if (!_bStopDetectionThread && numresults == 0 && numfastdetection == 0) {
+                if (!_bStopDetectionThread && numresults == 0 && numfastdetection == 0 ) {
                     MUJIN_LOG_DEBUG("DetectObjects() in fast mode found no object, detect in normal mode");
                     bool fastdetection=false;
                     bool bindetection=_bindetectionMode == 2;
                     bool request=false;
-                    bool useold=true;
+                    bool useold=!bFailedBecauseOfNoImage;//true;
                     bool checkcontaineremptyonly=false;
                     numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly);
                     if (numresults == -1) {
@@ -3266,6 +3269,7 @@ void MujinVisionManager::Initialize(
     scene->GetSensorMapping(_mCameraNameHardwareId);
     _mNameCameraParameters.clear();
     FOREACH(v, _mCameraNameHardwareId) {
+        MUJIN_LOG_DEBUG("got camera hardware id " << v->first << " with id " << v->second);
         _mHardwareIdCameraName[v->second] = v->first;
         if (_mNameCameraParameters.find(v->first) != _mNameCameraParameters.end()) {
             _mNameCameraParameters[v->first]->id = v->second;
@@ -3364,7 +3368,11 @@ void MujinVisionManager::Initialize(
             for (unsigned int i=0; i<region->pRegionParameters->cameranames.size(); ++i) {
                 cameraname = region->pRegionParameters->cameranames.at(i);
                 if( _mNameCamera.find(cameraname) == _mNameCamera.end() ) {
-                    throw MujinVisionException(str(boost::format("scene sensor mapping does not have camera %s coming from region %s")%cameraname%regionname), MVE_InvalidArgument);
+                    std::stringstream ssvalidcameranames;
+                    FOREACH(itc, _mNameCamera) {
+                        ssvalidcameranames << itc->first << ", ";
+                    }
+                    throw MujinVisionException(str(boost::format("scene sensor mapping does not have camera %s coming from region %s. valid camera names are [%s]")%cameraname%regionname%ssvalidcameranames.str()), MVE_InvalidArgument);
                 }
                 MUJIN_LOG_DEBUG("adding camera " << cameraname  << " (" << _GetHardwareId(cameraname) << ") to region " << regionname);
                 mCameranameCamera[cameraname] = _mNameCamera[cameraname];

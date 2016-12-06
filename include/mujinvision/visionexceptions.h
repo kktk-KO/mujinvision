@@ -35,7 +35,10 @@ enum MujinVisionErrorCode
     MVE_NotInitialized=9,
     MVE_ControllerError=10,
     MVE_NoResponse=11,
-    MVE_UserInterrupted=12
+    MVE_UserInterrupted=12,
+    MVE_UnexpectedReturnData = 13, ///< return unexptected data
+    MVE_StreamerError = 14, ///< streamer returned an error
+
 };
 
 inline const char* GetErrorCodeString(MujinVisionErrorCode error)
@@ -54,10 +57,12 @@ inline const char* GetErrorCodeString(MujinVisionErrorCode error)
     case MVE_ControllerError: return "ControllerError";
     case MVE_NoResponse: return "NoResponse";
     case MVE_UserInterrupted: return "UserInterrupted";
+    case MVE_UnexpectedReturnData: return "UnexpectedReturnData";
+    case MVE_StreamerError: return "StreamerError";
     }
     // throw an exception?
     return "";
-};
+}
 
 class MUJINVISION_API MujinVisionException : public std::exception
 {

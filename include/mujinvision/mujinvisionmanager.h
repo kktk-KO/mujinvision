@@ -513,8 +513,9 @@ private:
         \param output imageEndTimestamp for all captured images, the endtime in ms of the image captured
         \param newerthantimestamp images must be newer than the specified timestamp, the call blocks until all images satisfy requirements or passed fetchimagetimeout
         \param bindetection whether to detect container when getting detection result, container's info is stored in result image's metadata field
+        \return true if all the requested images are retrieved and imageStartTimestamp and imageEndTimestamp and resultimages are updated. Otherwise false
      */
-    void _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/, const bool bindetection=false);
+    bool _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/, const bool bindetection=false);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */

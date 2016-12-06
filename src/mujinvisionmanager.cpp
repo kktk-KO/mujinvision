@@ -231,7 +231,7 @@ void ParametersBase::Print()
 bool MujinVisionManager::_CheckPreemptSubscriber()
 {
     // if SendingPointCloud is running, don't stop subscriber even we are stoping threads, so threads might get blocked when getting images
-    bool bpreempt = _bShutdown || _bCancelCommand || ((_bStopDetectionThread || _bStopUpdateEnvironmentThread) && !_bIsSendPointcloudRunning); // || _bStopExecutionVerificationPointCloudThread;
+    bool bpreempt = _bShutdown || _bCancelCommand;// || ((_bStopDetectionThread || _bStopUpdateEnvironmentThread) && !_bIsSendPointcloudRunning); // || _bStopExecutionVerificationPointCloudThread;
     if (bpreempt ) {
         MUJIN_LOG_DEBUG("preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread << " _bStopUpdateEnvironmentThread=" << _bStopUpdateEnvironmentThread << " _bStopExecutionVerificationPointCloudThread=" << _bStopExecutionVerificationPointCloudThread << " _bIsSendingPointCloudRunning=" << _bIsSendPointcloudRunning);
     }
@@ -290,10 +290,18 @@ MujinVisionManager::CameraCaptureHandle::CameraCaptureHandle(ImageSubscriberMana
 }
 
 MujinVisionManager::CameraCaptureHandle::~CameraCaptureHandle() {
-    std::vector<std::string> tostop;
-    tostop.push_back(_cameraid);
-    MUJIN_LOG_INFO("stop capturing for camera " << _cameraname << "(" << _cameraid << ")");
-    _pImagesubscriberManager->StopCaptureThread(tostop);
+    try {
+        std::vector<std::string> tostop;
+        tostop.push_back(_cameraid);
+        MUJIN_LOG_INFO("stop capturing for camera " << _cameraname << "(" << _cameraid << ")");
+        _pImagesubscriberManager->StopCaptureThread(tostop);
+    }
+    catch(const std::exception& ex) {
+        MUJIN_LOG_ERROR(str(boost::format("failed to stop capturing for camera %s (%s) due to %s")%_cameraname%_cameraid%ex.what()));
+    }
+    catch (...) {
+        MUJIN_LOG_ERROR("failed to stop capturing for camera " << _cameraname << "(" << _cameraid << ") due to unknown error.");
+    }
 }
 
 void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion, std::vector<CameraCaptureHandlePtr>& capturehandles, const bool force, const bool ignoreocclusion)
@@ -342,16 +350,19 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
             _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
         } catch(const std::exception& ex) {
             MUJIN_LOG_ERROR("caught exception " << ex.what());
-            MUJIN_LOG_ERROR("failed to start capturing for cameras " << __GetString(tostart));
+            std::stringstream errss;
+            errss << "failed to start capturing for cameras " << __GetString(tostart);
+            MUJIN_LOG_ERROR(errss.str());
             MUJIN_LOG_WARN("need to clear out old images");
 
             if( GetMilliTime() - _pImagesubscriberManager->GetSubscribeStartedTimeStamp() > 10000 ) { // if 10s passed, then try to recreated the socket
                 MUJIN_LOG_WARN("reset imagesubscriber");
                 _pImagesubscriberManager->Reset();
             }
-            _lastresultimages.clear();
-            _lastcolorimages.clear();
-            _lastdepthimages.clear();
+            _lastresultimages.resize(0);
+            _lastcolorimages.resize(0);
+            _lastdepthimages.resize(0);
+            throw MujinVisionException(errss.str(), MVE_ImageAcquisitionError);
         }
     } else {
         MUJIN_LOG_INFO("capturing of cameras " << __GetString(cameranames) << " have already been started");
@@ -1441,12 +1452,9 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
                     _SetStatus(TT_Command, MS_Aborted, "", errstr, false);
                 }
                 catch (std::exception& e) {
-                    std::string whatstr = e.what();
-                    boost::replace_all(whatstr, "\"", ""); // need to remove " in the message so that json parser works
-                    boost::replace_all(whatstr, "\\", ""); // need to remove \ in the message so that json parser works
-                    std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), whatstr);
+                    std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), e.what());
                     result_ss << "{" << errstr << "}";
-                    MUJIN_LOG_ERROR("unhandled std exception, " + whatstr);
+                    MUJIN_LOG_ERROR("unhandled std exception, " + errstr);
                     _SetStatus(TT_Command, MS_Aborted, "", errstr, false);
                 }
                 catch (...) {
@@ -1776,7 +1784,30 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
     std::vector<CameraCaptureHandlePtr> capturehandles; CREATE_SAFE_DELETER_CAMERAHANDLES(capturehandles);
     MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
-    _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, /*force=*/ false, ignoreocclusion);
+    try {
+        _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, /*force=*/ false, ignoreocclusion); // force the first time
+    }
+    catch (const MujinVisionException& e) {
+        switch (e.GetCode()) {
+        case MVE_UserInterrupted:
+            MUJIN_LOG_INFO("User interrupted DetectObject!");
+            break;
+        default:
+            MUJIN_LOG_ERROR(e.message());
+            _SetDetectorStatusMessage(e.message(), GetErrorCodeString(MVE_Failed));
+            break;
+        }
+        MUJIN_LOG_INFO("caught exception, stopping detection thread");
+        _bStopDetectionThread = true;
+    }
+    catch(const std::exception& ex) {
+        std::stringstream ss;
+        ss << "Caught exception: " << ex.what();
+        MUJIN_LOG_ERROR(ss.str());
+        _SetDetectorStatusMessage(ss.str(), GetErrorCodeString(MVE_Failed));
+        MUJIN_LOG_INFO("caught exception, stopping detection thread");
+        _bStopDetectionThread = true;
+    }
     while (!_bStopDetectionThread && (maxnumdetection <= 0 || numdetection < maxnumdetection) && !(stoponleftinorder && numLeftInOrder == 0 && lastGrabbedTargetTimestamp > _tsStartDetection && _tsLastEnvUpdate > 0 && _resultImageEndTimestamp > 0 && lastGrabbedTargetTimestamp < _resultImageEndTimestamp && !_bIsGrabbingLastTarget)) {
         detectcontaineronly = false;
         starttime = GetMilliTime();
@@ -2081,11 +2112,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 MUJIN_LOG_INFO("User interrupted DetectObject!");
                 break;
             default:
-                std::string errstr = e.message();
-                boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
-                boost::replace_all(errstr, "\\", ""); // need to remove \ in the message so that json parser works
-                MUJIN_LOG_ERROR(errstr);
-                _SetDetectorStatusMessage(errstr, GetErrorCodeString(MVE_RecognitionError));
+                MUJIN_LOG_ERROR(e.message());
+                _SetDetectorStatusMessage(e.message(), e.GetCodeString());
                 break;
             }
             numdetection += 1;
@@ -2094,12 +2122,8 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         catch(const std::exception& ex) {
             std::stringstream ss;
             ss << "Caught exception in the detection loop: " << ex.what();
-            //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_RecognitionError), ss.str());
-            std::string errstr = ss.str();
-            boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
-            boost::replace_all(errstr, "\\", ""); // need to remove \ in the message so that json parser works
-            MUJIN_LOG_ERROR(errstr);
-            _SetDetectorStatusMessage(errstr, GetErrorCodeString(MVE_RecognitionError));
+            MUJIN_LOG_ERROR(ss.str());
+            _SetDetectorStatusMessage(ss.str(), GetErrorCodeString(MVE_RecognitionError));
             numdetection += 1;
             continue;
         }
@@ -2489,10 +2513,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                             lastwarnedtimestamp0 = GetMilliTime();
                             std::stringstream ss;
                             ss << "Failed to send latest pointcloud of " << cameraname << " (" << _GetHardwareId(cameraname) << ") ex.what()=" << ex.what() << ".";
-                            std::string whatstr = ss.str();
-                            boost::replace_all(whatstr, "\"", ""); // need to remove " in the message so that json parser works
-                            boost::replace_all(whatstr, "\\", ""); // need to remove \ in the message so that json parser works
-                            _SetStatusMessage(TT_UpdateEnvironment, whatstr, GetErrorCodeString(MVE_ControllerError));
+                            _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
                             MUJIN_LOG_WARN(ss.str());
                         }
                     }
@@ -2565,11 +2586,8 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
                         lastwarnedtimestamp = GetMilliTime();
                         std::stringstream ss;
                         ss << "Failed to get published task state from mujin controller: " << ex.what() << ".";
-                        std::string errstr = ss.str();
-                        boost::replace_all(errstr, "\"", ""); // need to remove " in the message so that json parser works
-                        boost::replace_all(errstr, "\\", ""); // need to remove \ in the message so that json parser works
-                        _SetStatusMessage(TT_ControllerMonitor, errstr, GetErrorCodeString(MVE_ControllerError));
-                        MUJIN_LOG_WARN(errstr);
+                        _SetStatusMessage(TT_ControllerMonitor, ss.str(), GetErrorCodeString(MVE_ControllerError));
+                        MUJIN_LOG_WARN(ss.str());
                     }
                     boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
                     continue;
@@ -2851,6 +2869,7 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     //uint64_t lastcouldnotcapturewarnts = 0;
     // TODO: currently snap is only supported when there is only one color camera and depth camera (rv)
     bool usecache = !((request || !_visionserverpt.get<bool>("runpublisher", true)) && (colorcameranames.size() == 1 && depthcameranames.size() == 1));
+    bool bGotAllImages = false; // true if received all the images
 
     while (!_bCancelCommand && // command is not being canceled
            !_bShutdown &&  // visionmanager is not being shutdown
@@ -2864,8 +2883,8 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         } else {
             BOOST_ASSERT(colorcameranames.size() == 1); // TODO supports only one color camera
             BOOST_ASSERT(depthcameranames.size() == 1); // TODO supports only one depth camera
-            colorimages.clear();
-            depthimages.clear();
+            colorimages.resize(0);
+            depthimages.resize(0);
             // assuming that the depth camera will return color image as well (with color camera name)
             std::string extracaptureoptions;
             {
@@ -2884,8 +2903,8 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             MUJIN_LOG_WARN("Could not get all images, will try again" << ": # color " << colorimages.size() << "," << colorcameranames.size() << ", # depth " << depthimages.size() << "," << depthcameranames.size() << ", # result images = " << resultimages.size() << ", use_cache = " << usecache);
             //lastcouldnotcapturewarnts = GetMilliTime();
 
-            colorimages.clear();
-            depthimages.clear();
+            colorimages.resize(0);
+            depthimages.resize(0);
             break;
         }
         if (resultimages.size() > 0) { // if the streamer provides the result, call detector only if the images are updated, i.e. new result
@@ -2894,9 +2913,9 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                     lastresultimagecheckfailurets = GetMilliTime();
                     MUJIN_LOG_DEBUG(str(boost::format("skip image pack as it was used already, imageStartTimestamp=%d imageEndTimestamp=%d")%imageStartTimestamp%imageEndTimestamp));
                 }
-                colorimages.clear();
-                depthimages.clear();
-                resultimages.clear();
+                colorimages.resize(0);
+                depthimages.resize(0);
+                resultimages.resize(0);
                 continue;
             }
         }
@@ -2906,9 +2925,9 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             std::stringstream msg_ss;
             msg_ss << "Image is acquired from the future, please ensure that clocks are synchronized, imageStartTimestamp=" << imageStartTimestamp << " imageEndTimestamp=" << imageEndTimestamp << ", use_cache = " << usecache;
             MUJIN_LOG_ERROR(msg_ss.str());
-            colorimages.clear();
-            depthimages.clear();
-            resultimages.clear();
+            colorimages.resize(0);
+            depthimages.resize(0);
+            resultimages.resize(0);
             throw MujinVisionException(msg_ss.str(), MVE_ImageAcquisitionError);
         }
 
@@ -2919,9 +2938,9 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 MUJIN_LOG_WARN("image is older than newerthantimestamp=" << newerthantimestamp << " imageStartTimestamp=" << imageStartTimestamp);
                 lastimagetscheckfailurets = GetMilliTime();
             }
-            colorimages.clear();
-            depthimages.clear();
-            resultimages.clear();
+            colorimages.resize(0);
+            depthimages.resize(0);
+            resultimages.resize(0);
             continue;
         }
 
@@ -2934,9 +2953,9 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                        << ", use_cache = " << usecache;
                 MUJIN_LOG_WARN(msg_ss.str());
             }
-            colorimages.clear();
-            depthimages.clear();
-            resultimages.clear();
+            colorimages.resize(0);
+            depthimages.resize(0);
+            resultimages.resize(0);
             continue;
         }
 
@@ -2944,9 +2963,9 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         unsigned long long maxstarttimedelta = 1000; // ms
         if (imageEndTimestamp < imageStartTimestamp && imageEndTimestamp - imageStartTimestamp < maxstarttimedelta) {
             MUJIN_LOG_WARN("imageEndTimestamp=" << imageEndTimestamp << " imageStartTimestamp=" << imageStartTimestamp << " of imagepack " << imagepacktimestamp << " is too big >" << maxstarttimedelta << ", will try to get again");
-            colorimages.clear();
-            depthimages.clear();
-            resultimages.clear();
+            colorimages.resize(0);
+            depthimages.resize(0);
+            resultimages.resize(0);
             continue;
         }
 
@@ -3013,9 +3032,9 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                     _SetStatusMessage(tt, "", ss.str());
                 }
                 boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
-                colorimages.clear();
-                depthimages.clear();
-                resultimages.clear();
+                colorimages.resize(0);
+                depthimages.resize(0);
+                resultimages.resize(0);
                 continue;
             }
         } else {
@@ -3033,22 +3052,23 @@ void MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                        << ", use_cache = " << usecache;
                 MUJIN_LOG_WARN(msg_ss.str());
             }
-            colorimages.clear();
-            depthimages.clear();
-            resultimages.clear();
+            colorimages.resize(0);
+            depthimages.resize(0);
+            resultimages.resize(0);
             continue;
         } else {
             std::stringstream ss;
             ss << "got good imagepack. imageStartTimestamp=" << imageStartTimestamp << " imageEndTimestamp=" << imageEndTimestamp << " total=" << (imageEndTimestamp-imageStartTimestamp)/1000.0f << " " << (GetMilliTime()-imageStartTimestamp) / 1000.0f << " secs old";
             MUJIN_LOG_DEBUG(ss.str());
+            bGotAllImages = true;
             break;
         }
     }
-    if (!(!_bCancelCommand && // canceled?
-          !_bShutdown &&  // shutdown?
-          ((fetchimagetimeout == 0) || (fetchimagetimeout > 0 && GetMilliTime() - start0 < fetchimagetimeout)) && // timeed out?
-          (tt != TT_Detector || (tt == TT_Detector && !_bStopDetectionThread)) // canceled detection loop?
-          )) {
+    if ( _bCancelCommand || // canceled?
+         _bShutdown ||  // shutdown?
+         (!bGotAllImages && fetchimagetimeout > 0 && GetMilliTime() - start0 > fetchimagetimeout) || // timeed out?
+         (tt == TT_Detector && _bStopDetectionThread) // canceled detection loop?
+         ) {
         std::stringstream ss;
         ss << "do not use images because we got out of while loop unexpectedly: " << " _bCancelCommand=" << _bCancelCommand << " _bShutdown=" << _bShutdown << " " << GetMilliTime() - start0 << ">" << fetchimagetimeout;
         if (tt == TT_Detector) {
@@ -3611,118 +3631,139 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
     if (!_pImagesubscriberManager) {
         throw MujinVisionException("image subscriber manager is not initialzied", MVE_Failed);
     }
-    // reset region info when necessary
-    _CheckAndUpdateRegionCameraMapping(regionname, cameranames);
-    uint64_t starttime = GetMilliTime();
-    double pointsize = ptsize;
-    if (pointsize == 0) {
-        boost::mutex::scoped_lock lock(_mutexRegion);
-        pointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
-        MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
-    }
-    std::vector<ImagePtr> dummyimages;
-    std::vector<std::string> dummycameranames;
-    if (!async) {
-        std::vector<CameraCaptureHandlePtr> capturehandles; CREATE_SAFE_DELETER_CAMERAHANDLES(capturehandles);
-        std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
-        MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(depthcameranames));
-        _StartAndGetCaptureHandle(depthcameranames, depthcameranames, capturehandles); // always force it for SendPointCloudObstacleToController
-        // set up images
-        std::vector<ImagePtr> depthimages;
-        bool ignoreocclusion = true;
-        unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
-        _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, false);
-        if (depthimages.size() == depthcameranames.size()) {
-            std::vector<Real> totalpoints;
-            int isregionoccluded = -2;
-            int isoccluded = -1;
-            unsigned long long cloudstarttime, cloudendtime;
-            double timeout = 3.0; // secs
-            for (size_t i=0; i<depthimages.size(); ++i) {
-                std::string cameraname = depthcameranames.at(i);
-                CameraPtr camera= _mNameCamera[cameraname];
-                // get point cloud obstacle
-                std::vector<Real> points;
-                ImagePtr depthimage = depthimages.at(i);
+    try {
+        // reset region info when necessary
+        _CheckAndUpdateRegionCameraMapping(regionname, cameranames);
+        uint64_t starttime = GetMilliTime();
+        double pointsize = ptsize;
+        if (pointsize == 0) {
+            boost::mutex::scoped_lock lock(_mutexRegion);
+            pointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
+            MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
+        }
+        std::vector<ImagePtr> dummyimages;
+        std::vector<std::string> dummycameranames;
+        if (!async) {
+            std::vector<CameraCaptureHandlePtr> capturehandles; CREATE_SAFE_DELETER_CAMERAHANDLES(capturehandles);
+            std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
+            MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(depthcameranames));
+            _StartAndGetCaptureHandle(depthcameranames, depthcameranames, capturehandles); // always force it for SendPointCloudObstacleToController
+            // set up images
+            std::vector<ImagePtr> depthimages;
+            bool ignoreocclusion = true;
+            unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
+            _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, false);
+            if (depthimages.size() == depthcameranames.size()) {
+                std::vector<Real> totalpoints;
+                int isregionoccluded = -2;
+                int isoccluded = -1;
+                unsigned long long cloudstarttime, cloudendtime;
+                double timeout = 3.0; // secs
+                for (size_t i=0; i<depthimages.size(); ++i) {
+                    std::string cameraname = depthcameranames.at(i);
+                    CameraPtr camera= _mNameCamera[cameraname];
+                    // get point cloud obstacle
+                    std::vector<Real> points;
+                    ImagePtr depthimage = depthimages.at(i);
 
-                // {
-                //     boost::mutex::scoped_lock lock(_mutexDetector);
-                //     _pDetector->SetDepthImage(depthimages.at(i));
-                //     _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 2);
-                // }
-                isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout, newerthantimestamp, _filteringsubsample);
-                if (points.size() / 3 == 0) {
-                    _SetStatusMessage(TT_Command, "got 0 point from GetPointCloudObstacle()");
-                    int numretries = 3;
-                    std::vector<std::string> depthcameranames1;
-                    std::vector<ImagePtr> depthimages1;
-                    depthcameranames1.push_back(cameraname);
-                    while (numretries > 0 && points.size() / 3 == 0) {
-                        points.clear();
-                        _SetStatusMessage(TT_Command, "re-try getting depthimage and pointcloudobstacle");
-                        _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames1, dummyimages, depthimages1, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, false);
-                        // depthimage = depthimages1.at(i);
-                        // {
-                        //     boost::mutex::scoped_lock lock(_mutexDetector);
-                        //     _pDetector->SetDepthImage(depthimages1.at(0));
-                        //     _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 2);
-                        // }
-                        isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout, newerthantimestamp, _filteringsubsample);
-                        numretries--;
-                    }
+                    // {
+                    //     boost::mutex::scoped_lock lock(_mutexDetector);
+                    //     _pDetector->SetDepthImage(depthimages.at(i));
+                    //     _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 2);
+                    // }
+                    isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout, newerthantimestamp, _filteringsubsample);
                     if (points.size() / 3 == 0) {
-                        throw MujinVisionException("got 0 point from GetPointCloudObstacle() after retries", MVE_Failed);
+                        _SetStatusMessage(TT_Command, "got 0 point from GetPointCloudObstacle()");
+                        int numretries = 3;
+                        std::vector<std::string> depthcameranames1;
+                        std::vector<ImagePtr> depthimages1;
+                        depthcameranames1.push_back(cameraname);
+                        while (numretries > 0 && points.size() / 3 == 0) {
+                            points.clear();
+                            _SetStatusMessage(TT_Command, "re-try getting depthimage and pointcloudobstacle");
+                            _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames1, dummyimages, depthimages1, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, false);
+                            // depthimage = depthimages1.at(i);
+                            // {
+                            //     boost::mutex::scoped_lock lock(_mutexDetector);
+                            //     _pDetector->SetDepthImage(depthimages1.at(0));
+                            //     _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 2);
+                            // }
+                            isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout, newerthantimestamp, _filteringsubsample);
+                            numretries--;
+                        }
+                        if (points.size() / 3 == 0) {
+                            throw MujinVisionException("got 0 point from GetPointCloudObstacle() after retries", MVE_Failed);
+                        }
                     }
+                    std::stringstream ss;
+
+                    // check only if we are not sure region is occluded
+                    if (isregionoccluded < 1 && !!depthimage && depthimage->GetMetadata().size() > 0) {
+                        ptree tmppt;
+                        ss << depthimage->GetMetadata();
+                        read_json(ss, tmppt);
+                        int iscameraoccluded = tmppt.get<int>("isoccluded", -1);
+                        if (isregionoccluded == -2 || isregionoccluded == 0) { // use camera occlusion status if region occlusion status is never set or not occluded
+                            isregionoccluded = iscameraoccluded;
+                        } else if (isregionoccluded == -1) { // if region occlusion status is unknown
+                            if (iscameraoccluded == 0 || iscameraoccluded == -1) { // stay unknown if we don't know the camera is occluded
+                                isregionoccluded = -1;
+                            } else if (iscameraoccluded == 1) { // set region to be occluded if the camera is occluded
+                                isregionoccluded = 1;
+                            }
+                        } else if (isregionoccluded == 1) { // should not get here
+                            MUJIN_LOG_WARN("should not get here!");
+                        }
+                    }
+                    MUJIN_LOG_DEBUG("adding " << (points.size()/3) << " points from " << cameraname  << " (" << _GetHardwareId(cameraname) << ")");
+                    totalpoints.insert(totalpoints.end(), points.begin(), points.end());
                 }
                 std::stringstream ss;
-
-                // check only if we are not sure region is occluded
-                if (isregionoccluded < 1 && !!depthimage && depthimage->GetMetadata().size() > 0) {
-                    ptree tmppt;
-                    ss << depthimage->GetMetadata();
-                    read_json(ss, tmppt);
-                    int iscameraoccluded = tmppt.get<int>("isoccluded", -1);
-                    if (isregionoccluded == -2 || isregionoccluded == 0) { // use camera occlusion status if region occlusion status is never set or not occluded
-                        isregionoccluded = iscameraoccluded;
-                    } else if (isregionoccluded == -1) { // if region occlusion status is unknown
-                        if (iscameraoccluded == 0 || iscameraoccluded == -1) { // stay unknown if we don't know the camera is occluded
-                            isregionoccluded = -1;
-                        } else if (iscameraoccluded == 1) { // set region to be occluded if the camera is occluded
-                            isregionoccluded = 1;
-                        }
-                    } else if (isregionoccluded == 1) { // should not get here
-                        MUJIN_LOG_WARN("should not get here!");
-                    }
-                }
-                MUJIN_LOG_DEBUG("adding " << (points.size()/3) << " points from " << cameraname  << " (" << _GetHardwareId(cameraname) << ")");
-                totalpoints.insert(totalpoints.end(), points.begin(), points.end());
+                ss <<"Sending over " << (totalpoints.size()/3) << " points";
+                _SetStatusMessage(TT_Command, ss.str());
+                _pBinpickingTask->AddPointCloudObstacle(totalpoints, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "mm", isregionoccluded, regionname);
+                _lastSendPointCloudObstacleTimestamp = imageStartTimestamp;
+            } else {
+                MUJIN_LOG_WARN("failed to get image for getting pointcloud obstacle");
             }
-            std::stringstream ss;
-            ss <<"Sending over " << (totalpoints.size()/3) << " points";
-            _SetStatusMessage(TT_Command, ss.str());
-            _pBinpickingTask->AddPointCloudObstacle(totalpoints, pointsize, obstaclename, imageStartTimestamp, imageEndTimestamp, false, "mm", isregionoccluded, regionname);
-            _lastSendPointCloudObstacleTimestamp = imageStartTimestamp;
         } else {
-            MUJIN_LOG_WARN("failed to get image for getting pointcloud obstacle");
+            _bStopSendPointCloudObstacleToControllerThread = false;
+            _bIsSendPointcloudRunning = true;
+            SendPointCloudObstacleToControllerThreadParams params;
+            params.regionname = regionname;
+            params.cameranames = cameranames;
+            params.detectedobjectsworld = detectedobjectsworld;
+            params.newerthantimestamp = newerthantimestamp;
+            params.fetchimagetimeout = fetchimagetimeout;
+            params.voxelsize = voxelsize;
+            params.pointsize = pointsize;
+            params.obstaclename = obstaclename;
+            _pSendPointCloudObstacleThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendPointCloudObstacleToControllerThread, this, params)));
         }
-    } else {
-        _bStopSendPointCloudObstacleToControllerThread = false;
-        _bIsSendPointcloudRunning = true;
-        SendPointCloudObstacleToControllerThreadParams params;
-        params.regionname = regionname;
-        params.cameranames = cameranames;
-        params.detectedobjectsworld = detectedobjectsworld;
-        params.newerthantimestamp = newerthantimestamp;
-        params.fetchimagetimeout = fetchimagetimeout;
-        params.voxelsize = voxelsize;
-        params.pointsize = pointsize;
-        params.obstaclename = obstaclename;
-        _pSendPointCloudObstacleThread.reset(new boost::thread(boost::bind(&MujinVisionManager::_SendPointCloudObstacleToControllerThread, this, params)));
+        std::stringstream ss;
+        ss << "SendPointCloudObstacleToController async " << int(async) << " took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
+        MUJIN_LOG_INFO(ss.str());
+        _SetStatus(TT_Command, MS_Succeeded);
     }
-    std::stringstream ss;
-    ss << "SendPointCloudObstacleToController async " << int(async) << " took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
-    MUJIN_LOG_INFO(ss.str());
-    _SetStatus(TT_Command, MS_Succeeded);
+    catch (const MujinVisionException& e) {
+        switch (e.GetCode()) {
+        case MVE_UserInterrupted:
+            MUJIN_LOG_INFO("User interrupted DetectObject!");
+            break;
+        default:
+            MUJIN_LOG_ERROR(e.message());
+            _SetStatusMessage(TT_Command, e.message(), GetErrorCodeString(MVE_Failed));
+            break;
+        }
+    }
+    catch(const std::exception& ex) {
+        std::stringstream ss;
+        ss << "Caught exception: " << ex.what();
+        //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_RecognitionError), ss.str());
+        MUJIN_LOG_ERROR(ss.str());
+        _SetStatusMessage(TT_Command, ss.str(), GetErrorCodeString(MVE_Failed));
+    }
+
 }
 
 void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params)
@@ -3863,12 +3904,17 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
             MUJIN_LOG_INFO("User interrupted GetPointCloudObstacle!");
             break;
         default:
-            MUJIN_LOG_WARN("got MujinVisionException: " << e.message());
+            MUJIN_LOG_ERROR(e.message());
+            _SetStatusMessage(TT_SendPointcloudObstacle, e.message(), GetErrorCodeString(MVE_Failed));
             break;
         }
     }
     catch (const std::exception& ex) {
-        MUJIN_LOG_WARN(str(boost::format("threw exception while sending pointcloud: %s")%ex.what()));
+        std::stringstream ss;
+        ss << "Caught exception: " << ex.what();
+        //std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_RecognitionError), ss.str());
+        MUJIN_LOG_ERROR(ss.str());
+        _SetStatusMessage(TT_SendPointcloudObstacle, ss.str(), GetErrorCodeString(MVE_Failed));
     }
     MUJIN_LOG_DEBUG("end of SendPointCloudObstacleToControllerThread");
 }

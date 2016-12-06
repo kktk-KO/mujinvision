@@ -40,7 +40,7 @@ public:
     {
         return ImagePtr();
     }
-    ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/, const bool bindetection=false, const std::string& extraoptions="")
+    ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/, const std::string& extraoptions="")
     {
         return ImagePtr();
     }

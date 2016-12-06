@@ -406,6 +406,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bForceRequestDetectionResults = false;
     _bIsGrabbingTarget = false;
     _bIsGrabbingLastTarget = false;
+    _bindetectionMode = 0;
     _numPickAttempt = 0;
     _binpickingstateTimestamp = 0;
     _lastGrabbedTargetTimestamp = 0;

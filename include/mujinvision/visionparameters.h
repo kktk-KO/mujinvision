@@ -72,19 +72,15 @@ struct MUJINVISION_API ParametersBase
         }
     }
 
+    /** \brief sets up proper json string by adding proper escaping back slashes
+        \param str unquoted string that may contain special chars
+     */
     static std::string GetJsonString(const std::string& str)
     {
         std::string newstr = str;
-        if (newstr.find("\\\"") == std::string::npos) {
-            boost::replace_all(newstr, "\"", "\\\"");
-        }
-        if (newstr.find("\\n") == std::string::npos) {
-            boost::replace_all(newstr, "\n", "\\n");
-        }
-        // TODO comment out for now
-        // if (newstr.find("\\\\") == std::string::npos) {
-        //     boost::replace_all(newstr, "\\", "\\\\");
-        // }
+        boost::replace_all(newstr, "\\", "\\\\");
+        boost::replace_all(newstr, "\"", "\\\"");
+        boost::replace_all(newstr, "\n", "\\n");
         return "\""+newstr+"\"";
     }
 

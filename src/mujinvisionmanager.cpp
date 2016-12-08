@@ -1369,8 +1369,13 @@ std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long ti
     ss << ", " << ParametersBase::GetJsonString("isenvironmentupdaterunning", _bIsEnvironmentUpdateRunning);
     ss << ", " << ParametersBase::GetJsonString("lastupdateenvironmenttimestamp", _tsLastEnvUpdate);
     ss << "}";
-    ParametersBase::ValidateJsonString(ss.str());
-    return ss.str();
+    try {
+        ParametersBase::ValidateJsonString(ss.str());
+        return ss.str();
+    } catch (const MujinVisionException& e) {
+        MUJIN_LOG_ERROR("Cannot publish malformatted status message: " + e.message());
+        return "{}";
+    }
 }
 
 void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandindex)
@@ -1467,9 +1472,24 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
                 }
 
                 // send output
-                ParametersBase::ValidateJsonString(result_ss.str());
-                pCommandServer->Send(result_ss.str());
+                try {
+                    ParametersBase::ValidateJsonString(result_ss.str());
+                    pCommandServer->Send(result_ss.str());
+                } catch (const MujinVisionException& e) {
+                    MUJIN_LOG_ERROR(e.message());
+                    std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), "Failed to send result because it is malformatted json. Please check vision manager log for details.");  // cannot send malformatted json, log only here
+                    result_ss.str("");
+                    result_ss.clear();
+                    result_ss << "{" << errstr << "}";
+                    pCommandServer->Send(result_ss.str());
+                    _SetStatus(TT_Command, MS_Aborted, "", errstr, false);
+                }
             }
+        }
+        catch (const MujinVisionException& e) {
+            std::string errstr = "Caught unhandled MujinVisionException " + e.message();
+            _SetStatus(TT_Command, MS_Aborted, errstr, "", false);
+            MUJIN_LOG_WARN(errstr);
         }
         catch (const zmq::error_t& e) {
             if (!_mPortStopCommandThread[commandindex]) {
@@ -2961,6 +2981,7 @@ bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                 colorimages.resize(0);
                 depthimages.resize(0);
                 resultimages.resize(0);
+                oldimagepacktimestamp = imagepacktimestamp; // need to update oldimagepacktimestamp so that we don't process the same image pack
                 continue;
             }
         }

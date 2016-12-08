@@ -406,6 +406,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bForceRequestDetectionResults = false;
     _bIsGrabbingTarget = false;
     _bIsGrabbingLastTarget = false;
+    _bindetectionMode = 0;
     _numPickAttempt = 0;
     _binpickingstateTimestamp = 0;
     _lastGrabbedTargetTimestamp = 0;
@@ -3363,8 +3364,8 @@ void MujinVisionManager::Initialize(
         } else {
             _mNameCameraParameters[v->first].reset(new CameraParameters(v->second));
         }
-        _mNameCameraParameters[v->first]->isDepthCamera = v->first.find("_l_rectified") != std::string::npos || v->first.find("Projector") != std::string::npos  || (v->first.find("projector") != std::string::npos && v->first.find("RVprojector") == std::string::npos) || v->first.find("RVcamera") != std::string::npos || v->first.find("TVCS-F30A-0") != std::string::npos;  // FIXME: hack
-        _mNameCameraParameters[v->first]->isColorCamera = v->first.find("projector") == std::string::npos && v->first.find("RVprojector") == std::string::npos;  // FIXME: hack
+        _mNameCameraParameters[v->first]->isDepthCamera = v->first.find("_l_rectified") != std::string::npos || v->first.find("Projector") != std::string::npos  || (v->first.find("projector") != std::string::npos && v->first.find("RVprojector") == std::string::npos && v->first.find("TVSprojector") == std::string::npos) || v->first.find("RVcamera") != std::string::npos || v->first.find("TVScamera0") != std::string::npos || v->first.find("TVCS-F30A-0") != std::string::npos;  // FIXME: hack
+        _mNameCameraParameters[v->first]->isColorCamera = v->first.find("projector") == std::string::npos && v->first.find("RVprojector") == std::string::npos && v->first.find("TVSprojector") == std::string::npos;  // FIXME: hack
         if (_mNameCameraParameters[v->first]->isDepthCamera) {
             MUJIN_LOG_DEBUG("camera " << v->first << " is a depth camera");
         }

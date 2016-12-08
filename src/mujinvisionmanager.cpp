@@ -3325,10 +3325,10 @@ void MujinVisionManager::Initialize(
 
     // set up regions
     std::vector<std::string> regionnames;
+    std::vector<RegionParametersPtr > vRegionParameters;
     {
         boost::mutex::scoped_lock lock(_mutexRegion);
         _mNameRegion.clear();
-        std::vector<RegionParametersPtr > vRegionParameters;
         RegionParametersPtr pRegionParameters;
         ptree containerpt;
         std::stringstream containerss;
@@ -3352,9 +3352,29 @@ void MujinVisionManager::Initialize(
 
     _SetStatusMessage(TT_Command, "Syncing cameras");
     std::vector<std::string> cameranames;
+    std::map<std::string, std::string> mAllCameraNameHardwareId; // mapping of all the cameras, even ones that are not used
     _mCameraNameHardwareId.clear();
-    _mHardwareIdCameraName.clear();
-    scene->GetSensorMapping(_mCameraNameHardwareId);
+    scene->GetSensorMapping(mAllCameraNameHardwareId);
+
+    // need to initialize cameras that are only in the regions _mHardwareIdCameraName! Otherwise can get unused cameras and they can conflict with the ID -> Camera mapping
+    _mCameraNameHardwareId.clear();
+    FOREACH(it, mAllCameraNameHardwareId) {
+        bool bInRegion = false;
+        FOREACH(itregion, vRegionParameters) {
+            if( find((*itregion)->cameranames.begin(), (*itregion)->cameranames.end(), it->first) != (*itregion)->cameranames.end() ) {
+                MUJIN_LOG_DEBUG(str(boost::format("adding camera %s since matching to region %s")%it->first%(*itregion)->instobjectname));
+                bInRegion = true;
+                break;
+            }
+        }
+        if( bInRegion ) {
+            _mCameraNameHardwareId[it->first] = it->second;
+        }
+        else {
+            //MUJIN_LOG_DEBUG(str(boost::format("could not find region for camera %s since matching to region %s")%it->first));
+        }                                  
+    }
+    
     _mNameCameraParameters.clear();
     FOREACH(v, _mCameraNameHardwareId) {
         MUJIN_LOG_DEBUG("got camera hardware id " << v->first << " with id " << v->second);

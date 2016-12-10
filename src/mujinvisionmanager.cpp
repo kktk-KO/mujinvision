@@ -3280,6 +3280,7 @@ void MujinVisionManager::Initialize(
 
             if (remotetimeval > 0) {
                 // extract files if downloaded
+                boost::this_thread::sleep(boost::posix_time::milliseconds(100)); // sometimes got incomplete tar file and the following would fail, possibly because of disk delays? for now sleeping a little helped resolve the problem.
                 starttime = GetMilliTime();
                 try {
                     std::stringstream commandss;

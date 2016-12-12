@@ -1838,6 +1838,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         int numresults = 0;
         unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
         int isContainerPresent=-1;
+        bool bDetectorHasRunThisCycle = false;
 
         try {
             time0=GetMilliTime();
@@ -1969,7 +1970,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     if( newerthantimestamp < imageEndTimestamp ) {
                         newerthantimestamp = imageEndTimestamp;
                     }
-                    bDetectorHasRunAtLeastOnce = true;
+                    bDetectorHasRunThisCycle = bDetectorHasRunAtLeastOnce = true;
                 }
             }
             else if (numfastdetection > 0 || bindetectiononly) {
@@ -2010,7 +2011,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                         if( newerthantimestamp < imageEndTimestamp ) {
                             newerthantimestamp = imageEndTimestamp;
                         }
-                        bDetectorHasRunAtLeastOnce = true;
+                        bDetectorHasRunThisCycle = bDetectorHasRunAtLeastOnce = true;
                     }
 
                     if (isContainerPresent == 0) {
@@ -2066,7 +2067,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                         if( newerthantimestamp < imageEndTimestamp ) {
                             newerthantimestamp = imageEndTimestamp;
                         }
-                        bDetectorHasRunAtLeastOnce = true;
+                        bDetectorHasRunThisCycle = bDetectorHasRunAtLeastOnce = true;
                     }
                 }
             } else {
@@ -2094,14 +2095,14 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     if( newerthantimestamp < imageEndTimestamp ) {
                         newerthantimestamp = imageEndTimestamp;
                     }
-                    bDetectorHasRunAtLeastOnce = true;
+                    bDetectorHasRunThisCycle = bDetectorHasRunAtLeastOnce = true;
                 }
 
             }
             if (_bStopDetectionThread) {
                 break;
             }
-            if (bDetectorHasRunAtLeastOnce && !detectcontaineronly) {  // skip getting pointcloud obstacle if detecting container only
+            if (bDetectorHasRunThisCycle && !detectcontaineronly) {  // skip getting pointcloud obstacle if detecting container only
                 // call GetPointCloudObstacle on parts only
                 {
                     boost::mutex::scoped_lock lock(_mutexRegion);
@@ -2205,7 +2206,9 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
 
         MUJIN_LOG_INFO("Cycle time: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
         MUJIN_LOG_INFO(" ------------------------");
-        numdetection += 1;
+        if( bDetectorHasRunThisCycle ) {
+            numdetection += 1;
+        }
     }
     if (stoponleftinorder && numLeftInOrder == 0) {
         MUJIN_LOG_INFO("got out of detection loop because numLeftInOrder is 0, wait for environment to update");
@@ -2220,7 +2223,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         _StopUpdateEnvironmentThread();
         _StopExecutionVerificationPointCloudThread();
     }
-    if (numdetection >= maxnumdetection && maxnumdetection!=0) {
+    if (bDetectorHasRunAtLeastOnce && numdetection >= maxnumdetection && maxnumdetection!=0) {
         MUJIN_LOG_INFO("reached max num detection, wait for environment to update");
         while (_resultTimestamp > _tsLastEnvUpdate && !_bStopDetectionThread) { // have to check that detection was not stopped, or else can spin here forever since update thread would have been stopped.
             boost::this_thread::sleep(boost::posix_time::milliseconds(50));
@@ -2501,7 +2504,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 std::string cameraname = evcamnames.at(i);
                 unsigned long long cloudstarttime, cloudendtime;
                 // ensure publishing
-                MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames));
+                MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames) << " and filteringvoxelsize=" << _filteringvoxelsize << ", and _filteringstddev=" << _filteringstddev << ", and filteringnumnn=" << _filteringnumnn);
                 _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, false, ignoreocclusion);
                 double newpointsize = 0;
                 {

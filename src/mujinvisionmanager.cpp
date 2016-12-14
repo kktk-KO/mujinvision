@@ -2045,7 +2045,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 if (!_bStopDetectionThread && numresults == 0 && numfastdetection == 0 ) {
                     MUJIN_LOG_DEBUG("DetectObjects() in fast mode found no object, detect in normal mode");
                     bool fastdetection=false;
-                    bool bindetection=_bindetectionMode == 2;
+                    bool bindetection = (bDetectorHasRunAtLeastOnce && _bindetectionMode == 2) || (!bDetectorHasRunAtLeastOnce && _bindetectionMode > 0);
                     bool request=false;
                     bool useold=!bFailedBecauseOfNoImage;//true;
                     bool checkcontaineremptyonly=false;
@@ -2073,7 +2073,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             } else {
                 MUJIN_LOG_DEBUG("detect normally");
                 bool fastdetection=false;
-                bool bindetection=_bindetectionMode == 2;
+                bool bindetection= (bDetectorHasRunAtLeastOnce && _bindetectionMode == 2) || (!bDetectorHasRunAtLeastOnce && _bindetectionMode > 0);
                 bool request=false;
                 bool useold=false;
                 bool checkcontaineremptyonly=false;

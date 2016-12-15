@@ -513,9 +513,10 @@ private:
         \param output imageEndTimestamp for all captured images, the endtime in ms of the image captured
         \param newerthantimestamp images must be newer than the specified timestamp, the call blocks until all images satisfy requirements or passed fetchimagetimeout
         \param bindetection whether to detect container when getting detection result, container's info is stored in result image's metadata field
+        \param checkpreemptbits specifying which bits to check for preempting
         \return true if all the requested images are retrieved and imageStartTimestamp and imageEndTimestamp and resultimages are updated. Otherwise false
      */
-    bool _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/, const bool bindetection=false);
+    bool _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/, const bool bindetection=false, const unsigned int checkpreemptbits=0);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -558,7 +559,7 @@ private:
     std::string _GetConfigFileName(const std::string& type, const std::string& configname);
     void _LoadConfig(const std::string& filename, std::string& content);
 
-    bool _CheckPreemptSubscriber();
+    bool _CheckPreemptSubscriber(const unsigned int checkpreemptbits);
     bool _CheckPreemptDetector(const unsigned int checkpreemptbits);
 
     /** \brief checks if region camera mapping has changed for specified region and cameras, if so, reset cached data, detector, and streamer accordingly

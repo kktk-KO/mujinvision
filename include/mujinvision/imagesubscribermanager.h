@@ -22,8 +22,6 @@
 
 namespace mujinvision {
 
-typedef boost::function<bool (const unsigned int)> CheckPreemptFn;
-
 class MUJINVISION_API ImageSubscriberManager
 {
 public:
@@ -36,7 +34,7 @@ public:
     /** sets preempt fn
         \param preemptfn user specified preempt function that can be used to interrupt a call
      */
-    virtual void SetPreemptFn(const CheckPreemptFn& preemptfn) {
+    virtual void SetPreemptFn(const mujinzmq::CheckPreemptFn& preemptfn) {
         _preemptfn = preemptfn;
     }
 
@@ -150,7 +148,7 @@ public:
 protected:
 
     std::map<std::string, CameraPtr> _mNameCamera; ///< name -> camera
-    CheckPreemptFn _preemptfn;
+    mujinzmq::CheckPreemptFn _preemptfn;
 };
 
 typedef boost::shared_ptr<ImageSubscriberManager> ImageSubscriberManagerPtr;

@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// Copyright (C) 2012-2015 MUJIN Inc.
+// Copyright (C) 2012-2016 MUJIN Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,9 +36,9 @@ enum MujinVisionErrorCode
     MVE_ControllerError=10,
     MVE_NoResponse=11,
     MVE_UserInterrupted=12,
-    MVE_UnexpectedReturnData = 13, ///< return unexptected data
-    MVE_StreamerError = 14, ///< streamer returned an error
-
+    MVE_UnexpectedReturnData=13, ///< return unexptected data
+    MVE_StreamerError=14, ///< streamer returned an error
+    MVE_Timeout=15
 };
 
 inline const char* GetErrorCodeString(MujinVisionErrorCode error)
@@ -59,6 +59,7 @@ inline const char* GetErrorCodeString(MujinVisionErrorCode error)
     case MVE_UserInterrupted: return "UserInterrupted";
     case MVE_UnexpectedReturnData: return "UnexpectedReturnData";
     case MVE_StreamerError: return "StreamerError";
+    case MVE_Timeout: return "TimeoutError";
     }
     // throw an exception?
     return "";

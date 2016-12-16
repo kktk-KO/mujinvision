@@ -109,26 +109,5 @@ private:
 
 };
 
-/// \brief exception throw when user interrupts the function
-class MUJINVISION_API UserInterruptException : public std::exception
-{
-public:
-    UserInterruptException() : std::exception() {
-    }
-    UserInterruptException(const std::string& s) : std::exception(), _s(s) {
-    }
-    virtual ~UserInterruptException() throw() {
-    }
-    char const* what() const throw() {
-        return _s.c_str();
-    }
-    const std::string& message() const {
-        return _s;
-    }
-
-private:
-    std::string _s;
-};
-
 } // namespace mujinvision
 #endif

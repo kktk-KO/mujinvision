@@ -696,6 +696,7 @@ private:
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
     bool _bIsDetectionRunning; ///< true if detection thread is running
+    bool _bIsExecutionVerificationPointCloudRunning; ///< true if execution verification thread is running
     bool _bIsVisualizePointcloudRunning; ///< whether the point cloud visualization thread is running
     bool _bIsSendPointcloudRunning; ///< whether send point cloud obstacle thread is running
     bool _bIsEnvironmentUpdateRunning; ///< whether env update thread is running

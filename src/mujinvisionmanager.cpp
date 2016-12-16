@@ -235,13 +235,43 @@ bool MujinVisionManager::_CheckPreemptSubscriber(const unsigned int checkpreempt
     bool bCheckExecutionVerificationThreadPreempt = (checkpreemptbits >> 2) & 1;
     bool bCheckVisualizePointCloudThreadPreempt = (checkpreemptbits >> 3) & 1;
 
-    // TODO improve logic
-
-    // if SendingPointCloud is running, don't stop subscriber even we are stoping threads, so threads might get blocked when getting images
-    bool bpreempt = _bShutdown || _bCancelCommand; // || ((_bStopDetectionThread || _bStopUpdateEnvironmentThread) && !_bIsSendPointcloudRunning); // || _bStopExecutionVerificationPointCloudThread;
-    if (bpreempt ) {
-        MUJIN_LOG_DEBUG("preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread << " _bStopUpdateEnvironmentThread=" << _bStopUpdateEnvironmentThread << " _bStopExecutionVerificationPointCloudThread=" << _bStopExecutionVerificationPointCloudThread << " _bIsSendingPointCloudRunning=" << _bIsSendPointcloudRunning);
+    bool bpreempt = false;
+    if (bCheckDetectionThreadPreempt) { // when called from subscriber used by the detection thread
+        bool bPreemptSubscriberFromDetectionThread = _bShutdown || _bCancelCommand || (_bStopDetectionThread && !_bIsSendPointcloudRunning && !_bIsVisualizePointcloudRunning); // do not preempt when send pointcloud or visualize pointcloud thread is running
+        if (bPreemptSubscriberFromDetectionThread) {
+            MUJIN_LOG_DEBUG(str(boost::format("preempt subscriber from detection thread. _bShutdown=%d _bCancelCommand=%d _bStopDetectionThread=%d _bIsSendPointcloudRunning=%d _bIsVisualizePointcloudRunning=%d") % _bShutdown % _bCancelCommand % _bStopDetectionThread % _bIsSendPointcloudRunning % _bIsVisualizePointcloudRunning));
+            bpreempt = true;
+        }
     }
+    if (bCheckExecutionVerificationThreadPreempt) { // when called from subscriber used by the execution verification thread
+        bool bPreemptSubscriberFromExecutionVerificationThread = _bShutdown || _bCancelCommand || (_bStopExecutionVerificationPointCloudThread && !_bIsSendPointcloudRunning && !_bIsVisualizePointcloudRunning); // do not preempt when send pointcloud or visualize pointcloud thread is running
+        if (bPreemptSubscriberFromExecutionVerificationThread) {
+            MUJIN_LOG_DEBUG(str(boost::format("preempt subscriber from execution verification thread. _bShutdown=%d _bCancelCommand=%d _bStopExecutionVerificationPointCloudThread=%d _bIsSendPointcloudRunning=%d _bIsVisualizePointcloudRunning=%d") % _bShutdown % _bCancelCommand % _bStopExecutionVerificationPointCloudThread % _bIsSendPointcloudRunning % _bIsVisualizePointcloudRunning));
+            bpreempt = true;
+        }
+    }
+    if (bCheckSendPointcloudThreadPreempt) { // when called from subscriber used by the send pointcloud thread
+        bool bPreemptSubscriberFromSendPointcloudThread = _bShutdown || _bCancelCommand || (_bStopSendPointCloudObstacleToControllerThread && !_bIsDetectionRunning && !_bIsExecutionVerificationPointCloudRunning && !_bIsVisualizePointcloudRunning); // do not preempt when detection or execution verification or visualize pointcloud thread is running
+        if (bPreemptSubscriberFromSendPointcloudThread) {
+            MUJIN_LOG_DEBUG(str(boost::format("preempt subscriber from send pointcloud thread. _bShutdown=%d _bCancelCommand=%d _bStopSendPointCloudObstacleToControllerThread=%d _bIsDetectionRunning=%d _bIsExecutionVerificationPointCloudRunning=%d _bIsVisualizePointcloudRunning=%d") % _bShutdown % _bCancelCommand % _bStopSendPointCloudObstacleToControllerThread % _bIsDetectionRunning % _bIsExecutionVerificationPointCloudRunning % _bIsVisualizePointcloudRunning));
+            bpreempt = true;
+        }
+    }
+    if (bCheckVisualizePointCloudThreadPreempt) { // when called from subscriber used by visualize pointcloud thread
+        bool bPreemptSubscriberFromVisualizePointcloudThread = _bShutdown || _bCancelCommand || (_bStopVisualizePointCloudThread && !_bIsSendPointcloudRunning && !_bIsDetectionRunning && !_bIsExecutionVerificationPointCloudRunning); // do not preempt when detection or execution verification or send pointcloud thread is running
+        if (bPreemptSubscriberFromVisualizePointcloudThread) {
+            MUJIN_LOG_DEBUG(str(boost::format("preempt subscriber from visualize pointcloud thread. _bShutdown=%d _bCancelCommand=%d _bStopVisualizePointCloudThread=%d _bIsDetectionRunning=%d _bIsExecutionVerificationPointCloudRunning=%d _bIsSendPointcloudRunning=%d") % _bShutdown % _bCancelCommand % _bStopVisualizePointCloudThread % _bIsDetectionRunning % _bIsExecutionVerificationPointCloudRunning % _bIsSendPointcloudRunning));
+            bpreempt = true;
+        }
+    }
+
+    /**
+       // if SendingPointCloud is running, don't stop subscriber even we are stoping threads, so threads might get blocked when getting images
+       bool bpreempt = _bShutdown || _bCancelCommand; // || ((_bStopDetectionThread || _bStopUpdateEnvironmentThread) && !_bIsSendPointcloudRunning); // || _bStopExecutionVerificationPointCloudThread;
+       if (bpreempt ) {
+        MUJIN_LOG_DEBUG("preempt subscriber! _bShutdown=" << int(_bShutdown) << " _bCancelCommand=" << int(_bCancelCommand) << " _bStopDetectionThread=" << _bStopDetectionThread << " _bStopUpdateEnvironmentThread=" << _bStopUpdateEnvironmentThread << " _bStopExecutionVerificationPointCloudThread=" << _bStopExecutionVerificationPointCloudThread << " _bIsSendingPointCloudRunning=" << _bIsSendPointcloudRunning);
+       }
+     */
     return bpreempt;
 }
 
@@ -405,6 +435,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bIsControllerPickPlaceRunning = false;
     _bIsRobotOccludingSourceContainer = false;
     _bIsDetectionRunning = false;
+    _bIsExecutionVerificationPointCloudRunning = false;
     _bIsVisualizePointcloudRunning = false;
     _bIsSendPointcloudRunning = false;
     _bIsEnvironmentUpdateRunning = false;
@@ -570,7 +601,7 @@ void MujinVisionManager::_SetStatus(ThreadType tt, ManagerStatus status, const s
         }
     }
     if(_bCancelCommand && allowInterrupt) {
-        throw UserInterruptException("Cancelling command.");
+        throw mujinclient::UserInterruptException("Cancelling command.");
     }
     std::stringstream ss;
     ss << GetMilliTime() << " " << _GetManagerStatusString(status) << ": " << msg;
@@ -739,7 +770,7 @@ void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, s
     } else if (command == "Quit") {
         // throw exception, shutdown gracefully
         Shutdown();
-        throw UserInterruptException("User requested exit.");
+        throw mujinclient::UserInterruptException("User requested exit.");
     } else {
         std::string errstr = "received unknown config command " + command;
         MUJIN_LOG_ERROR(errstr);
@@ -1372,6 +1403,7 @@ std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long ti
         ss << ", " << ParametersBase::GetJsonString("detectionRegionName", _detectionRegionName);
     }
     ss << ", " << ParametersBase::GetJsonString("isvisualizepointcloudrunning", _bIsVisualizePointcloudRunning);
+    ss << ", " << ParametersBase::GetJsonString("isexecutionverificationpointcloudrunning", _bIsExecutionVerificationPointCloudRunning);
     ss << ", " << ParametersBase::GetJsonString("issendpointcloudrunning", _bIsSendPointcloudRunning);
     ss << ", " << ParametersBase::GetJsonString("isenvironmentupdaterunning", _bIsEnvironmentUpdateRunning);
     ss << ", " << ParametersBase::GetJsonString("lastupdateenvironmenttimestamp", _tsLastEnvUpdate);
@@ -1427,7 +1459,7 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
                         _ExecuteUserCommand(command_pt, result_ss);
                     }
                 }
-                catch (const UserInterruptException& ex) { // need to catch it here, otherwise zmq will be in bad state
+                catch (const mujinclient::UserInterruptException& ex) { // need to catch it here, otherwise zmq will be in bad state
                     if (commandindex == CDI_Configure) {
                         MUJIN_LOG_WARN("User requested program exit.");
                         result_ss << "{}";
@@ -1505,7 +1537,7 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
                 MUJIN_LOG_WARN(errstr);
             }
         }
-        catch (const UserInterruptException& ex) {
+        catch (const mujinclient::UserInterruptException& ex) {
             std::string errstr = "User requested program exit";
             _SetStatus(TT_Command, MS_Aborted, errstr, "", false);
             MUJIN_LOG_WARN(errstr);
@@ -1604,7 +1636,7 @@ void MujinVisionManager::_StartExecutionVerificationPointCloudThread(const std::
         _SetStatusMessage(TT_Command, "ExecutionVerificationPointCloud thread is already running, do nothing.");
     } else {
         _bStopExecutionVerificationPointCloudThread = false;
-        _bIsEnvironmentUpdateRunning = true;
+        _bIsExecutionVerificationPointCloudRunning = true;
         SendExecutionVerificationPointCloudParams params;
         params.cameranames = cameranames;
         params.executionverificationcameranames = evcamnames;
@@ -2447,7 +2479,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
         _SetStatus(TT_UpdateEnvironment, MS_Aborted, errss.str(), "", false);
         MUJIN_LOG_ERROR(errss.str());
     }
-    catch (const UserInterruptException& ex) {
+    catch (const mujinclient::UserInterruptException& ex) {
         std::stringstream errss;
         errss << "User interrupted _UpdateEnvironmentThread!";
         _SetStatus(TT_UpdateEnvironment, MS_Preempted, errss.str(), "", false);
@@ -2470,7 +2502,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
 void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params)
 {
     try {
-        //FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);
+        FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);
         std::vector<std::string> cameranames = params.cameranames;
         std::vector<std::string> evcamnames = params.executionverificationcameranames;
         MUJIN_LOG_INFO("starting SendExecutionVerificationPointCloudThread " + ParametersBase::GetJsonString(evcamnames));
@@ -2589,7 +2621,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         _SetStatus(TT_SendExecutionVerificationPointCloud, MS_Aborted, errss.str(), "", false);
         MUJIN_LOG_ERROR(errss.str());
     }
-    catch (const UserInterruptException& ex) {
+    catch (const mujinclient::UserInterruptException& ex) {
         std::stringstream errss;
         errss << "User interrupted _SendExecutionVerificationPointCloudThread!";
         _SetStatus(TT_SendExecutionVerificationPointCloud, MS_Preempted, errss.str(), "", false);
@@ -2673,7 +2705,7 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
         _SetStatus(TT_ControllerMonitor, MS_Aborted, errss.str(), "", false);
         MUJIN_LOG_ERROR(errss.str());
     }
-    catch (const UserInterruptException& ex) {
+    catch (const mujinclient::UserInterruptException& ex) {
         std::stringstream errss;
         errss << "User interrupted _ControllerMonitorThread!";
         _SetStatus(TT_ControllerMonitor, MS_Preempted, errss.str(), "", false);
@@ -2734,7 +2766,7 @@ void MujinVisionManager::_VisualizePointCloudThread(VisualizePointcloudThreadPar
         _SetStatus(TT_VisualizePointCloud, MS_Aborted, errss.str(), "", false);
         MUJIN_LOG_ERROR(errss.str());
     }
-    catch (const UserInterruptException& ex) {
+    catch (const mujinclient::UserInterruptException& ex) {
         std::stringstream errss;
         errss << "User interrupted _VisualizePointCloudThread!";
         _SetStatus(TT_VisualizePointCloud, MS_Preempted, errss.str(), "", false);

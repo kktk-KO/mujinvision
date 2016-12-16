@@ -18,6 +18,7 @@
 #define MUJIN_DETECTOR_H
 
 #include "mujinvision/visionparameters.h"
+#include <mujincontrollerclient/mujinzmq.h>
 
 namespace mujinvision {
 

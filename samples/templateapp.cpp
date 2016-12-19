@@ -40,7 +40,7 @@ public:
     {
         return ImagePtr();
     }
-    ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/, const bool bindetection=false, const std::string& extraoptions="")
+    ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/, const std::string& extraoptions="")
     {
         return ImagePtr();
     }
@@ -64,6 +64,10 @@ public:
     }
 
     int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize, const double stddev, const size_t numnn, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1) {
+        return -2;
+    }
+
+    int GetCollisionPointCloud(const std::string& cameraname, ImagePtr depthimage, std::vector<double>& points, const double voxelsize, const double stddev, const size_t numnn, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1) {
         return -2;
     }
 };

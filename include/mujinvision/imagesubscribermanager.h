@@ -91,6 +91,15 @@ public:
      */
     virtual int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize=0.01, const double stddev=0.01, const size_t numnn=80, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1) = 0;
 
+    /** \brief Gets a point cloud from the camera name and prunes and subsamples it.
+        \param regionnameforocclusionchecking regionname for occlusion checking, if not specified, do not check for occlusion
+        \param timeout in seconds
+        \param newerthan imagepack must be taken later than this timestamp
+        \param subsample how much to subsample, default is 1 meaning no subsampling
+        \return occlusion status of robot with the container: -2 if did not get any depth image, -1 if unknown, 0 if not occluding, 1 if robot is occluding container in camera
+     */
+    virtual int GetCollisionPointCloud(const std::string& cameraname, ImagePtr depthimage, std::vector<double>& points, const double voxelsize=0.01, const double stddev=0.01, const size_t numnn=80, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1) = 0;
+
     /** \brief Gets the depth image from the latest n images with depth data, and the min/max timestamps of the images used.
         \param cameraname name of the camera
         \param starttime timestamp of the earliest image
@@ -102,9 +111,8 @@ public:
     virtual void SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const double timeout=1.0 /*sec*/, const int numimages=-1, const std::string& extraoptions="") = 0;
 
     /** \brief gets detection result
-     *  \param bindetection whether to append container detection result in the metadata, default is false
      */
-    virtual ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/, const bool bindetection=false, const std::string& extraoptions="") = 0;
+    virtual ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/, const std::string& extraoptions="") = 0;
 
     virtual void StartCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="") = 0;
     virtual void StopCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0) = 0;

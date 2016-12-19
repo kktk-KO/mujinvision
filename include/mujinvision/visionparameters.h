@@ -72,15 +72,15 @@ struct MUJINVISION_API ParametersBase
         }
     }
 
+    /** \brief sets up proper json string by adding proper escaping back slashes
+        \param str unquoted string that may contain special chars
+     */
     static std::string GetJsonString(const std::string& str)
     {
         std::string newstr = str;
-        if (newstr.find("\\\"") == std::string::npos) {
-            boost::replace_all(newstr, "\"", "\\\"");
-        }
-        if (newstr.find("\\n") == std::string::npos) {
-            boost::replace_all(newstr, "\n", "\\n");
-        }
+        boost::replace_all(newstr, "\\", "\\\\");
+        boost::replace_all(newstr, "\"", "\\\"");
+        boost::replace_all(newstr, "\n", "\\n");
         return "\""+newstr+"\"";
     }
 
@@ -677,7 +677,8 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     std::vector<float> innerCorners;
     std::vector<float> outerCorners;
 
-    Transform tBaseLinkInInnerRegionTopCenter; ///< transform of the container link's coordinate system with respect to the inner region's center top face (firstlinkcenter_T_region)
+    Transform baselinkcenter_T_region; ///< transform of the container link's coordinate system with respect to the inner region's center top face (baselinkcenter_T_region)
+
     std::string GetJsonString()
     {
         std::stringstream ss;

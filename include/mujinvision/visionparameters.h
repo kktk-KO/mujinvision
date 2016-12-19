@@ -668,6 +668,15 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     std::vector<double> outerRotationmat; ///< defining rotation of outer box (physical) in the world frame, 3x3 row major
     double pointsize; ///< pointcloud pointsize in millimeter
 
+    // Woody params
+    float containerRoi[6];
+    float innerRoi[6];
+    float wallsAndBottomThickness[6];
+    std::vector<float> loosePlanes;
+    std::vector<float> tightPlanes;
+    std::vector<float> innerCorners;
+    std::vector<float> outerCorners;
+
     Transform tBaseLinkInInnerRegionTopCenter; ///< transform of the container link's coordinate system with respect to the inner region's center top face (firstlinkcenter_T_region)
     std::string GetJsonString()
     {

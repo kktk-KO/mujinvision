@@ -2803,7 +2803,7 @@ void MujinVisionManager::_SyncRegion(const std::string& regionname, const mujinv
 {
     boost::mutex::scoped_lock lock(_mutexRegion);
     //_mNameRegion[regionname]->SetWorldTransform(regiontransform);
-    MUJIN_LOG_DEBUG("setting region transform to:\n" + _GetString(O_T_region)); //_mNameRegion[regionname]->GetWorldTransform()));
+    MUJIN_LOG_DEBUG(std::string("setting region ") + regionname + std::string(" transform to:\n") + _GetString(O_T_region)); //_mNameRegion[regionname]->GetWorldTransform()));
     // update globalroi3d from mujin controller
     _mNameRegion[regionname]->pRegionParameters->outerTranslation = baselinkobb.translation;
     _mNameRegion[regionname]->pRegionParameters->outerExtents = baselinkobb.extents;
@@ -2902,7 +2902,7 @@ bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                         }
                     }
                 }
-                
+
                 return true;
             }
             else {
@@ -3270,7 +3270,7 @@ void MujinVisionManager::Initialize(
             catch(const std::exception& ex) {
                 MUJIN_LOG_DEBUG(str(boost::format("failed to download file %s, so giving up %s")%targetdetectionarchiveurl%ex.what()));
             }
-            
+
             if (remotetimeval > 0) {
                 // write file
                 {
@@ -3406,10 +3406,10 @@ void MujinVisionManager::Initialize(
             _mCameraNameHardwareId[it->first] = it->second;
         }
         else {
-            //MUJIN_LOG_DEBUG(str(boost::format("could not find region for camera %s since matching to region %s")%it->first));
-        }                                  
+            MUJIN_LOG_DEBUG(str(boost::format("could not find region for camera %s since matching to region %s")%it->first%it->second));
+        }
     }
-    
+
     _mNameCameraParameters.clear();
     FOREACH(v, _mCameraNameHardwareId) {
         MUJIN_LOG_DEBUG("got camera hardware id " << v->first << " with id " << v->second);
@@ -3515,7 +3515,7 @@ void MujinVisionManager::Initialize(
                     FOREACH(itc, _mNameCamera) {
                         ssvalidcameranames << itc->first << ", ";
                     }
-                    throw MujinVisionException(str(boost::format("scene sensor mapping does not have camera %s coming from region %s. valid camera names are [%s]")%cameraname%regionname%ssvalidcameranames.str()), MVE_InvalidArgument);
+                    throw MujinVisionException(str(boost::format("scene sensor mapping does not have camera %s coming from region %s. valid camera names are [%s], mAllCameraNameHardwareId=%d, vRegionParameters=%d")%cameraname%regionname%ssvalidcameranames.str()%mAllCameraNameHardwareId.size()%vRegionParameters.size()), MVE_InvalidArgument);
                 }
                 MUJIN_LOG_DEBUG("adding camera " << cameraname  << " (" << _GetHardwareId(cameraname) << ") to region " << regionname);
                 mCameranameCamera[cameraname] = _mNameCamera[cameraname];
@@ -3624,7 +3624,7 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
     std::vector<ImagePtr> colorimages, depthimages, resultimages;
     unsigned int waitinterval = 50;
     bool bGotAllImages = _GetImages(tt, pBinpickingTask, regionname, colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, useold, waitinterval, bindetection);
-    
+
     MUJIN_LOG_INFO("Getting images took " << ((GetMilliTime() - starttime) / 1000.0f) << " for " << __GetString(colorcameranames) << " " << __GetString(depthcameranames) << " newerthantimestamp=" << newerthantimestamp);
     starttime = GetMilliTime();
     if (bGotAllImages && (resultimages.size() > 0 || (colorimages.size() == colorcameranames.size() && depthimages.size() == depthcameranames.size()))) {

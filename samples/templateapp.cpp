@@ -94,10 +94,10 @@ public:
     void UpdateRegion(const std::string& regionname, RegionPtr region, const std::map<std::string, CameraPtr >& mNameCamera) {
     }
 
-    void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection, const bool bindetection, const bool checkcontaineremptyonly, const unsigned int checkpreemptbits) {
+    void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection, const bool bindetection, const bool checkcontaineremptyonly, const unsigned int checkpreemptbits, const unsigned int numthreads) {
     }
 
-    void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, const std::vector<ImagePtr>& resultimages, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection, const bool bindetection, const bool checkcontaineremptyonly, const unsigned int checkpreemptbits) {
+    void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, const std::vector<ImagePtr>& resultimages, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection, const bool bindetection, const bool checkcontaineremptyonly, const unsigned int checkpreemptbits, const unsigned int numthreads) {
     }
 
     void DetectInImage(const std::string& regionname, const std::string& colorcameraname, std::vector<DetectedObjectPtr>& resultscolorcamera) {

@@ -17,6 +17,8 @@
 #ifndef MUJIN_VISION_EXCEPTIONS_H
 #define MUJIN_VISION_EXCEPTIONS_H
 
+#include <string>
+
 namespace mujinvision {
 
 #include "mujinvision/config.h"
@@ -37,7 +39,8 @@ enum MujinVisionErrorCode
     MVE_NoResponse=11,
     MVE_UserInterrupted=12,
     MVE_UnexpectedReturnData = 13, ///< return unexptected data
-    MVE_StreamerError = 14, ///< streamer returned an error
+    MVE_StreamerError = 14, ///< streamer returned an error,
+    MVE_EigenError = 15, ///< something went wrong with Eigen library,
 
 };
 
@@ -59,6 +62,7 @@ inline const char* GetErrorCodeString(MujinVisionErrorCode error)
     case MVE_UserInterrupted: return "UserInterrupted";
     case MVE_UnexpectedReturnData: return "UnexpectedReturnData";
     case MVE_StreamerError: return "StreamerError";
+    case MVE_EigenError: return "EigenError";
     }
     // throw an exception?
     return "";

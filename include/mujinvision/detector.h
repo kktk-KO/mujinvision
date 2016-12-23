@@ -43,6 +43,15 @@ public:
 
     virtual void DeInitialize() = 0;
 
+    /** This will affect all the libraries used by the detector (eg. OpenCV, BLAS...)
+        \param nThreads Passing 0 will set nThreads to the number of hardware
+                        threads, and that also includes hyperthreading threads.
+     */
+    virtual void SetNumThreads(uint32_t nThreads) = 0;
+
+    /// \return Number of threads used by the libraries used by the detector (eg. OpenCV, BLAS...)
+    virtual uint32_t GetNumThreads() const = 0;
+
     /** \brief updates the region cameras mapping in detector
      */
     virtual void UpdateRegion(const std::string& regionname, RegionPtr region, const std::map<std::string, CameraPtr >& mNameCamera) = 0;
@@ -58,9 +67,9 @@ public:
         \param bindetection whether to detect bin
         \param checkpreemptbits bits to check for preempt
      */
-    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false, const unsigned int checkpreemptbits=1, const unsigned int numthreads=0) = 0;
+    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false, const unsigned int checkpreemptbits=1) = 0;
 
-    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, const std::vector<ImagePtr>& resultimages, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false, const unsigned int checkpreemptbits=1, const unsigned int numthreads=0) = 0;
+    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, const std::vector<ImagePtr>& resultimages, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false, const unsigned int checkpreemptbits=1) = 0;
 
     /** \brief Gets point cloud obstacle from depth data and detection result.
         \param regionname

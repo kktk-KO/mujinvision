@@ -3260,7 +3260,14 @@ void MujinVisionManager::Initialize(
 
             long remotetimeval = 0;
             std::vector<unsigned char> data;
-            _pControllerClient->DownloadFileFromControllerIfModifiedSince_UTF8(targetdetectionarchiveurl, localtimeval, remotetimeval, data);
+
+            try {
+                _pControllerClient->DownloadFileFromControllerIfModifiedSince_UTF8(targetdetectionarchiveurl, localtimeval, remotetimeval, data);
+            }
+            catch(const std::exception& ex) {
+                MUJIN_LOG_DEBUG(str(boost::format("failed to download file %s, so giving up %s")%targetdetectionarchiveurl%ex.what()));
+            }
+            
             if (remotetimeval > 0) {
                 // write file
                 {

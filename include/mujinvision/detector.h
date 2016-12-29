@@ -43,6 +43,15 @@ public:
 
     virtual void DeInitialize() = 0;
 
+    /** This will affect all the libraries used by the detector (eg. OpenCV, BLAS...)
+        \param nThreads Passing 0 will set nThreads to the number of hardware
+                        threads, and that also includes hyperthreading threads.
+     */
+    virtual void SetNumThreads(uint32_t nThreads) = 0;
+
+    /// \return Number of threads used by the libraries used by the detector (eg. OpenCV, BLAS...)
+    virtual uint32_t GetNumThreads() const = 0;
+
     /** \brief updates the region cameras mapping in detector
      */
     virtual void UpdateRegion(const std::string& regionname, RegionPtr region, const std::map<std::string, CameraPtr >& mNameCamera) = 0;

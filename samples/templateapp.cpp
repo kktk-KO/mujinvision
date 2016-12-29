@@ -91,6 +91,12 @@ public:
     void DeInitialize() {
     }
 
+    void SetNumThreads(uint32_t nThreads) {
+    }
+
+    uint32_t GetNumThreads() const {
+    }
+
     void UpdateRegion(const std::string& regionname, RegionPtr region, const std::map<std::string, CameraPtr >& mNameCamera) {
     }
 

@@ -160,7 +160,8 @@ public:
                                     const unsigned int maxnumdetection=0,
                                     const bool sendVerificationPointCloud=true,
                                     const bool stopOnLeftInOrder=false,
-                                    const std::string& targetupdatename="");
+                                    const std::string& targetupdatename="",
+                                    const unsigned int numthreads=0);
 
 
     virtual void StopDetectionLoop();
@@ -329,6 +330,7 @@ private:
         unsigned int fetchimagetimeout;
         unsigned int maxnumfastdetection;
         unsigned int maxnumdetection;
+        unsigned int numthreads;
     };
 
     struct UpdateEnvironmentThreadParams {
@@ -452,7 +454,7 @@ private:
     /** \brief runs detection in a loop
      */
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int fetchimagetimeout, const unsigned long long detectionstarttimestamp, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder, const std::string& targetupdatename="");
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int fetchimagetimeout, const unsigned long long detectionstarttimestamp, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder, const std::string& targetupdatename="", const unsigned int numthreads=0);
     void _StopDetectionThread();
 
     void _VisualizePointCloudThread(VisualizePointcloudThreadParams params);

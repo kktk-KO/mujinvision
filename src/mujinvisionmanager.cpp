@@ -3343,7 +3343,17 @@ void MujinVisionManager::Initialize(
     }
     _filteringnumnn = _visionserverpt.get<int>("filteringnumnn", 80);
     if (_visionserverpt.count("bindetectionMode") > 0) {
-        _bindetectionMode = _visionserverpt.get<int>("bindetectionMode", 1);
+        std::string bindetectionMode = _visionserverpt.get<std::string>("bindetectionMode", "once");
+        if (bindetectionMode == "once" || bindetectionMode == "1") {
+            _bindetectionMode = 1;
+        } else if (bindetectionMode == "always" || bindetectionMode == "2") {
+            _bindetectionMode = 2;
+        } else if (bindetectionMode == "never" || bindetectionMode == "0") {
+            _bindetectionMode = 0;
+        } else {
+            MUJIN_LOG_WARN(str(boost::format("bindetectionMode=\"%s\" is not support, use default value \"never\"") % bindetectionMode));
+            _bindetectionMode = 0;
+        }
     } else if (_visionserverpt.count("bindetection") > 0) {
         MUJIN_LOG_WARN("bindetection is deprecated, please use bindetectionMode instead");
         _bindetectionMode = _visionserverpt.get<int>("bindetection", 1);

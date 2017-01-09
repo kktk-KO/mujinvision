@@ -39,7 +39,7 @@ public:
         \param mNameCamera map to cameras the subscribers subscribe to
         \params_pt boost property tree defining the image subscriber parameters
      */
-    virtual void Initialize(const std::map<std::string, CameraPtr >&mNameCamera, const std::string& streamerIp, const unsigned int streamerPort, const ptree& params_pt, boost::shared_ptr<zmq::context_t> context) = 0;
+    virtual void Initialize(const std::map<std::string, CameraPtr >&mNameCamera, const std::string& streamerIp, const unsigned int streamerPort, const rapidjson::Document& paramsjson, boost::shared_ptr<zmq::context_t> context) = 0;
 
     virtual void DeInitialize() = 0;
 

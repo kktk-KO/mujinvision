@@ -11,7 +11,7 @@ public:
     virtual ~UserImageSubscriberManager() {
     }
 
-    void Initialize(const std::map<std::string, CameraPtr >&mNameCamera, const std::string& streamerIp, const unsigned int streamerPort, const ptree& params, boost::shared_ptr<zmq::context_t>) {
+    void Initialize(const std::map<std::string, CameraPtr >&mNameCamera, const std::string& streamerIp, const unsigned int streamerPort, const rapidjson::Document& params, boost::shared_ptr<zmq::context_t>) {
     }
 
     void DeInitialize() {

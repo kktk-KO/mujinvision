@@ -15,6 +15,7 @@
 #include <boost/algorithm/string.hpp>
 #include <stdlib.h>
 #include <utime.h>
+#include <sys/stat.h>
 
 #include "logging.h"
 
@@ -171,62 +172,52 @@ enum CommandThreadIndex
     CDI_Configure=1,
 };
 
-std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const ptree& visionserverpt, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname, const std::string& subscriberid, const bool ignoreocclusion=false, const int bindetection=0)
+std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const rapidjson::Document& visionserverconfig, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname, const std::string& subscriberid, const bool ignoreocclusion=false, const int bindetection=0)
 {
     std::string controllerclientconnectionstring = str(boost::format("tcp://%s:%d") % controllerip % binpickingTaskZmqPort);
-    std::string occlusioncheckcommandtemplate = visionserverpt.get<std::string>("occlusioncheckcommandtemplate", "");
+    std::string occlusioncheckcommandtemplate = GetJsonValueByKey<std::string>(visionserverconfig, "occlusioncheckcommandtemplate");
     std::string customparameters;
-    if (visionserverpt.count("streamercustomparameters") > 0) {
-        std::stringstream ss;
-        write_json(ss, visionserverpt.get_child("streamercustomparameters"));
-        customparameters = ss.str();
+    if (visionserverconfig.HasMember("streamercustomparameters")) {
+        customparameters = DumpJson(visionserverconfig["streamercustomparameters"]);
     }
     boost::replace_all(occlusioncheckcommandtemplate, "dummyslaverequestid", slaverequestid);
-    ptree cameraidfullnamemappt, cameraidregionnamept, cameraidcheckocclusionpt;
+
+    rapidjson::Document cameraidfullnamemapjson(rapidjson::kObjectType),
+                        cameraidregionnamejson(rapidjson::kObjectType),
+                        cameraidcheckocclusionjson(rapidjson::kObjectType);
     FOREACH(v, mCameraNameHardwareId) {
-        cameraidfullnamemappt.put<std::string>(v->second, v->first);
+        SetJsonValueByKey(cameraidfullnamemapjson, v->second, v->first);
         std::map<std::string, std::string>::const_iterator cit = mCameranameActiveRegionname.find(v->first);
         if (cit != mCameranameActiveRegionname.end()) {
-            cameraidregionnamept.put<std::string>(v->second, cit->second);
+            SetJsonValueByKey(cameraidregionnamejson, v->second, cit->second);
         } else {
             MUJIN_LOG_VERBOSE("failed to find regionname for camera " << v->first);
         }
     }
     for (size_t i=0; i<cameraids.size(); ++i) {
-        if (std::find(cameraidstocheckocclusion.begin(), cameraidstocheckocclusion.end(), cameraids[i]) == cameraidstocheckocclusion.end()) {
-            cameraidcheckocclusionpt.put<int>(cameraids[i], false);
-        } else {
-            cameraidcheckocclusionpt.put<int>(cameraids[i], true);
-        }
+        SetJsonValueByKey(cameraidcheckocclusionjson, cameraids[i],
+                          std::find(cameraidstocheckocclusion.begin(), cameraidstocheckocclusion.end(), cameraids[i]) != cameraidstocheckocclusion.end());
     }
-    ptree extraoptionspt;
-    extraoptionspt.put<std::string>("controllerclientconnectionstring", controllerclientconnectionstring);
-    extraoptionspt.put<std::string>("occlusioncheckcommandtemplate", occlusioncheckcommandtemplate);
-    extraoptionspt.put_child("cameraidfullnamemap", cameraidfullnamemappt);
-    extraoptionspt.put_child("cameraidregionnamemap", cameraidregionnamept);
-    extraoptionspt.put_child("cameraidcheckocclusionmap", cameraidcheckocclusionpt);
-    extraoptionspt.put<std::string>("subscriberid", subscriberid);
-    extraoptionspt.put<int>("ignoreocclusion", ignoreocclusion);
-    extraoptionspt.put<int>("bindetection", bindetection);
+    rapidjson::Document extraoptionsjson(rapidjson::kObjectType);
+    SetJsonValueByKey(extraoptionsjson, "controllerclientconnectionstring", controllerclientconnectionstring);
+    SetJsonValueByKey(extraoptionsjson, "occlusioncheckcommandtemplate", occlusioncheckcommandtemplate);
+    SetJsonValueByKey(extraoptionsjson, "cameraidfullnamemap", cameraidfullnamemapjson);
+    SetJsonValueByKey(extraoptionsjson, "cameraidregionnamemap", cameraidregionnamejson);
+    SetJsonValueByKey(extraoptionsjson, "cameraidcheckocclusionmap", cameraidcheckocclusionjson);
+    SetJsonValueByKey(extraoptionsjson, "subscriberid", subscriberid);
+    SetJsonValueByKey(extraoptionsjson, "ignoreocclusion", ignoreocclusion);
+    SetJsonValueByKey(extraoptionsjson, "bindetection", bindetection);
     if (customparameters.size() > 0) {
-        extraoptionspt.put<std::string>("customparameters", customparameters);
+        SetJsonValueByKey(extraoptionsjson, "customparameters", customparameters);
     }
     try {
-        std::stringstream ss;
-        write_json(ss, extraoptionspt);
-        //MUJIN_LOG_DEBUG(ss.str());
-        return ss.str();
+        return DumpJson(extraoptionsjson);
     } catch (const std::exception& ex) {
         MUJIN_LOG_WARN("failed to get extraoptions string. controllerclientconnectionstring=" << controllerclientconnectionstring << " occlusioncheckcommandtemplate=" << occlusioncheckcommandtemplate);
         return "";
     }
 }
 
-
-void ParametersBase::Print()
-{
-    MUJIN_LOG_INFO(GetJsonString());
-}
 
 bool MujinVisionManager::_CheckPreemptSubscriber()
 {
@@ -306,10 +297,12 @@ MujinVisionManager::CameraCaptureHandle::~CameraCaptureHandle() {
 
 void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string>& cameranames, const std::vector<std::string>& cameranamestocheckocclusion, std::vector<CameraCaptureHandlePtr>& capturehandles, const bool force, const bool ignoreocclusion)
 {
-    if (!force && !_visionserverpt.get<bool>("runpublisher", true)) {
+    bool runpublisher = GetJsonValueByKey<bool>(_visionserverconfig, "runpublisher", true);
+    if (!force && !runpublisher) {
         capturehandles.resize(0);
         return;
     }
+
     std::vector<std::string> tostart;
     std::vector<CameraCaptureHandlePtr> tempcapturehandles(cameranames.size()); CREATE_SAFE_DELETER_CAMERAHANDLES(tempcapturehandles);
     {
@@ -344,7 +337,7 @@ void MujinVisionManager::_StartAndGetCaptureHandle(const std::vector<std::string
         std::string extracaptureoptions;
         {
             boost::mutex::scoped_lock lock(_mutexRegion);
-            extracaptureoptions = _GetExtraCaptureOptions(ids, _GetHardwareIds(cameranamestocheckocclusion), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid, ignoreocclusion, _bindetectionMode);
+            extracaptureoptions = _GetExtraCaptureOptions(ids, _GetHardwareIds(cameranamestocheckocclusion), _visionserverconfig, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid, ignoreocclusion, _bindetectionMode);
         }
         try {
             _pImagesubscriberManager->StartCaptureThread(ids, timeout, numimages, extracaptureoptions);
@@ -546,7 +539,7 @@ void MujinVisionManager::SaveConfig(const std::string& type, const std::string& 
     if (config == "") {
         GetConfig(type, content);
     } else {
-        ParametersBase::ValidateJsonString(config);
+        ValidateJsonString(config);
         content = config;
     }
     std::ofstream out(filename.c_str());
@@ -711,13 +704,11 @@ void MujinVisionManager::_StopCommandThread(int commandindex)
     MUJIN_LOG_DEBUG(ss.str());
 }
 
-void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, std::stringstream& result_ss)
+void MujinVisionManager::_ExecuteConfigurationCommand(const rapidjson::Document& commandjson, rapidjson::Document& resultjson)
 {
-    std::string command = command_pt.get<std::string>("command");
+    std::string command = GetJsonValueByKey<std::string>(commandjson, "command");
     if (command == "Ping") {
-        result_ss << "{";
-        result_ss << "\"timestamp\": " << GetMilliTime();
-        result_ss << "}";
+        SetJsonValueByKey(resultjson, "timestamp", GetMilliTime());
     } else if (command == "Cancel") {
         boost::mutex::scoped_lock lock(_mutexCancelCommand);
         if (_bExecutingUserCommand) { // only cancel when user command is being executed
@@ -726,9 +717,7 @@ void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, s
         } else {
             _SetStatusMessage(TT_Config, "No command is being excuted, do nothing.");
         }
-        result_ss << "{";
-        result_ss << ParametersBase::GetJsonString("status", _GetManagerStatusString(MS_Preempting));
-        result_ss << "}";
+        SetJsonValueByKey(resultjson, "status", _GetManagerStatusString(MS_Preempting));
     } else if (command == "Quit") {
         // throw exception, shutdown gracefully
         Shutdown();
@@ -740,8 +729,7 @@ void MujinVisionManager::_ExecuteConfigurationCommand(const ptree& command_pt, s
     }
 }
 
-void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::stringstream& result_ss)
-{
+void MujinVisionManager::_ExecuteUserCommand(const rapidjson::Document& commandjson, rapidjson::Document& resultjson) {
     uint64_t starttime = GetMilliTime();
     _SetStatus(TT_Command, MS_Active);
     {
@@ -750,7 +738,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         _bCancelCommand = false;
         _bExecutingUserCommand = true;
     }
-    std::string command = command_pt.get<std::string>("command");
+    std::string command =  GetJsonValueByKey<std::string>(commandjson, "command");
     if (command == "StartDetectionLoop" ||
         command == "StopDetectionLoop" ||
         command == "IsDetectionRunning" ||
@@ -759,46 +747,31 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
         // these commands can be called at any time
 
         if (command == "StartDetectionLoop") {
-            if (command_pt.count("regionname") == 0) {
+            if (!commandjson.HasMember("regionname")) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
             }
-            std::string regionname = command_pt.get<std::string>("regionname");
+            std::string regionname = GetJsonValueByKey<std::string>(commandjson, "regionname");
             if (!_pDetector || !_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() before calling " + command, MVE_NotInitialized);
             }
 
-            std::vector<std::string> cameranames;
-            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-            if (!!cameranames_pt) {
-                FOREACH(v, *cameranames_pt) {
-                    cameranames.push_back(v->second.get<std::string>(""));
-                }
-            }
-            std::vector<std::string> evcamnames;
-            boost::optional<const ptree&> evcamnames_pt(command_pt.get_child_optional("executionverificationcameranames"));
-            if (!!evcamnames_pt) {
-                FOREACH(v, *evcamnames_pt) {
-                    evcamnames.push_back(v->second.get<std::string>(""));
-                }
-            }
-            double voxelsize = command_pt.get<double>("voxelsize", 0.01 * 1000);
-            double pointsize = command_pt.get<double>("pointsize", 0 * 1000);
-            bool ignoreocclusion = command_pt.get<bool>("ignoreocclusion", false);
-            bool stoponleftinorder = command_pt.get<bool>("stoponleftinorder", false);
-            unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
-            std::string obstaclename = command_pt.get<std::string>("obstaclename", "__dynamicobstacle__");
-            unsigned long long detectionstarttimestamp = command_pt.get<unsigned long long>("detectionstarttimestamp", 0);
-            std::string locale = command_pt.get<std::string>("locale", "en_US");
-            unsigned int maxnumfastdetection = command_pt.get<unsigned int>("maxnumfastdetection", _visionserverpt.get<unsigned int>("maxnumfastdetection", 1));
-            unsigned int maxnumdetection = command_pt.get<unsigned int>("maxnumdetection", 0);
-            std::string targetupdatename = command_pt.get<std::string>("targetupdatename", "");
+            std::vector<std::string> cameranames = GetJsonValueByKey<std::vector<std::string> >(commandjson, "cameranames");
+            std::vector<std::string> evcamnames = GetJsonValueByKey<std::vector<std::string> >(commandjson, "executionverificationcameranames");
+            double voxelsize = GetJsonValueByKey<double>(commandjson, "voxelsize", 0.01 * 1000);
+            double pointsize = GetJsonValueByKey<double>(commandjson, "pointsize", 0 * 1000);
+            bool ignoreocclusion = GetJsonValueByKey<bool>(commandjson, "ignoreocclusion", false);
+            bool stoponleftinorder = GetJsonValueByKey<bool>(commandjson, "stoponleftinorder", false);
+            unsigned int fetchimagetimeout = GetJsonValueByKey<unsigned int>(commandjson, "fetchimagetimeout", 0);
+            std::string obstaclename = GetJsonValueByKey<std::string>(commandjson, "obstaclename", "__dynamicobstacle__");
+            unsigned long long detectionstarttimestamp = GetJsonValueByKey<unsigned long long>(commandjson, "detectionstarttimestamp", 0);
+            std::string locale = GetJsonValueByKey<std::string>(commandjson, "locale", "en_US");
+            unsigned int maxnumfastdetection = GetJsonValueByKey<unsigned int>(commandjson, "maxnumfastdetection", 0);
+            unsigned int maxnumdetection = GetJsonValueByKey<unsigned int>(commandjson, "maxnumdetection", 0);
+            std::string targetupdatename = GetJsonValueByKey<std::string>(commandjson, "targetupdatename", "");
             _locale = locale;
-            boost::optional< const boost::property_tree::ptree& > optchild;
-            optchild = command_pt.get_child_optional("worldresultoffsettransform");
             Transform tworldresultoffset;
-            if (!!optchild) {
-                ptree worldresultoffsetpt = command_pt.get_child("worldresultoffsettransform");
-                tworldresultoffset = GetTransform(worldresultoffsetpt);
+            if (commandjson.HasMember("worldresultoffsettransform")) {
+                tworldresultoffset = GetTransform(commandjson["worldresultoffsettransform"]);
             } else {
                 tworldresultoffset.trans[0] = 0;
                 tworldresultoffset.trans[1] = 0;
@@ -808,25 +781,19 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
                 tworldresultoffset.rot[2] = 0;
                 tworldresultoffset.rot[3] = 0;
             }
-            bool sendVerificationPointCloud = command_pt.get<bool>("sendVerificationPointCloud", true);
-            unsigned int numthreads = command_pt.get<uint32_t>("numthreads", 0);
+            bool sendVerificationPointCloud = GetJsonValueByKey<bool>(commandjson, "sendVerificationPointCloud", true);
+            unsigned int numthreads = GetJsonValueByKey<unsigned int>(commandjson, "numthreads", 0);
             if (IsDetectionRunning()) {
                 MUJIN_LOG_WARN("detection is already running, do nothing.");
             } else {
                 StartDetectionLoop(regionname, cameranames, evcamnames, tworldresultoffset, voxelsize, pointsize, ignoreocclusion, fetchimagetimeout, obstaclename, detectionstarttimestamp, locale, maxnumfastdetection, maxnumdetection, sendVerificationPointCloud, stoponleftinorder, targetupdatename, numthreads);
             }
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "computationtime", GetMicroTime() - starttime);
         } else if (command == "StopDetectionLoop") {
             StopDetectionLoop();
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else if (command == "IsDetectionRunning") {
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("isdetectionrunning") << ": " << IsDetectionRunning();
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "isdetectionrunning", IsDetectionRunning());
         } else if (command == "GetLatestDetectedObjects") {
             if (!_pDetector || !_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() before calling " + command, MVE_NotInitialized);
@@ -834,116 +801,88 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             std::vector<DetectedObjectPtr> detectedobjectsworld;
             std::string resultstate;
             std::vector<Real> points;
-            bool returnpoints = command_pt.get<bool>("returnpoints", false);
+            bool returnpoints = GetJsonValueByKey<bool>(commandjson, "returnpoints", false);
             unsigned long long imageStartTimestamp, imageEndTimestamp;
             GetLatestDetectedObjects(detectedobjectsworld, resultstate, points, imageStartTimestamp, imageEndTimestamp, returnpoints);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("detectedobjects") << ": [";
-            for (unsigned int i=0; i<detectedobjectsworld.size(); ++i) {
-                result_ss << detectedobjectsworld.at(i)->GetJsonString();
-                if (i+1 < detectedobjectsworld.size()) {
-                    result_ss << ", ";
-                }
-            }
-            result_ss << "], ";
+            SetJsonValueByKey(resultjson, "detectedobjects", detectedobjectsworld);
             if( resultstate.size() > 0 ) {
-                result_ss << ParametersBase::GetJsonString("state") << ": " << resultstate << ", ";
+                rapidjson::Document resultstatejson;
+                resultstatejson.Parse(resultstate.c_str());
+                SetJsonValueByKey(resultjson, "state", resultstatejson);
             }
             else {
-                result_ss << ParametersBase::GetJsonString("state") << ": {},";
+                rapidjson::Document resultstatejson(rapidjson::kObjectType);
+                SetJsonValueByKey(resultjson, "state", resultstatejson);
             }
             if (returnpoints) {
-                result_ss << ParametersBase::GetJsonString("points") << ": " << ParametersBase::GetJsonString(points) << ", ";
+                SetJsonValueByKey(resultjson, "points", points);
             }
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime << ", ";
-            result_ss << ParametersBase::GetJsonString("imageStartTimestamp") << ": " << imageStartTimestamp << ", ";
-            result_ss << ParametersBase::GetJsonString("imageEndTimestamp") << ": " << imageEndTimestamp;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
+            SetJsonValueByKey(resultjson, "imageStartTimestamp", imageStartTimestamp);
+            SetJsonValueByKey(resultjson, "imageEndTimestamp", imageEndTimestamp);
         } else if (command == "GetCameraId") {
             if (!_pDetector || !_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
-            std::string cameraname = command_pt.get<std::string>("cameraname");
+            std::string cameraname = GetJsonValueByKey<std::string>(commandjson, "cameraname");
             std::string cameraid;
             GetCameraId(cameraname, cameraid);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("cameraid", cameraid) << ", ";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "cameraid", cameraid);
+            SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
         } else if (command == "GetVisionmanagerConfig") {
             std::string config;
-            GetConfig("visionmanager", config);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("visionmanagerconfig") << ": " << config << ",";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            GetConfig("visionmanager", config); // is this never used?
+            rapidjson::Document configjson;
+            configjson.Parse(config.c_str());
+            SetJsonValueByKey(resultjson, "visionmanagerconfig", configjson);
+            SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
         } else if (command == "GetDetectorConfig") {
             std::string config;
+            rapidjson::Document configjson;
             GetConfig("detector", config);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("detectorconfigname") << ": " << config << ",";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            configjson.Parse(config.c_str());
+            SetJsonValueByKey(resultjson, "detectorconfigname", configjson);
+            SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
         } else if (command == "GetImagesubscriberConfig") {
             std::string config;
+            rapidjson::Document configjson;
             GetConfig("imagesubscriber", config);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("imagesubscriberconfigname") << ": " << config << ",";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            configjson.Parse(config.c_str());
+            SetJsonValueByKey(resultjson, "imagesubscriberconfigname", configjson);
+            SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
         } else if (command == "GetConfigPort") {
             unsigned int port;
             GetConfigPort(port);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("configport") << ": " << port << ",";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "configport", (int)(port));
+            SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
         } else if (command == "GetStatusPort") {
             unsigned int port;
             GetStatusPort(port);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("statusport") << ": " << port << ",";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "configport", (int)(port));
+            SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
         } else if (command == "SendPointCloudObstacleToController") {
-            if (command_pt.count("regionname") == 0) {
+            if (!commandjson.HasMember("regionname")) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
             }
-            std::string regionname = command_pt.get<std::string>("regionname");
+            std::string regionname = GetJsonValueByKey<std::string>(commandjson, "regionname");
             if (!_pDetector || !_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
 
-            std::vector<std::string> cameranames;
-            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-            std::string cameraname;
-            if (!!cameranames_pt) {
-                FOREACH(v, *cameranames_pt) {
-                    cameraname = v->second.get<std::string>("");
-                    cameranames.push_back(cameraname);
-                }
-            }
-            std::vector<DetectedObjectPtr> detectedobjects;
-            boost::optional<const ptree&> detectedobjects_pt(command_pt.get_child_optional("detectedobjects"));
-            if (!!detectedobjects_pt) {
-                FOREACH(v, *detectedobjects_pt) {
-                    detectedobjects.push_back(DetectedObjectPtr(new DetectedObject(v->second.get_child(""))));
-                }
-            }
-            unsigned long long newerthantimestamp = command_pt.get<unsigned long long>("newerthantimestamp", 0);
-            unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
-            double voxelsize = command_pt.get<double>("voxelsize", 0.01 * 1000);
-            double pointsize = command_pt.get<double>("pointsize", 0 * 1000);
-            std::string obstaclename = command_pt.get<std::string>("obstaclename", "__dynamicobstacle__");
-            bool fast = command_pt.get<bool>("fast", false);
-            bool request = command_pt.get<bool>("request", true);
-            bool async = command_pt.get<bool>("async", false);
-            std::string locale = command_pt.get<std::string>("locale", "en_US");
+            std::vector<std::string> cameranames = GetJsonValueByKey<std::vector<std::string> >(commandjson, "cameranames");
+            std::vector<DetectedObjectPtr> detectedobjects = GetJsonValueByKey<std::vector<DetectedObjectPtr> >(commandjson, "detectedobjects");
+            unsigned long long newerthantimestamp = GetJsonValueByKey<unsigned long long>(commandjson, "newerthantimestamp", 0);
+            unsigned int fetchimagetimeout = GetJsonValueByKey<unsigned int>(commandjson, "fetchimagetimeout");
+            double voxelsize = GetJsonValueByKey<double>(commandjson, "voxelsize", 0.01 * 1000);
+            double pointsize = GetJsonValueByKey<double>(commandjson, "pointsize", 0 * 1000);
+            std::string obstaclename = GetJsonValueByKey<std::string>(commandjson, "obstaclename", "__dynamicobstacle__");
+            bool fast = GetJsonValueByKey<bool>(commandjson, "fast", false);
+            bool request = GetJsonValueByKey<bool>(commandjson, "request", true);
+            bool async = GetJsonValueByKey<bool>(commandjson, "async", false);
+            std::string locale = GetJsonValueByKey<std::string>(commandjson, "locale", "en_US");
             _locale = locale;
             SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, newerthantimestamp, fetchimagetimeout, voxelsize, pointsize, obstaclename, fast, request, async, locale);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
         }
     } else if (!!_pDetectionThread && _bIsDetectionRunning) {
         throw MujinVisionException("Cannot execute " + command + " while detection thread is running, please stop it first.", MVE_Busy);
@@ -957,234 +896,177 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             } else {
                 _bInitialized = true;
             }
-            std::string locale = command_pt.get<std::string>("locale", "en_US");
+            std::string locale = GetJsonValueByKey<std::string>(commandjson, "locale", "en_US");
             std::vector<std::string> targetdetectionarchiveurls;
-            std::string targetdetectionarchiveurl;
-            if (command_pt.count("targetdetectionarchiveurl") > 0) {
+            if (commandjson.HasMember("targetdetectionarchnveurl")) {
                 try {
-                    targetdetectionarchiveurl = command_pt.get<std::string>("targetdetectionarchiveurl");
-                    if (targetdetectionarchiveurl.size() == 0) {
-                        try {
-                            MUJIN_LOG_DEBUG("try parsing targetdetectionarchiveurl as a list");
-                            FOREACH(v, command_pt.get_child("targetdetectionarchiveurl")) {
-                                targetdetectionarchiveurls.push_back(boost::lexical_cast<std::string>(v->second.data()));
-                            }
-                        } catch (std::exception& e) {
-                            MUJIN_LOG_ERROR("failed to parse targetdetectionarchiveurl");
-                        }
-                    } else {
+                    const rapidjson::Value& targetdetectionarchiveurljson = commandjson["targetdetectionarchiveurl"];
+                    if (targetdetectionarchiveurljson.IsString()) {
                         MUJIN_LOG_DEBUG("parsing targetdetectionarchiveurl as a string");
-                        targetdetectionarchiveurls.push_back(targetdetectionarchiveurl);
+                        targetdetectionarchiveurls.push_back(targetdetectionarchiveurljson.GetString());
+                    } else {
+                        MUJIN_LOG_DEBUG("parsing targetdetectionarchiveurl as a list");
+                        targetdetectionarchiveurls = GetJsonValueByKey<std::vector<std::string> >(commandjson, "targetdetectionarchiveurl");
                     }
                 } catch (std::exception& e) {
                     MUJIN_LOG_ERROR("failed to parse targetdetectionarchiveurl");
                 }
             }
-            Initialize(command_pt.get<std::string>("visionmanagerconfig"),
-                       command_pt.get<std::string>("detectorconfigname"),
-                       command_pt.get<std::string>("imagesubscriberconfig"),
-                       command_pt.get<std::string>("mujinControllerIp", ""),
-                       command_pt.get<unsigned int>("mujinControllerPort", 0),
-                       command_pt.get<std::string>("mujinControllerUsernamePass"),
-                       command_pt.get<std::string>("defaultTaskParameters"),
-                       command_pt.get<std::string>("containerParameters"),
-                       command_pt.get<unsigned int>("binpickingTaskZmqPort"),
-                       command_pt.get<unsigned int>("binpickingTaskHeartbeatPort"),
-                       command_pt.get<double>("binpickingTaskHeartbeatTimeout"),
-                       command_pt.get<std::string>("binpickingTaskScenePk"),
-                       command_pt.get<std::string>("targetname"),
-                       command_pt.get<std::string>("targeturi"),
-                       command_pt.get<std::string>("targetupdatename"),
-                       command_pt.get<std::string>("streamerIp"),
-                       command_pt.get<unsigned int>("streamerPort"),
-                       command_pt.get<std::string>("tasktype","binpicking"),
-                       command_pt.get<unsigned int>("controllertimeout", 10),
-                       command_pt.get<std::string>("locale", "en_US"),
-                       command_pt.get<std::string>("slaverequestid", ""),
-                       targetdetectionarchiveurls
-                       );
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+
+            Initialize(GetJsonValueByKey<std::string>(commandjson, "visionmanagerconfig"),
+                       GetJsonValueByKey<std::string>(commandjson, "detectorconfigname"),
+                       GetJsonValueByKey<std::string>(commandjson, "imagesubscriberconfig"),
+                       GetJsonValueByKey<std::string>(commandjson, "mujinControllerIp", ""),
+                       GetJsonValueByKey<unsigned int>(commandjson, "mujinControllerPort", 0),
+                       GetJsonValueByKey<std::string>(commandjson, "mujinControllerUsernamePass"),
+                       GetJsonValueByKey<std::string>(commandjson, "defaultTaskParameters"),
+                       GetJsonValueByKey<std::string>(commandjson, "containerParameters"),
+                       GetJsonValueByKey<unsigned int>(commandjson, "binpickingTaskZmqPort"),
+                       GetJsonValueByKey<unsigned int>(commandjson, "binpickingTaskHeartbeatPort"),
+                       GetJsonValueByKey<double>(commandjson, "binpickingTaskHeartbeatTimeout"),
+                       GetJsonValueByKey<std::string>(commandjson, "binpickingTaskScenePk"),
+                       GetJsonValueByKey<std::string>(commandjson, "targetname"),
+                       GetJsonValueByKey<std::string>(commandjson, "targeturi"),
+                       GetJsonValueByKey<std::string>(commandjson, "targetupdatename"),
+                       GetJsonValueByKey<std::string>(commandjson, "streamerIp"),
+                       GetJsonValueByKey<unsigned int>(commandjson, "streamerPort"),
+                       GetJsonValueByKey<std::string>(commandjson, "tasktype","binpicking"),
+                       GetJsonValueByKey<unsigned int>(commandjson, "controllertimeout", 10),
+                       GetJsonValueByKey<std::string>(commandjson, "locale", "en_US"),
+                       GetJsonValueByKey<std::string>(commandjson, "slaverequestid", ""),
+                       targetdetectionarchiveurls);
+            SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
         } else if (command == "DetectObjects") {
-            if (command_pt.count("regionname") == 0) {
+            if (!commandjson.HasMember("regionname") == 0) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
             }
-            std::string regionname = command_pt.get<std::string>("regionname");
+            std::string regionname = GetJsonValueByKey<std::string>(commandjson, "regionname");
             if (!_pDetector || !_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
-            std::vector<std::string> cameranames;
-            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-            if (!!cameranames_pt) {
-                FOREACH(v, *cameranames_pt) {
-                    cameranames.push_back(v->second.get<std::string>(""));
-                }
-            }
-            bool ignoreocclusion = command_pt.get<bool>("ignoreocclusion", false);
-            unsigned long long newerthantimestamp = command_pt.get<unsigned long long>("newerthantimestamp", 0);
-            unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
-            bool fastdetection = command_pt.get<bool>("fastdetection", false);
-            int bindetection = command_pt.get<int>("bindetection", 0);
+            std::vector<std::string> cameranames = GetJsonValueByKey<std::vector<std::string> >(commandjson, "cameranames");
+            bool ignoreocclusion = GetJsonValueByKey<bool>(commandjson, "ignoreocclusion", false);
+            unsigned long long newerthantimestamp = GetJsonValueByKey<unsigned long long>(commandjson, "newerthantimestamp", 0);
+            unsigned int fetchimagetimeout = GetJsonValueByKey<unsigned int>(commandjson, "fetchimagetimeout", 0);
+            bool fastdetection = GetJsonValueByKey<bool>(commandjson, "fastdetection", false);
+            int bindetection = GetJsonValueByKey<int>(commandjson, "bindetection", 0);
             std::vector<DetectedObjectPtr> detectedobjects;
             std::string resultstate;
             unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
             int isContainerPresent=-1;
             _bUseGrabbedTargeInfoInDetectionPreempt = false;
             DetectObjects(regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection);
-            result_ss << "{";
-            result_ss << _GetJsonString(detectedobjects) << ", ";
-            result_ss << ParametersBase::GetJsonString("imagestarttime") << ":" << imageStartTimestamp << ", ";
-            result_ss << ParametersBase::GetJsonString("imageendtime") << ":" << imageEndTimestamp << ", ";
-            result_ss << ParametersBase::GetJsonString("iscontainerpresent") << ":" <<  isContainerPresent << ", ";
-            result_ss << ParametersBase::GetJsonString("state") << ": " << resultstate << ", ";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "objects", detectedobjects);
+            SetJsonValueByKey(resultjson, "imagestarttime", imageStartTimestamp);
+            SetJsonValueByKey(resultjson, "imageendtime", imageEndTimestamp);
+            SetJsonValueByKey(resultjson, "objects", detectedobjects);
+            SetJsonValueByKey(resultjson, "iscontainerpresent", isContainerPresent);
+            rapidjson::Document resultstatejson;
+            resultstatejson.Parse(resultstate.c_str());
+            SetJsonValueByKey(resultjson, "state", resultstatejson);
+            SetJsonValueByKey(resultjson, "imagestarttime", imageStartTimestamp);
+            SetJsonValueByKey(resultjson, "imageendtime", imageEndTimestamp);
+            SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else if (command == "VisualizePointCloudOnController") {
             if (!_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
-            std::string regionname = command_pt.get<std::string>("regionname", "");
-            std::vector<std::string> cameranames;
-            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-            if (!!cameranames_pt) {
-                FOREACH(v, *cameranames_pt) {
-                    cameranames.push_back(v->second.get<std::string>(""));
-                }
-            }
-            double pointsize = command_pt.get<double>("pointsize", 0 * 1000);
-            double voxelsize = command_pt.get<double>("voxelsize", 0.005 * 1000);
-            bool ignoreocclusion = command_pt.get<bool>("ignoreocclusion",false);
-            unsigned long long newerthantimestamp = command_pt.get<unsigned long long>("newerthantimestamp", 0);
-            unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
-            bool request = command_pt.get<bool>("request", true);
+            std::string regionname = GetJsonValueByKey<std::string>(commandjson, "regionname");
+            std::vector<std::string> cameranames = GetJsonValueByKey<std::vector<std::string> >(commandjson, "cameranames");
+            double pointsize = GetJsonValueByKey<double>(commandjson, "pointsize", 0 * 1000);
+            double voxelsize = GetJsonValueByKey<double>(commandjson, "voxelsize", 0.005 * 1000);
+            bool ignoreocclusion = GetJsonValueByKey<bool>(commandjson, "ignoreocclusion", false);
+            unsigned long long newerthantimestamp = GetJsonValueByKey<unsigned long long>(commandjson, "newerthantimestamp", 0);
+            unsigned int fetchimagetimeout = GetJsonValueByKey<unsigned int>(commandjson, "fetchimagetimeout", 0);
+            bool request = GetJsonValueByKey<bool>(commandjson, "request", true);
             VisualizePointCloudOnController(regionname, cameranames, pointsize, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, voxelsize);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else if (command == "ClearVisualizationOnController") {
             if (!_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
             ClearVisualizationOnController();
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else if (command == "StartVisualizePointCloudThread") {
             if (!_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
-            std::string regionname = command_pt.get<std::string>("regionname", "");
-            std::vector<std::string> cameranames;
-            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-            if (!!cameranames_pt) {
-                FOREACH(v, *cameranames_pt) {
-                    cameranames.push_back(v->second.get<std::string>(""));
-                }
-            }
-            double pointsize = command_pt.get<double>("pointsize", 0 * 1000);
-            double voxelsize = command_pt.get<double>("voxelsize", 0.005 * 1000);
-            bool ignoreocclusion = command_pt.get<bool>("ignoreocclusion",false);
-            unsigned long long newerthantimestamp = command_pt.get<unsigned long long>("newerthantimestamp", 0);
-            unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
-            bool request = command_pt.get<bool>("request", true);
+            std::string regionname = GetJsonValueByKey<std::string>(commandjson, "regionname");
+            std::vector<std::string> cameranames = GetJsonValueByKey<std::vector<std::string> >(commandjson, "cameranames");
+            double pointsize = GetJsonValueByKey<double>(commandjson, "pointsize", 0 * 1000);
+            double voxelsize = GetJsonValueByKey<double>(commandjson, "voxelsize", 0.005 * 1000);
+            bool ignoreocclusion = GetJsonValueByKey<bool>(commandjson, "ignoreocclusion", false);
+            unsigned long long newerthantimestamp = GetJsonValueByKey<unsigned long long>(commandjson, "newerthantimestamp", 0);
+            unsigned int fetchimagetimeout = GetJsonValueByKey<unsigned int>(commandjson, "fetchimagetimeout", 0);
+            bool request = GetJsonValueByKey<bool>(commandjson, "request", true);
             StartVisualizePointCloudThread(regionname, cameranames, pointsize, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, voxelsize);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else if (command == "StopVisualizePointCloudThread") {
             // do not need controllerclient
             // if (!_pBinpickingTask) {
             //     throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             // }
             StopVisualizePointCloudThread();
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else if (command == "UpdateDetectedObjects") {
-            if (command_pt.count("regionname") == 0) {
+            if (!commandjson.HasMember("regionname")) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
             }
-            std::string regionname = command_pt.get<std::string>("regionname");
+            std::string regionname = GetJsonValueByKey<std::string>(commandjson, "regionname");
             if (!_pDetector || !_pBinpickingTask) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
 
-            std::vector<DetectedObjectPtr> detectedobjects;
-            boost::optional<const ptree&> detectedobjects_pt(command_pt.get_child_optional("detectedobjects"));
-            if (!!detectedobjects_pt) {
-                FOREACH(v, *detectedobjects_pt) {
-                    detectedobjects.push_back(DetectedObjectPtr(new DetectedObject(v->second.get_child(""))));
-                }
-            }
-            std::string resultstate = command_pt.get<std::string>("state", "");
-            bool sendtocontroller = command_pt.get<bool>("sendtocontroller", true);
+            std::vector<DetectedObjectPtr> detectedobjects = GetJsonValueByKey<std::vector<DetectedObjectPtr> >(commandjson, "detectedobjects");
+            std::string resultstate = GetJsonValueByKey<std::string>(commandjson, "state");
+            bool sendtocontroller = GetJsonValueByKey<bool>(commandjson, "sendtocontroller", true);
             UpdateDetectedObjects(detectedobjects, resultstate, sendtocontroller);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else if (command == "SyncRegion") {
-            if (command_pt.count("regionname") == 0) {
+            if (!commandjson.HasMember("regionname")) {
                 throw MujinVisionException("regionname is not specified.", MVE_InvalidArgument);
             }
-            std::string regionname = command_pt.get<std::string>("regionname");
+            std::string regionname = GetJsonValueByKey<std::string>(commandjson, "regionname");
             if (!_pDetector || !_pBinpickingTask || !_pImagesubscriberManager) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
             SyncRegion(regionname);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else if (command == "SyncCameras") {
-            std::string regionname = command_pt.get<std::string>("regionname", "");
+            std::string regionname = GetJsonValueByKey<std::string>(commandjson, "regionname");
             if (!_pBinpickingTask || !_pImagesubscriberManager) {
                 throw MujinVisionException("visionmanager is not initialized, please call Initialize() first before calling " + command, MVE_NotInitialized);
             }
-
-            std::vector<std::string> cameranames;
-            boost::optional<const ptree&> cameranames_pt(command_pt.get_child_optional("cameranames"));
-            if (!!cameranames_pt) {
-                FOREACH(v, *cameranames_pt) {
-                    cameranames.push_back(v->second.get<std::string>(""));
-                }
-            }
+            std::vector<std::string> cameranames = GetJsonValueByKey<std::vector<std::string> >(commandjson, "cameranames");
             SyncCameras(regionname, cameranames);
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else if (command == "SaveVisionmanagerConfig") {
-            if (command_pt.count("visionmanagerconfigname") == 0) {
+            if (!commandjson.HasMember("visionmanagerconfigname")) {
                 throw MujinVisionException("visionmanagerconfigname is not specified.", MVE_InvalidArgument);
             }
-            if (command_pt.count("config") == 0) {
+            if (!commandjson.HasMember("config")) {
                 throw MujinVisionException("config is not specified.", MVE_InvalidArgument);
             }
-            SaveConfig("visionmanager", command_pt.get<std::string>("visionmanagerconfigname"), command_pt.get<std::string>("config", ""));
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SaveConfig("visionmanager", GetJsonValueByKey<std::string>(commandjson, "visionmanagerconfigname"), GetJsonValueByKey<std::string>(commandjson, "config"));
+            SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else if (command == "SaveDetectorConfig") {
-            if (command_pt.count("detectorconfigname") == 0) {
+            if (!commandjson.HasMember("detectorconfigname")) {
                 throw MujinVisionException("detectorconfigname is not specified.", MVE_InvalidArgument);
             }
-            if (command_pt.count("config") == 0) {
+            if (!commandjson.HasMember("config")) {
                 throw MujinVisionException("config is not specified.", MVE_InvalidArgument);
             }
-            SaveConfig("detector", command_pt.get<std::string>("detectorconfigname"), command_pt.get<std::string>("config", ""));
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SaveConfig("detector", GetJsonValueByKey<std::string>(commandjson, "detectorconfigname"), GetJsonValueByKey<std::string>(commandjson, "config"));
+            SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else if (command == "SaveImagesubscriberConfig") {
-            if (command_pt.count("imagesubscriberconfigname") == 0) {
-                throw MujinVisionException("imagesubscriberconfigname is not specified.", MVE_InvalidArgument);
+            if (!commandjson.HasMember("imagesubscriberconfigname")) {
+                throw MujinVisionException("imagesubsriberconfigname is not specified.", MVE_InvalidArgument);
             }
-            if (command_pt.count("config") == 0) {
+            if (!commandjson.HasMember("config")) {
                 throw MujinVisionException("config is not specified.", MVE_InvalidArgument);
             }
-            SaveConfig("imagesubscriber", command_pt.get<std::string>("imagesubscriberconfigname"), command_pt.get<std::string>("config", ""));
-            result_ss << "{";
-            result_ss << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-            result_ss << "}";
+            SaveConfig("imagesubscriber", GetJsonValueByKey<std::string>(commandjson, "imagesubscriberconfigname"), GetJsonValueByKey<std::string>(commandjson, "config"));
+            SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else {
             if(_mNameCommand.find(command) == _mNameCommand.end()) {
                 std::stringstream ss;
@@ -1193,15 +1075,15 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             } else {
                 boost::shared_ptr<CustomCommand> customcommand = _mNameCommand[command];
                 std::stringstream customresultss;
-                customcommand->fn(this, command_pt, customresultss);
-                result_ss << "{";
-                result_ss << ParametersBase::GetJsonString("customresult") << ": " << customresultss.str();
-                result_ss << ", " << ParametersBase::GetJsonString("computationtime") << ": " << GetMilliTime()-starttime;
-                result_ss << "}";
+                rapidjson::Document customresultjson(rapidjson::kObjectType);
+                customcommand->fn(this, commandjson, customresultjson);
+                SetJsonValueByKey(resultjson, "customresult", customresultjson);
+                SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
             }
         }
     }
     _SetStatus(TT_Command, MS_Pending);
+
 }
 
 bool MujinVisionManager::IsDetectionRunning()
@@ -1338,55 +1220,45 @@ void MujinVisionManager::_RunStatusThread(const unsigned int port, const unsigne
 
 std::string MujinVisionManager::_GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& cmdmsg, const std::string& cmderr, const std::string& cfgmsg, const std::string& cfgerr, const std::string& detectormsg, const std::string& detectorerr, const std::string& updateenvmsg, const std::string& updateenverr, const std::string& controllermonmsg, const std::string& controllermonerr, const std::string& sendpclmsg, const std::string& sendpclerr)
 {
-    std::stringstream ss;
-    ss << "{";
-    ss << ParametersBase::GetJsonString("timestamp") << ": " << timestamp << ", ";
-    ss << ParametersBase::GetJsonString("status", status) << ", ";
-    ss << ParametersBase::GetJsonString("commandmessage", cmdmsg) << ", ";
+    rapidjson::Document d(rapidjson::kObjectType);
+    SetJsonValueByKey(d, "timestamp", timestamp);
+    SetJsonValueByKey(d, "status", status);
+    SetJsonValueByKey(d, "commandmessage", cmdmsg);
     if (cmderr != "") {
-        ss << ParametersBase::GetJsonString("commanderrorcode", cmderr) << ", ";
+        SetJsonValueByKey(d, "commanderrorcode", cmderr);
     }
-    ss << ParametersBase::GetJsonString("detectormessage", detectormsg) << ", ";
+    SetJsonValueByKey(d, "detectormessage", detectormsg);
     if (detectorerr != "") {
-        ss << ParametersBase::GetJsonString("detectorerrorcode", detectorerr) << ", ";
+        SetJsonValueByKey(d, "detectorerrorcode", detectorerr);
     }
-    ss << ParametersBase::GetJsonString("updateenvironmentmessage", updateenvmsg) << ", ";
+    SetJsonValueByKey(d, "updateenvironmentmessage", updateenvmsg);
     if (updateenverr != "") {
-        ss << ParametersBase::GetJsonString("updateenvironmenterrorcode", cmderr) << ", ";
+        SetJsonValueByKey(d, "updateenvironmenterrorcode", updateenverr);
     }
-    ss << ParametersBase::GetJsonString("controllermonitormessage", controllermonmsg) << ", ";
+    SetJsonValueByKey(d, "controllermonitormessage", controllermonmsg);
     if (controllermonerr != "") {
-        ss << ParametersBase::GetJsonString("controllermonitorerrorcode", controllermonerr) << ", ";
+        SetJsonValueByKey(d, "controllermonitorerrorcode", controllermonerr);
     }
-    ss << ParametersBase::GetJsonString("sendpointcloudmessage", sendpclmsg) << ", ";
+    SetJsonValueByKey(d, "sendpointcloudmessage", sendpclmsg);
     if (sendpclerr != "") {
-        ss << ParametersBase::GetJsonString("sendpointclouderrorcode", sendpclerr) << ", ";
+        SetJsonValueByKey(d, "sendpointclouderrorcode", sendpclerr);
     }
-    ss << ParametersBase::GetJsonString("isdetectionrunning", IsDetectionRunning());
+    SetJsonValueByKey(d, "isdetectionrunning", IsDetectionRunning());
     if (_detectionRegionName != "") {
-        ss << ", " << ParametersBase::GetJsonString("detectionRegionName", _detectionRegionName);
+        SetJsonValueByKey(d, "detectionRegionName", _detectionRegionName);
     }
-    ss << ", " << ParametersBase::GetJsonString("isvisualizepointcloudrunning", _bIsVisualizePointcloudRunning);
-    ss << ", " << ParametersBase::GetJsonString("issendpointcloudrunning", _bIsSendPointcloudRunning);
-    ss << ", " << ParametersBase::GetJsonString("isenvironmentupdaterunning", _bIsEnvironmentUpdateRunning);
-    ss << ", " << ParametersBase::GetJsonString("lastupdateenvironmenttimestamp", _tsLastEnvUpdate);
-    ss << "}";
-    try {
-        ParametersBase::ValidateJsonString(ss.str());
-        return ss.str();
-    } catch (const MujinVisionException& e) {
-        MUJIN_LOG_ERROR("Cannot publish malformatted status message: " + e.message());
-        return "{}";
-    }
+    SetJsonValueByKey(d, "isvisualizepointcloudrunning", _bIsVisualizePointcloudRunning);
+    SetJsonValueByKey(d, "issendpointcloudrunning", _bIsSendPointcloudRunning);
+    SetJsonValueByKey(d, "isenvironmentupdaterunning", _bIsEnvironmentUpdateRunning);
+    SetJsonValueByKey(d, "lastupdateenvironmenttimestamp", _tsLastEnvUpdate);
+    return  DumpJson(d);
 }
 
 void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandindex)
 {
     CommandServerPtr pCommandServer;
     std::string incomingmessage;
-    ptree command_pt;
-    std::stringstream command_ss, result_ss;
-    std::string resultstr;
+    rapidjson::Document commandjson, resultjson(rapidjson::kObjectType);
     while (!_mPortStopCommandThread[commandindex]) {
         try {
             if( !pCommandServer ) {
@@ -1409,28 +1281,23 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
             if (pCommandServer->Recv(incomingmessage, 100) > 0) {
                 MUJIN_LOG_DEBUG("Received command message: " + incomingmessage + ".");
                 // execute command
-                command_ss.str("");
-                command_ss.clear();
-                command_ss.str(incomingmessage);
-                read_json(command_ss, command_pt);
-                result_ss.str("");
-                result_ss.clear();
+                commandjson.Parse(incomingmessage.c_str());
+                resultjson.SetObject();
                 try {
                     if (port == _configport) {
-                        _ExecuteConfigurationCommand(command_pt, result_ss);
+                        _ExecuteConfigurationCommand(commandjson, resultjson);
                     } else if (port == _commandport) {
-                        _ExecuteUserCommand(command_pt, result_ss);
+                        _ExecuteUserCommand(commandjson, resultjson);
                     }
                 }
                 catch (const UserInterruptException& ex) { // need to catch it here, otherwise zmq will be in bad state
                     if (commandindex == CDI_Configure) {
                         MUJIN_LOG_WARN("User requested program exit.");
-                        result_ss << "{}";
                         _mPortStopCommandThread[commandindex] = true;
                     } else {
                         _SetStatus(TT_Command, MS_Preempted, "", "", false);
                         MUJIN_LOG_WARN("User interruped command execution.");
-                        result_ss << "{" << ParametersBase::GetJsonString("status", _GetManagerStatusString(MS_Preempted)) << "}";
+                        SetJsonValueByKey(resultjson, "status", _GetManagerStatusString(MS_Preempted));
                     }
                 }
                 catch (const MujinVisionException& e) {
@@ -1448,44 +1315,43 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
                     case MVE_ControllerError: break;
                     default: break;
                     }
-                    result_ss << "{" << ParametersBase::GetJsonString(e) << "}";
+                    SetJsonValueByKey(resultjson, "error", e);
                     _SetStatus(TT_Command, MS_Aborted, "", e.message(), false);
                 }
                 catch (const zmq::error_t& e) {
                     std::stringstream ss;
                     ss << "caught zmq exception errornum=" << e.num();
-                    std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), ss.str());
-                    result_ss << "{" << errstr << "}";
+                    rapidjson::Document errorjson;
+                    SetJsonValueByKey(errorjson, "type", GetErrorCodeString(MVE_Failed));
+                    SetJsonValueByKey(errorjson, "desc", ss.str());
+                    SetJsonValueByKey(resultjson, "error", errorjson);
+                    std::string errstr = DumpJson(resultjson);
                     MUJIN_LOG_ERROR(ss.str());
-                    _SetStatus(TT_Command, MS_Aborted, "", errstr, false);
+                    _SetStatus(TT_Command, MS_Aborted, "", errstr.substr(1, errstr.size() - 2), false); // remove '{' and '}'
                 }
                 catch (std::exception& e) {
-                    std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), e.what());
-                    result_ss << "{" << errstr << "}";
+                    rapidjson::Document errorjson;
+                    SetJsonValueByKey(errorjson, "type", GetErrorCodeString(MVE_Failed));
+                    SetJsonValueByKey(errorjson, "desc", e.what());
+                    SetJsonValueByKey(resultjson, "error", errorjson);
+                    std::string errstr = DumpJson(resultjson);
                     MUJIN_LOG_ERROR("unhandled std exception, " + errstr);
-                    _SetStatus(TT_Command, MS_Aborted, "", errstr, false);
+                    _SetStatus(TT_Command, MS_Aborted, "", errstr.substr(1, errstr.size() - 2), false); // remove '{' and '}'
                 }
                 catch (...) {
                     std::string whatstr = "unhandled exception!";
                     MUJIN_LOG_ERROR(whatstr);
-                    std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), whatstr);
-                    result_ss << "{" << errstr << "}";
-                    _SetStatus(TT_Command, MS_Aborted, "", errstr, false);
+                    rapidjson::Document errorjson;
+                    SetJsonValueByKey(errorjson, "type", GetErrorCodeString(MVE_Failed));
+                    SetJsonValueByKey(errorjson, "desc", whatstr);
+                    SetJsonValueByKey(resultjson, "error", errorjson);
+                    std::string errstr = DumpJson(resultjson);
+                    MUJIN_LOG_ERROR("unhandled std exception, " + errstr);
+                    _SetStatus(TT_Command, MS_Aborted, "", errstr.substr(1, errstr.size() - 2), false); // remove '{' and '}'
                 }
 
                 // send output
-                try {
-                    ParametersBase::ValidateJsonString(result_ss.str());
-                    pCommandServer->Send(result_ss.str());
-                } catch (const MujinVisionException& e) {
-                    MUJIN_LOG_ERROR(e.message());
-                    std::string errstr = ParametersBase::GetExceptionJsonString(GetErrorCodeString(MVE_Failed), "Failed to send result because it is malformatted json. Please check vision manager log for details.");  // cannot send malformatted json, log only here
-                    result_ss.str("");
-                    result_ss.clear();
-                    result_ss << "{" << errstr << "}";
-                    pCommandServer->Send(result_ss.str());
-                    _SetStatus(TT_Command, MS_Aborted, "", errstr, false);
-                }
+                pCommandServer->Send(DumpJson(resultjson));
             }
         }
         catch (const MujinVisionException& e) {
@@ -1766,13 +1632,12 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     unsigned int maxnumfastdetection = params.maxnumfastdetection;
     unsigned int maxnumdetection = params.maxnumdetection;
     BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-    std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(_locale) + "}";
-    MUJIN_LOG_DEBUG("initialzing binpickingtask in DetectionThread with userinfo " + userinfo_json);
+    std::string userinfo = _GetUserInfoJsonString();
+    MUJIN_LOG_DEBUG("initialzing binpickingtask in DetectionThread with userinfo " + userinfo);
     time0 = GetMilliTime();
-    ParametersBase::ValidateJsonString(userinfo_json);
     MUJIN_LOG_DEBUG("ValidateJsonString took " << (GetMilliTime()-time0)/1000.0f << " secs");
     time0 = GetMilliTime();
-    pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+    pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo, _slaverequestid);
     MUJIN_LOG_DEBUG("pBinpickingTask->Initialize() took " << (GetMilliTime()-time0)/1000.0f << " secs");
     int numfastdetection = maxnumfastdetection; // max num of times to run fast detection
     bool bindetectiononly = false;
@@ -2277,12 +2142,9 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
         std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
 
         BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-        std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(locale) + "}";
-        MUJIN_LOG_DEBUG("initialzing binpickingtask in UpdateEnvironmentThread with userinfo " + userinfo_json);
-
-        ParametersBase::ValidateJsonString(userinfo_json);
-
-        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+        std::string userinfo = _GetUserInfoJsonString();
+        MUJIN_LOG_DEBUG("initialzing binpickingtask in UpdateEnvironmentThread with userinfo " + userinfo);
+        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo, _slaverequestid);
         uint64_t starttime;
         uint64_t lastwarnedtimestamp1 = 0;
 
@@ -2464,15 +2326,22 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
     }
 }
 
+std::string MujinVisionManager::_GetUserInfoJsonString() {
+    rapidjson::Document userinfojson(rapidjson::kObjectType);
+    SetJsonValueByKey(userinfojson, "username", _pControllerClient->GetUserName());
+    SetJsonValueByKey(userinfojson, "locale", _locale);
+    return DumpJson(userinfojson);
+}
+
 void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params)
 {
     try {
         //FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);
         std::vector<std::string> cameranames = params.cameranames;
         std::vector<std::string> evcamnames = params.executionverificationcameranames;
-        MUJIN_LOG_INFO("starting SendExecutionVerificationPointCloudThread " + ParametersBase::GetJsonString(evcamnames));
+        MUJIN_LOG_INFO("starting SendExecutionVerificationPointCloudThread " + GetJsonString(evcamnames));
         //double voxelsize = params.voxelsize;
-        double pointsize = params.pointsize;
+        //double pointsize = params.pointsize;
         bool ignoreocclusion = params.ignoreocclusion;
         //std::string obstaclename = params.obstaclename;
         unsigned int waitinterval = params.waitinterval;
@@ -2486,21 +2355,21 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         //std::vector<std::string> cameranamestobeused = _GetDepthCameraNames(regionname, cameranames);
 
         BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-        std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(locale) + "}";
-        MUJIN_LOG_DEBUG("initialzing binpickingtask in _SendExecutionVerificationPointCloudThread with userinfo " + userinfo_json);
 
-        ParametersBase::ValidateJsonString(userinfo_json);
+        std::string userinfo = _GetUserInfoJsonString();
 
-        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+        MUJIN_LOG_DEBUG("initialzing binpickingtask in _SendExecutionVerificationPointCloudThread with userinfo " + userinfo);
+
+        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo, _slaverequestid);
         //uint64_t starttime;
         uint64_t lastwarnedtimestamp0 = 0;
-        uint64_t lastwarnedtimestamp1 = 0;
+        //uint64_t lastwarnedtimestamp1 = 0;
         std::map<std::string, uint64_t> mCameranameLastsentcloudtime;
         std::string regionname;
 
         uint64_t lastCaptureResetTimestamp = 0; // ms timestamp when the capture handles were last reset. Used to prevent too many force resets in one time.
         uint64_t lastCaptureResetTimeout = 4000; // how long to wait until force reset is called again
-        uint64_t lastUpdateTimestamp = 0;
+        //uint64_t lastUpdateTimestamp = 0;
         while (!_bStopExecutionVerificationPointCloudThread && evcamnames.size() > 0) {
             // send latest pointcloud for execution verification
             for (unsigned int i=0; i<evcamnames.size(); ++i) {
@@ -2610,12 +2479,8 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
 {
     try {
         BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-        std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(_locale) + "}";
-
-        ParametersBase::ValidateJsonString(userinfo_json);
-
-        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
-
+        std::string userinfo = _GetUserInfoJsonString();
+        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo, _slaverequestid);
         BinPickingTaskResource::ResultGetBinpickingState binpickingstate;
         uint64_t lastwarnedtimestamp = 0;
         while (!_bStopControllerMonitorThread) {
@@ -2932,7 +2797,7 @@ bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     imageStartTimestamp = 0; imageEndTimestamp = 0;
     unsigned long long imagepacktimestamp = 0, oldimagepacktimestamp = 0;
     std::string cameraname;
-    uint64_t lastimageagecheckfailurets = 0;
+    //uint64_t lastimageagecheckfailurets = 0;
     uint64_t lastimagetscheckfailurets = 0;
     uint64_t lastfirstimagecheckfailurewarnts = 0;
     uint64_t lastocclusioncheckfailurewarnts = 0;
@@ -2940,7 +2805,7 @@ bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
     uint64_t lastresultimagecheckfailurets = 0;
     //uint64_t lastcouldnotcapturewarnts = 0;
     // TODO: currently snap is only supported when there is only one color camera and depth camera (rv)
-    bool usecache = !((request || !_visionserverpt.get<bool>("runpublisher", true)) && (colorcameranames.size() == 1 && depthcameranames.size() == 1));
+    bool usecache = !((request || !GetJsonValueByKey<bool>(_visionserverconfig, "runpublisher", true)) && (colorcameranames.size() == 1 && depthcameranames.size() == 1));
     bool bGotAllImages = false; // true if received all the images
 
     while (!_bCancelCommand && // command is not being canceled
@@ -2961,7 +2826,7 @@ bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
             std::string extracaptureoptions;
             {
                 boost::mutex::scoped_lock lock(_mutexRegion);
-                extracaptureoptions = _GetExtraCaptureOptions(_GetHardwareIds(depthcameranames), _GetHardwareIds(depthcameranames), _visionserverpt, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid, ignoreocclusion);
+                extracaptureoptions = _GetExtraCaptureOptions(_GetHardwareIds(depthcameranames), _GetHardwareIds(depthcameranames), _visionserverconfig, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid, ignoreocclusion);
             }
             _pImagesubscriberManager->SnapColorAndDepthImages(depthcameranames.at(0), imageStartTimestamp, imageEndTimestamp, colorimages, depthimages, fetchimagetimeout / 1000.0, /*numimages=*/ -1, extracaptureoptions);
         }
@@ -3047,18 +2912,15 @@ bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         if (!ignoreocclusion && regionname.size() > 0) {
             try {
                 std::vector<std::string> checkedcameranames;
-                ptree tmppt;
-                std::stringstream ss;
+                rapidjson::Document tmpjson;
                 for (size_t i=0; i<colorimages.size() && !isoccluding; ++i) {
                     ImagePtr image = colorimages.at(i);
                     std::string cameraname = _mHardwareIdCameraName[image->GetCameraId()];
                     if (std::find(checkedcameranames.begin(), checkedcameranames.end(), cameraname) == checkedcameranames.end()) {
                         int isoccluded = -1;
                         if (image->GetMetadata().size() > 0) {
-                            ss.clear();
-                            ss << image->GetMetadata();
-                            read_json(ss, tmppt);
-                            isoccluded = tmppt.get<int>("isoccluded", -1);
+                            tmpjson.Parse(image->GetMetadata().c_str());
+                            isoccluded = GetJsonValueByKey<int>(tmpjson, "isoccluded", -1);
                         }
                         if (isoccluded == -1) {
                             //MUJIN_LOG_ERROR(image->GetMetadata());
@@ -3080,10 +2942,8 @@ bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
                     if (std::find(checkedcameranames.begin(), checkedcameranames.end(), cameraname) == checkedcameranames.end()) {
                         int isoccluded = -1;
                         if (image->GetMetadata().size() > 0) {
-                            ss.clear();
-                            ss << image->GetMetadata();
-                            read_json(ss, tmppt);
-                            isoccluded = tmppt.get<int>("isoccluded", -1);
+                            tmpjson.Parse(image->GetMetadata().c_str());
+                            isoccluded = GetJsonValueByKey<int>(tmpjson, "isoccluded", -1);
                         }
                         if (isoccluded == -1) {
                             pBinpickingTask->IsRobotOccludingBody(regionname, cameraname, image->GetStartTimestamp(), image->GetEndTimestamp(), isoccluding);
@@ -3326,38 +3186,36 @@ void MujinVisionManager::Initialize(
     }
 
     // load visionserver configuration
-    std::stringstream visionmanagerconfigss;
-    visionmanagerconfigss << visionmanagerconfig;
 
-    // read execution verification configuration
-    read_json(visionmanagerconfigss, _visionserverpt);
-    _filteringsubsample = _visionserverpt.get<double>("filteringsubsample", 1);
+    _visionserverconfig.Parse(visionmanagerconfig.c_str());
+
+    _filteringsubsample = GetJsonValueByKey<double>(_visionserverconfig, "filteringsubsample", 1.0);
     if (_filteringsubsample == 1) {
         MUJIN_LOG_WARN("filteringsubsample=" << _filteringsubsample << ". Set it to a higher value for speedup.");
     }
-    _filteringvoxelsize = _visionserverpt.get<double>("filteringvoxelsize", 0.01 * 1000);
-    _filteringstddev = _visionserverpt.get<double>("filteringstddev", 0.01);
+    _filteringvoxelsize = GetJsonValueByKey<double>(_visionserverconfig, "filteringvoxelsize", 0.01 * 1000);
+    _filteringstddev = GetJsonValueByKey<double>(_visionserverconfig, "filteringstddev", 0.01);
     if (_filteringvoxelsize < 1) {
         MUJIN_LOG_WARN("it seems that filteringvoxelsize=" << _filteringvoxelsize << " are in meters, converting them to mm, please update conf");
         _filteringvoxelsize = _filteringvoxelsize * 1000;
     }
-    _filteringnumnn = _visionserverpt.get<int>("filteringnumnn", 80);
-    if (_visionserverpt.count("bindetectionMode") > 0) {
-        _bindetectionMode = _visionserverpt.get<int>("bindetectionMode", 1);
-    } else if (_visionserverpt.count("bindetection") > 0) {
+    _filteringnumnn = GetJsonValueByKey<int>(_visionserverconfig, "filteringnumnn", 80);
+    if (_visionserverconfig.HasMember("bindetectionMode")) {
+        _bindetectionMode = GetJsonValueByKey<int>(_visionserverconfig, "bindetectionMode", 1);
+    } else if (_visionserverconfig.HasMember("bindetection")) {
         MUJIN_LOG_WARN("bindetection is deprecated, please use bindetectionMode instead");
-        _bindetectionMode = _visionserverpt.get<int>("bindetection", 1);
+        _bindetectionMode = GetJsonValueByKey<int>(_visionserverconfig, "bindetection", 1);
     }
-    std::string detectormodulename = _visionserverpt.get<std::string>("modulename", "");
-    std::string detectorclassname = _visionserverpt.get<std::string>("classname", "");
+    std::string detectormodulename = GetJsonValueByKey<std::string>(_visionserverconfig, "modulename", "");
+    std::string detectorclassname = GetJsonValueByKey<std::string>(_visionserverconfig, "classname", "");
     if (detectormodulename.size() > 0 && detectorclassname.size() > 0) {
         _mDetectorExtraInitializationOptions["modulename"] = detectormodulename;
         _mDetectorExtraInitializationOptions["classname"] = detectorclassname;
     }
 
     // load unit info
-    _mDetectorExtraInitializationOptions["inputUnit"] = _visionserverpt.get<std::string>("inputunit", "mm");
-    _mDetectorExtraInitializationOptions["outputUnit"] = _visionserverpt.get<std::string>("outputunit", "mm");
+    _mDetectorExtraInitializationOptions["inputUnit"] = GetJsonValueByKey<std::string>(_visionserverconfig, "inputunit", "mm");
+    _mDetectorExtraInitializationOptions["outputUnit"] = GetJsonValueByKey<std::string>(_visionserverconfig, "outputunit", "mm");
 
     // set up regions
     std::vector<std::string> regionnames;
@@ -3366,20 +3224,17 @@ void MujinVisionManager::Initialize(
         boost::mutex::scoped_lock lock(_mutexRegion);
         _mNameRegion.clear();
         RegionParametersPtr pRegionParameters;
-        ptree containerpt;
-        std::stringstream containerss;
-        containerss << containerParameters;
-        read_json(containerss, containerpt);
-        FOREACH(v, containerpt.get_child("regions")) {
-            RegionParametersPtr pregionparameters(new RegionParameters(v->second));
-            vRegionParameters.push_back(pregionparameters);
-            _mNameRegion[pregionparameters->instobjectname] = RegionPtr(new Region(pregionparameters));
-            regionnames.push_back(pregionparameters->instobjectname);
+        rapidjson::Document regionparametersjson;
+        regionparametersjson.Parse(containerParameters.c_str());
+        vRegionParameters = GetJsonValueByKey<std::vector<RegionParametersPtr> >(regionparametersjson, "regions");
+        FOREACH(v, vRegionParameters) {
+            _mNameRegion[(*v)->instobjectname] = RegionPtr(new Region(*v));
+            regionnames.push_back((*v)->instobjectname);
         }
     }
 
     // connect to mujin controller
-    _userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(locale) + "}";
+    _userinfo_json = _GetUserInfoJsonString();
 
     _SetStatusMessage(TT_Command, "Connected to mujin controller at " + url_ss.str());
     SceneResourcePtr scene(new SceneResource(controller,binpickingTaskScenePk));
@@ -3429,8 +3284,6 @@ void MujinVisionManager::Initialize(
     }
 
     MUJIN_LOG_DEBUG("initialzing binpickingtask in Initialize() with userinfo " + _userinfo_json);
-
-    ParametersBase::ValidateJsonString(_userinfo_json);
 
     _pBinpickingTask->Initialize(defaultTaskParameters, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json, slaverequestid);
 
@@ -3530,41 +3383,38 @@ void MujinVisionManager::Initialize(
     _SetStatusMessage(TT_Command, "Loading subscriber configuration.");
     // load subscriber configuration
     _imagesubscriberconfig = imagesubscriberconfig;
-    std::stringstream imagesubscriberconfigss;
-    imagesubscriberconfigss << imagesubscriberconfig;
-    ptree imagesubscriberpt;
-    read_json(imagesubscriberconfigss, imagesubscriberpt);
+    rapidjson::Document imagesubscriberjson;
+    imagesubscriberjson.Parse(imagesubscriberconfig.c_str());
 
     // set up image subscriber manager
-    _subscriberid = imagesubscriberpt.get<std::string>("subscriberid", "");
+    _subscriberid = GetJsonValueByKey<std::string>(imagesubscriberjson, "subscriberid", "");
     _SetStatusMessage(TT_Command, str(boost::format("Setting up image manager %s.")%_subscriberid));
-    _pImagesubscriberManager->Initialize(_mNameCamera, streamerIp, streamerPort, imagesubscriberpt, _zmqcontext);
+    _pImagesubscriberManager->Initialize(_mNameCamera, streamerIp, streamerPort, imagesubscriberjson, _zmqcontext);
 
     // set up detectors
     starttime = GetMilliTime();
     _SetStatusMessage(TT_Command, "Setting up detector.");
-    std::string detectorconfig;
+    std::string detectorconfigstr;
     if (detectorconfigfilename.size() == 0) {
         detectorconfigfilename = _GetConfigFileName("detector", detectorconfigname);
         MUJIN_LOG_INFO("using default detector conf at " << detectorconfigfilename);
     }
-    _LoadConfig(detectorconfigfilename, detectorconfig);
+    _LoadConfig(detectorconfigfilename, detectorconfigstr);
 
     // append additional params to detectorconf string
-    bool debug = _visionserverpt.get<bool>("debug", false);
-    size_t index = detectorconfig.find_last_of("}");
-    if (index == std::string::npos) {
-        throw MujinVisionException("invalid detectorconfig: " + detectorconfig, MVE_InvalidArgument);
+    bool debug = GetJsonValueByKey<bool>(_visionserverconfig, "debug", false);
+    rapidjson::Document detectorconfigjson;
+    if (detectorconfigjson.Parse(detectorconfigstr.c_str()).HasParseError()) {
+        throw MujinVisionException("invalid detectorconfig: " + detectorconfigstr, MVE_InvalidArgument);
     }
-    _detectorconfig = detectorconfig.substr(0, index) + ", " + ParametersBase::GetJsonString("debug", debug) + ", ";
-    if (_visionserverpt.count("cleanParameters") > 0) {
-        std::stringstream cleanss;
-        write_json(cleanss, _visionserverpt.get_child("cleanParameters"));
-        _detectorconfig = _detectorconfig + "\"cleanParameters\": " + cleanss.str() + ", ";
-        _detectorconfig = _detectorconfig + "\"visionManagerConfiguration\": " + visionmanagerconfigss.str() + ", ";
+    SetJsonValueByKey(detectorconfigjson, "degbug", debug);
+    if (_visionserverconfig.HasMember("cleanParameters")) {
+        SetJsonValueByKey(detectorconfigjson, "cleanParameters", _visionserverconfig["cleanParameters"]);
+        SetJsonValueByKey(detectorconfigjson, "visionManagerConfiguration", _visionserverconfig);
     }
-    _detectorconfig = _detectorconfig + ParametersBase::GetJsonString("modelFilename", modelfilename) + "}";
-    ParametersBase::ValidateJsonString(_detectorconfig);
+    SetJsonValueByKey(detectorconfigjson, "modelFilenam", modelfilename);
+    _detectorconfig = DumpJson(detectorconfigjson);
+
     _targetname = targetname;
     _targeturi = targeturi;
     _targetupdatename = targetupdatename;
@@ -3610,7 +3460,7 @@ void MujinVisionManager::DetectObjects(const std::string& regionname, const std:
     std::vector<CameraCaptureHandlePtr> capturehandles; CREATE_SAFE_DELETER_CAMERAHANDLES(capturehandles);
     MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(cameranames));
     _StartAndGetCaptureHandle(cameranames, cameranames, capturehandles, /*force=*/ false, ignoreocclusion);
-    int numresults = _DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold);
+    int numresults =_DetectObjects(TT_Command, _pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold);
 }
 
 int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>&cameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, int& isContainerPresent, const bool ignoreocclusion, const unsigned long long newerthantimestamp, const unsigned int fetchimagetimeout, const bool fastdetection, const bool bindetection, const bool request, const bool useold, const bool checkcontaineremptyonly)
@@ -3655,18 +3505,16 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
     if (resultstate == "") {
         resultstate = "null";
     } else {
-        ptree pt;
-        std::stringstream ss;
-        ss << resultstate;
-        read_json(ss, pt);
-        if (pt.count("numDetectedParts") == 0) {
+        rapidjson::Document d;
+        d.Parse(resultstate.c_str());
+        if (!d.HasMember("numDetectedParts")) {
             MUJIN_LOG_WARN("numDetectedObjects is not in resultstate");
         }
-        numresults = pt.get<int>("numDetectedParts", detectedobjects.size());
-        if (pt.count("isContainerPresent") == 0) {
+        numresults = GetJsonValueByKey<int>(d, "numDetectedParts", detectedobjects.size());
+        if (!d.HasMember("isContainerPresent")) {
             MUJIN_LOG_WARN("isContainerPresent is not in resultstate");
         }
-        isContainerPresent = pt.get<int>("isContainerPresent", -1);
+        isContainerPresent = GetJsonValueByKey<int>(d, "isContainerPresent", -1);
     }
     //std::stringstream msgss;
     //msgss << "Detected " << detectedobjects.size() << " objects, state: " << resultstate <<". Took " << (GetMilliTime()-starttime)/1000.0f << " seconds.";
@@ -3799,10 +3647,9 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
 
                     // check only if we are not sure region is occluded
                     if (isregionoccluded < 1 && !!depthimage && depthimage->GetMetadata().size() > 0) {
-                        ptree tmppt;
-                        ss << depthimage->GetMetadata();
-                        read_json(ss, tmppt);
-                        int iscameraoccluded = tmppt.get<int>("isoccluded", -1);
+                        rapidjson::Document tmpjson;
+                        tmpjson.Parse(depthimage->GetMetadata().c_str());
+                        int iscameraoccluded = GetJsonValueByKey<int>(tmpjson, "isoccluded", -1);
                         if (isregionoccluded == -2 || isregionoccluded == 0) { // use camera occlusion status if region occlusion status is never set or not occluded
                             isregionoccluded = iscameraoccluded;
                         } else if (isregionoccluded == -1) { // if region occlusion status is unknown
@@ -3874,7 +3721,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
     std::vector<DetectedObjectPtr> detectedobjectsworld = params.detectedobjectsworld;
     unsigned long long newerthantimestamp = params.newerthantimestamp;
     unsigned int fetchimagetimeout = params.fetchimagetimeout;
-    double voxelsize = params.voxelsize;
+    //double voxelsize = params.voxelsize;
     double pointsize = params.pointsize;
     std::string obstaclename = params.obstaclename;
     std::vector<CameraCaptureHandlePtr> capturehandles; CREATE_SAFE_DELETER_CAMERAHANDLES(capturehandles);
@@ -3885,12 +3732,10 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
 
     try {
         BinPickingTaskResourcePtr pBinpickingTask = _pSceneResource->GetOrCreateBinPickingTaskFromName_UTF8(_tasktype+std::string("task1"), _tasktype, TRO_EnableZMQ);
-        std::string userinfo_json = "{\"username\": " + ParametersBase::GetJsonString(_pControllerClient->GetUserName()) + ", \"locale\": " + ParametersBase::GetJsonString(_locale) + "}";
-        MUJIN_LOG_DEBUG("initialzing binpickingtask in _SendPointCloudObstacleToControllerThread with userinfo " + userinfo_json);
+        std::string userinfo = _GetUserInfoJsonString();
+        MUJIN_LOG_DEBUG("initialzing binpickingtask in _SendPointCloudObstacleToControllerThread with userinfo " + userinfo);
 
-        ParametersBase::ValidateJsonString(userinfo_json);
-
-        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo, _slaverequestid);
 
         std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
         // set up images
@@ -3924,7 +3769,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
 //                    }
 
                     unsigned long long cloudstarttime, cloudendtime;
-                    double newpointsize = 0;
+                    //double newpointsize = 0;
                     double timeout = 3.0; // secs
 
                     points.resize(0);
@@ -3961,14 +3806,11 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                         }
                     }
 
-                    std::stringstream ss;
-
                     // check only if we are not sure region is occluded
                     if (isregionoccluded < 1 && !!depthimage && depthimage->GetMetadata().size() > 0) {
-                        ptree tmppt;
-                        ss << depthimage->GetMetadata();
-                        read_json(ss, tmppt);
-                        int iscameraoccluded = tmppt.get<int>("isoccluded", -1);
+                        rapidjson::Document tmpjson;
+                        tmpjson.Parse((depthimage->GetMetadata().c_str()));
+                        int iscameraoccluded = GetJsonValueByKey<int>(tmpjson, "isoccluded", -1);
                         if (isregionoccluded == -2 || isregionoccluded == 0) { // use camera occlusion status if region occlusion status is never set or not occluded
                             isregionoccluded = iscameraoccluded;
                         } else if (isregionoccluded == -1) { // if region occlusion status is unknown
@@ -3981,7 +3823,6 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                             MUJIN_LOG_WARN("should not get here!");
                         }
                     }
-                    ss.str(std::string()); ss.clear();
                     MUJIN_LOG_DEBUG("adding " << (points.size()/3) << " points from " << cameraname << " (" << _GetHardwareId(cameraname) << ")");
                     totalpoints.insert(totalpoints.end(), points.begin(), points.end());
                 }
@@ -4167,20 +4008,6 @@ void MujinVisionManager::GetLatestDetectedObjects(std::vector<DetectedObjectPtr>
         }
     }
     _SetStatus(TT_Command, MS_Succeeded);
-}
-
-std::string MujinVisionManager::_GetJsonString(const std::vector<DetectedObjectPtr>&detectedobjects)
-{
-    std::stringstream ss;
-    ss << ParametersBase::GetJsonString("objects") << ": [";
-    for (unsigned int i=0; i<detectedobjects.size(); i++) {
-        ss << detectedobjects[i]->GetJsonString();
-        if (i<detectedobjects.size()-1) {
-            ss << ",";
-        }
-    }
-    ss << "]";
-    return ss.str();
 }
 
 std::vector<std::string> MujinVisionManager::_GetCameraNames(const std::string& regionname, const std::vector<std::string>& cameranames)

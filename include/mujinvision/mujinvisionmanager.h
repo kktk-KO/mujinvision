@@ -28,6 +28,8 @@
 #include <boost/thread.hpp>
 #include <boost/thread/condition.hpp>
 
+#include <rapidjson/document.h>
+
 namespace mujinvision {
 
 using namespace mujinclient;
@@ -272,7 +274,7 @@ public:
 
     /** \brief Registers a command.
      */
-    typedef boost::function<bool (MujinVisionManager*, const ptree&, std::ostream&)> CustomCommandFn;
+    typedef boost::function<bool (MujinVisionManager*, const rapidjson::Document&, rapidjson::Document&)> CustomCommandFn;
 
     class MUJINVISION_API CustomCommand
     {
@@ -409,8 +411,8 @@ private:
 
     /** \brief Executes command in json string. Returns result in json string.
      */
-    void _ExecuteConfigurationCommand(const ptree& command_pt, std::stringstream& result_ss);
-    void _ExecuteUserCommand(const ptree& command_pt, std::stringstream& result_ss);
+    void _ExecuteConfigurationCommand(const rapidjson::Document& commandjson, rapidjson::Document& resultjson);
+    void _ExecuteUserCommand(const rapidjson::Document& commandconfig, rapidjson::Document& result_ss);
 
     /** \brief Receives and executes commands from the user and sends results back.
 
@@ -546,6 +548,8 @@ private:
      */
     std::string _GetString(const Transform& transform);
 
+    std::string _GetUserInfoJsonString();
+
     /** \brief Gets status json string.
      */
     std::string _GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& cmdmsg="", const std::string& cmderr="", const std::string& cfgmsg="", const std::string& cfgerr="", const std::string& detectormsg="", const std::string& detectorerr="", const std::string& updateenvmsg="", const std::string& updateenverr="", const std::string& controllermonmsg="", const std::string& controllermonerr="", const std::string& sendpclmsg="", const std::string& sendpclerr="");
@@ -646,7 +650,7 @@ private:
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
     boost::mutex _mutexDetector; ///< lock for detector
 
-    ptree _visionserverpt; ///< ptree storing visionserver params
+    rapidjson::Document _visionserverconfig; ///< ptree storing visionserver params
     std::vector<std::string> _vExecutionVerificationCameraNames; ///< names of cameras for exec verification
     size_t _filteringsubsample;  ///< point cloud filting param for exec verification
     double _filteringvoxelsize;  ///< point cloud filting param for exec verification

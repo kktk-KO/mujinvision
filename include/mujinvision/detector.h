@@ -64,13 +64,13 @@ public:
         \param detectedobjects in world frame
         \param resultstate additional information about the detection result
         \param fastdetection whether to prioritize speed
-        \param bindetection whether to detect bin
+        \param bindetectionmode whether to detect bin
         \param checkpreemptbits bits to check for preempt
         \param cycleindex
      */
-    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false, const unsigned int checkpreemptbits=1, const std::string& cycleindex="0") = 0;
+    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const std::string& bindetectionmode="never", const bool checkcontaineremptyonly=false, const unsigned int checkpreemptbits=1, const std::string& cycleindex="0") = 0;
 
-    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, const std::vector<ImagePtr>& resultimages, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const bool bindetection=false, const bool checkcontaineremptyonly=false, const unsigned int checkpreemptbits=1, const std::string& cycleindex="0") = 0;
+    virtual void DetectObjects(const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, const std::vector<ImagePtr>& resultimages, std::vector<DetectedObjectPtr>& detectedobjects, std::string& resultstate, const bool fastdetection=false, const std::string& bindetectionmode="never", const bool checkcontaineremptyonly=false, const unsigned int checkpreemptbits=1, const std::string& cycleindex="0") = 0;
 
     /** \brief Gets point cloud obstacle from depth data and detection result.
         \param regionname

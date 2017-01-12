@@ -2954,19 +2954,19 @@ bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // get images from subscriber
         if (usecache) {
-            ptree cameraidregionnamept;
+            std::map<std::string, std::string> mCameraIdRegionName;
             {
                 boost::mutex::scoped_lock lock(_mutexRegion);
                 FOREACH(v, _mCameraNameHardwareId) {
                     std::map<std::string, std::string>::const_iterator cit = _mCameranameActiveRegionname.find(v->first);
                     if (cit != _mCameranameActiveRegionname.end()) {
-                        cameraidregionnamept.put<std::string>(v->second, cit->second);
+                        mCameraIdRegionName[v->second] = cit->second;
                     } else {
                         MUJIN_LOG_VERBOSE("failed to find regionname for camera " << v->first);
                     }
                 }
             }
-            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp, cameraidregionnamept);
+            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp, mCameraIdRegionName);
         } else {
             BOOST_ASSERT(colorcameranames.size() == 1); // TODO supports only one color camera
             BOOST_ASSERT(depthcameranames.size() == 1); // TODO supports only one depth camera

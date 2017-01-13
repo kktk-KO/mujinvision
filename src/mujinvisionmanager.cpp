@@ -805,7 +805,9 @@ void MujinVisionManager::_ExecuteUserCommand(const rapidjson::Document& commandj
             bool returnpoints = GetJsonValueByKey<bool>(commandjson, "returnpoints", false);
             unsigned long long imageStartTimestamp, imageEndTimestamp;
             GetLatestDetectedObjects(detectedobjectsworld, resultstate, points, imageStartTimestamp, imageEndTimestamp, returnpoints);
+            std::cout << detectedobjectsworld.size() << std::endl;
             SetJsonValueByKey(resultjson, "detectedobjects", detectedobjectsworld);
+            std::cout << detectedobjectsworld.size() << std::endl;
             if( resultstate.size() > 0 ) {
                 rapidjson::Document resultstatejson;
                 resultstatejson.Parse(resultstate.c_str());
@@ -899,7 +901,7 @@ void MujinVisionManager::_ExecuteUserCommand(const rapidjson::Document& commandj
             }
             std::string locale = GetJsonValueByKey<std::string>(commandjson, "locale", "en_US");
             std::vector<std::string> targetdetectionarchiveurls;
-            if (commandjson.HasMember("targetdetectionarchnveurl")) {
+            if (commandjson.HasMember("targetdetectionarchiveurl")) {
                 try {
                     const rapidjson::Value& targetdetectionarchiveurljson = commandjson["targetdetectionarchiveurl"];
                     if (targetdetectionarchiveurljson.IsString()) {
@@ -1322,7 +1324,7 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
                 catch (const zmq::error_t& e) {
                     std::stringstream ss;
                     ss << "caught zmq exception errornum=" << e.num();
-                    rapidjson::Document errorjson;
+                    rapidjson::Document errorjson(rapidjson::kObjectType);
                     SetJsonValueByKey(errorjson, "type", GetErrorCodeString(MVE_Failed));
                     SetJsonValueByKey(errorjson, "desc", ss.str());
                     SetJsonValueByKey(resultjson, "error", errorjson);
@@ -1331,7 +1333,7 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
                     _SetStatus(TT_Command, MS_Aborted, "", errstr.substr(1, errstr.size() - 2), false); // remove '{' and '}'
                 }
                 catch (std::exception& e) {
-                    rapidjson::Document errorjson;
+                    rapidjson::Document errorjson(rapidjson::kObjectType);
                     SetJsonValueByKey(errorjson, "type", GetErrorCodeString(MVE_Failed));
                     SetJsonValueByKey(errorjson, "desc", e.what());
                     SetJsonValueByKey(resultjson, "error", errorjson);
@@ -1342,7 +1344,7 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
                 catch (...) {
                     std::string whatstr = "unhandled exception!";
                     MUJIN_LOG_ERROR(whatstr);
-                    rapidjson::Document errorjson;
+                    rapidjson::Document errorjson(rapidjson::kObjectType);
                     SetJsonValueByKey(errorjson, "type", GetErrorCodeString(MVE_Failed));
                     SetJsonValueByKey(errorjson, "desc", whatstr);
                     SetJsonValueByKey(resultjson, "error", errorjson);
@@ -2077,7 +2079,6 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
         }
 
         MUJIN_LOG_INFO("Cycle time: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
-        MUJIN_LOG_INFO(" ------------------------");
         if( bDetectorHasRunThisCycle ) {
             numdetection += 1;
         }
@@ -3437,7 +3438,7 @@ void MujinVisionManager::Initialize(
         SetJsonValueByKey(detectorconfigjson, "cleanParameters", _visionserverconfig["cleanParameters"]);
         SetJsonValueByKey(detectorconfigjson, "visionManagerConfiguration", _visionserverconfig);
     }
-    SetJsonValueByKey(detectorconfigjson, "modelFilenam", modelfilename);
+    SetJsonValueByKey(detectorconfigjson, "modelFilename", modelfilename);
     _detectorconfig = DumpJson(detectorconfigjson);
 
     _targetname = targetname;
@@ -3449,7 +3450,6 @@ void MujinVisionManager::Initialize(
     }
     MUJIN_LOG_DEBUG("detector initialization took: " + boost::lexical_cast<std::string>((GetMilliTime() - starttime)/1000.0f) + " secs");
     MUJIN_LOG_DEBUG("Initialize() took: " + boost::lexical_cast<std::string>((GetMilliTime() - time0)/1000.0f) + " secs");
-    MUJIN_LOG_DEBUG(" ------------------------");
 
     _SetStatus(TT_Command, MS_Succeeded);
 }

@@ -669,7 +669,6 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     double pointsize; ///< pointcloud pointsize in millimeter
 
     Transform baselinkcenter_T_region; ///< transform of the container link's coordinate system with respect to the inner region's center top face (baselinkcenter_T_region)
-
     std::string GetJsonString()
     {
         std::stringstream ss;

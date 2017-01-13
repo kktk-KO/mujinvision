@@ -124,6 +124,7 @@ public:
         \param bindetection whether to detect bin
         \param request whether to request new images instead of getting them off the buffer
         \param useold whether to use previously captured images
+        \param cycleindex cycle index
      */
     virtual void DetectObjects(const std::string& regionname,
                                const std::vector<std::string>& cameranames,
@@ -138,7 +139,8 @@ public:
                                const bool fastdetection=false,
                                const bool bindetection=false,
                                const bool request=false,
-                               const bool useold=false);
+                               const bool useold=false,
+                               const std::string& cycleindex="0");
 
     /** \brief starts detection thread to continuously detect objects and sends detection results to mujin controller
         \param detectionstarttimestamp timestamp in ms indicating the start of the detection, if not specified, used the current time when detection thread is started. only images taken after detectionstarttime will be used for detection
@@ -146,6 +148,7 @@ public:
         \param worldresultoffsettransform in millimeter
         \param voxelsize in millimeter
         \param targetupdatename name of the detected objects, if not specified, uses the name from the Initialize
+        \param cycleindex cycle index
      */
     virtual void StartDetectionLoop(const std::string& regionname,
                                     const std::vector<std::string>& cameranames,
@@ -163,7 +166,8 @@ public:
                                     const bool sendVerificationPointCloud=true,
                                     const bool stopOnLeftInOrder=false,
                                     const std::string& targetupdatename="",
-                                    const unsigned int numthreads=0);
+                                    const unsigned int numthreads=0,
+                                    const std::string& cycleindex="0");
 
 
     virtual void StopDetectionLoop();
@@ -333,6 +337,7 @@ private:
         unsigned int maxnumfastdetection;
         unsigned int maxnumdetection;
         unsigned int numthreads;
+        std::string cycleindex;
     };
 
     struct UpdateEnvironmentThreadParams {
@@ -451,12 +456,13 @@ private:
                        const bool bindetection=false,
                        const bool request=false,
                        const bool useold=false,
-                       const bool checkcontaineremptyonly=false);
+                       const bool checkcontaineremptyonly=false,
+                       const std::string& cycleindex="0");
 
     /** \brief runs detection in a loop
      */
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int fetchimagetimeout, const unsigned long long detectionstarttimestamp, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder, const std::string& targetupdatename="", const unsigned int numthreads=0);
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int fetchimagetimeout, const unsigned long long detectionstarttimestamp, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder, const std::string& targetupdatename="", const unsigned int numthreads=0, const std::string& cycleindex="0");
     void _StopDetectionThread();
 
     void _VisualizePointCloudThread(VisualizePointcloudThreadParams params);

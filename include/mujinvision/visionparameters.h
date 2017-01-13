@@ -46,7 +46,6 @@ using geometry::MathTransformMatrix;
 typedef MathTransformMatrix<double> TransformMatrix;
 using geometry::MathVector;
 typedef MathVector<double> Vector;
-using boost::property_tree::ptree;
 
 /// \brief base class of parameters
 

@@ -119,7 +119,7 @@ public:
         \param newerthantimestamp if non 0, requries the starttimestamp of the image used for detection to be newer than the specified timestamp in milliseconds
         \param fetchimagetimeout max time in ms to wait for getting images for detection
         \param fastdetection whether to prioritize speed
-        \param bindetectionmode
+        \param bindetection
         \param request whether to request new images instead of getting them off the buffer
         \param useold whether to use previously captured images
         \param cycleindex cycle index
@@ -135,7 +135,7 @@ public:
                                const unsigned long long newerthantimestamp=0,
                                const unsigned int fetchimagetimeout=0,
                                const bool fastdetection=false,
-                               const std::string& bindetectionmode="never",
+                               const bool bindetectionmode=false,
                                const bool request=false,
                                const bool useold=false,
                                const std::string& cycleindex="0");
@@ -451,7 +451,7 @@ private:
                        const unsigned long long newerthantimestamp=0,
                        const unsigned int fetchimagetimeout=0,
                        const bool fastdetection=false,
-                       const std::string& bindetectionmode="never",
+                       const bool bindetection=false,
                        const bool request=false,
                        const bool useold=false,
                        const bool checkcontaineremptyonly=false,

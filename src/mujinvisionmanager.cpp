@@ -805,9 +805,7 @@ void MujinVisionManager::_ExecuteUserCommand(const rapidjson::Document& commandj
             bool returnpoints = GetJsonValueByKey<bool>(commandjson, "returnpoints", false);
             unsigned long long imageStartTimestamp, imageEndTimestamp;
             GetLatestDetectedObjects(detectedobjectsworld, resultstate, points, imageStartTimestamp, imageEndTimestamp, returnpoints);
-            std::cout << detectedobjectsworld.size() << std::endl;
             SetJsonValueByKey(resultjson, "detectedobjects", detectedobjectsworld);
-            std::cout << detectedobjectsworld.size() << std::endl;
             if( resultstate.size() > 0 ) {
                 rapidjson::Document resultstatejson;
                 resultstatejson.Parse(resultstate.c_str());

@@ -103,7 +103,8 @@ inline void LoadJsonValue(const rapidjson::Value& v, double& t) {
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, bool& t) {
-    t = v.GetBool();
+    if (v.IsInt()) t = v.GetInt();
+    else t = v.GetBool();
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, ParametersBase& t) {
@@ -496,7 +497,9 @@ struct MUJINVISION_API DetectedObject: public ParametersBase
         for (size_t i = 0; i < 4; ++i) quat.push_back(transform.rot[i]);
         SetJsonValueByKey(d, "translation_", trans);
         SetJsonValueByKey(d, "quat_", quat);
-        SetJsonValueByKey(d, "confidence", boost::lexical_cast<double>(confidence));
+        rapidjson::Document confidencejson;
+        confidencejson.Parse(confidence.c_str());
+        SetJsonValueByKey(d, "confidence", confidencejson);
         SetJsonValueByKey(d, "timestamp", timestamp);
         rapidjson::Document extrajson;
         extrajson.Parse(extra.c_str());
@@ -540,8 +543,8 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         LoadJsonValueByKey(value, "locationIOName", locationIOName);
         LoadJsonValueByKey(value, "cameranames", cameranames);
         LoadJsonValueByKey(value, "type", type);
-        BOOST_ASSERT(value.HasMember("cropContainerEmptyMarginsXYZXYZ") && value["cropContainerEmptyMarginXYZXYZ"].GetArray().Size() == 6);
-        LoadJsonValueByKey(value, "cropContainerMarginsXYZXYZ", cropContainerEmptyMarginsXYZXYZ);
+        BOOST_ASSERT(value.HasMember("cropContainerMarginsXYZXYZ") && value["cropContainerMarginsXYZXYZ"].GetArray().Size() == 6);
+        LoadJsonValueByKey(value, "cropContainerMarginsXYZXYZ", cropContainerMarginsXYZXYZ);
         BOOST_ASSERT(value.HasMember("containerRoiMarginsXYZXYZ") && value["containerRoiMarginsXYZXYZ"].GetArray().Size() == 6);
         LoadJsonValueByKey(value, "containerRoiMarginsXYZXYZ", containerRoiMarginsXYZXYZ);
         BOOST_ASSERT(value.HasMember("cropContainerEmptyMarginsXYZXYZ") && value["cropContainerEmptyMarginsXYZXYZ"].GetArray().Size() == 6);
@@ -580,9 +583,9 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         SetJsonValueByKey(d, "instobjectname", instobjectname);
         SetJsonValueByKey(d, "cameranames", cameranames);
         SetJsonValueByKey(d, "type", type);
-        SetJsonValueByKey(d, "cropContainerMarginsXYZXYZ", cropContainerMarginsXYZXYZ);
-        SetJsonValueByKey(d, "cropContainerEmptyMarginsXYZXYZ", cropContainerEmptyMarginsXYZXYZ);
-        SetJsonValueByKey(d, "containerRoiMarginsXYZXYZ", containerRoiMarginsXYZXYZ);
+        SetJsonValueByKey(d, "cropContainerMarginsXYZXYZ", std::vector<double>(cropContainerMarginsXYZXYZ, cropContainerMarginsXYZXYZ + 6));
+        SetJsonValueByKey(d, "cropContainerEmptyMarginsXYZXYZ", std::vector<double>(cropContainerEmptyMarginsXYZXYZ, cropContainerEmptyMarginsXYZXYZ + 6));
+        SetJsonValueByKey(d, "containerRoiMarginsXYZXYZ", std::vector<double>(containerRoiMarginsXYZXYZ, containerRoiMarginsXYZXYZ + 6));
         SetJsonValueByKey(d, "containerEmptyDivisor", containerEmptyDivisor);
         SetJsonValueByKey(d, "visualizationuri", visualizationuri);
         SetJsonValueByKey(d, "pointsize", pointsize);

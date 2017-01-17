@@ -3385,8 +3385,34 @@ void MujinVisionManager::Initialize(
         MUJIN_LOG_WARN(str(boost::format("bindetectionMode=\"%s\" is not supported, use default value \"never\"") % bindetectionMode));
         _bindetectionMode = "never";
     }
-    std::string detectormodulename = _visionserverpt.get<std::string>("modulename", "");
-    std::string detectorclassname = _visionserverpt.get<std::string>("classname", "");
+    std::string detectorconfig;
+    if (detectorconfigfilename.size() == 0) {
+        detectorconfigfilename = _GetConfigFileName("detector", detectorconfigname);
+        MUJIN_LOG_INFO("using default detector conf at " << detectorconfigfilename);
+    }
+    _LoadConfig(detectorconfigfilename, detectorconfig);
+
+    // append additional params to detectorconf string
+    bool debug = _visionserverpt.get<bool>("debug", false);
+    size_t index = detectorconfig.find_last_of("}");
+    if (index == std::string::npos) {
+        throw MujinVisionException("invalid detectorconfig: " + detectorconfig, MVE_InvalidArgument);
+    }
+    _detectorconfig = detectorconfig.substr(0, index) + ", " + ParametersBase::GetJsonString("debug", debug) + ", ";
+    if (_visionserverpt.count("cleanParameters") > 0) {
+        std::stringstream cleanss;
+        write_json(cleanss, _visionserverpt.get_child("cleanParameters"));
+        _detectorconfig = _detectorconfig + "\"cleanParameters\": " + cleanss.str() + ", ";
+        _detectorconfig = _detectorconfig + "\"visionManagerConfiguration\": " + visionmanagerconfigss.str() + ", ";
+    }
+    _detectorconfig = _detectorconfig + ParametersBase::GetJsonString("modelFilename", modelfilename) + "}";
+    ParametersBase::ValidateJsonString(_detectorconfig);
+    std::stringstream detectorconfigss;
+    ptree detectorconfigpt;
+    detectorconfigss << detectorconfig;
+    read_json(detectorconfigss, detectorconfigpt);
+    std::string detectormodulename = detectorconfigpt.get("modulename", _visionserverpt.get<std::string>("modulename", ""));
+    std::string detectorclassname = detectorconfigpt.get("classname", _visionserverpt.get<std::string>("classname", ""));
     if (detectormodulename.size() > 0 && detectorclassname.size() > 0) {
         _mDetectorExtraInitializationOptions["modulename"] = detectormodulename;
         _mDetectorExtraInitializationOptions["classname"] = detectorclassname;
@@ -3580,28 +3606,6 @@ void MujinVisionManager::Initialize(
     // set up detectors
     starttime = GetMilliTime();
     _SetStatusMessage(TT_Command, "Setting up detector.");
-    std::string detectorconfig;
-    if (detectorconfigfilename.size() == 0) {
-        detectorconfigfilename = _GetConfigFileName("detector", detectorconfigname);
-        MUJIN_LOG_INFO("using default detector conf at " << detectorconfigfilename);
-    }
-    _LoadConfig(detectorconfigfilename, detectorconfig);
-
-    // append additional params to detectorconf string
-    bool debug = _visionserverpt.get<bool>("debug", false);
-    size_t index = detectorconfig.find_last_of("}");
-    if (index == std::string::npos) {
-        throw MujinVisionException("invalid detectorconfig: " + detectorconfig, MVE_InvalidArgument);
-    }
-    _detectorconfig = detectorconfig.substr(0, index) + ", " + ParametersBase::GetJsonString("debug", debug) + ", ";
-    if (_visionserverpt.count("cleanParameters") > 0) {
-        std::stringstream cleanss;
-        write_json(cleanss, _visionserverpt.get_child("cleanParameters"));
-        _detectorconfig = _detectorconfig + "\"cleanParameters\": " + cleanss.str() + ", ";
-        _detectorconfig = _detectorconfig + "\"visionManagerConfiguration\": " + visionmanagerconfigss.str() + ", ";
-    }
-    _detectorconfig = _detectorconfig + ParametersBase::GetJsonString("modelFilename", modelfilename) + "}";
-    ParametersBase::ValidateJsonString(_detectorconfig);
     _targetname = targetname;
     _targeturi = targeturi;
     _targetupdatename = targetupdatename;

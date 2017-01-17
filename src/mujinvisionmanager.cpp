@@ -2400,7 +2400,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                     try {
                         MUJIN_LOG_DEBUG(str(boost::format("detectedobjects.size()=%d, _targetupdatename=%s")%detectedobjects.size()%_targetupdatename));
                         starttime = GetMilliTime();
-                        pBinpickingTask->UpdateEnvironmentState(_targetupdatename, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "mm", 10, locationIOName);
+                        pBinpickingTask->UpdateEnvironmentState(_targetupdatename, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "mm", 10, regionname, locationIOName);
                         std::stringstream ss;
                         ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                         _SetStatusMessage(TT_UpdateEnvironment, ss.str());
@@ -2958,7 +2958,19 @@ bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
 
         // get images from subscriber
         if (usecache) {
-            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp);
+            std::map<std::string, std::string> mCameraIdRegionName;
+            {
+                boost::mutex::scoped_lock lock(_mutexRegion);
+                FOREACH(v, _mCameraNameHardwareId) {
+                    std::map<std::string, std::string>::const_iterator cit = _mCameranameActiveRegionname.find(v->first);
+                    if (cit != _mCameranameActiveRegionname.end()) {
+                        mCameraIdRegionName[v->second] = cit->second;
+                    } else {
+                        MUJIN_LOG_VERBOSE("failed to find regionname for camera " << v->first);
+                    }
+                }
+            }
+            _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp, mCameraIdRegionName);
         } else {
             BOOST_ASSERT(colorcameranames.size() == 1); // TODO supports only one color camera
             BOOST_ASSERT(depthcameranames.size() == 1); // TODO supports only one depth camera

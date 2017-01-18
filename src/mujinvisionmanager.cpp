@@ -172,7 +172,7 @@ enum CommandThreadIndex
     CDI_Configure=1,
 };
 
-std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const rapidjson::Document& visionserverconfig, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname, const std::string& subscriberid, const bool ignoreocclusion=false, const int bindetection=0)
+std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const rapidjson::Document& visionserverconfig, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname, const std::string& subscriberid, const bool ignoreocclusion=false, const std::string& bindetectionMode="never")
 {
     std::string controllerclientconnectionstring = str(boost::format("tcp://%s:%d") % controllerip % binpickingTaskZmqPort);
     std::string occlusioncheckcommandtemplate = GetJsonValueByKey<std::string>(visionserverconfig, "occlusioncheckcommandtemplate");
@@ -205,8 +205,8 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
     SetJsonValueByKey(extraoptionsjson, "cameraidregionnamemap", cameraidregionnamejson);
     SetJsonValueByKey(extraoptionsjson, "cameraidcheckocclusionmap", cameraidcheckocclusionjson);
     SetJsonValueByKey(extraoptionsjson, "subscriberid", subscriberid);
-    SetJsonValueByKey(extraoptionsjson, "ignoreocclusion", ignoreocclusion);
-    SetJsonValueByKey(extraoptionsjson, "bindetection", bindetection);
+    SetJsonValueByKey(extraoptionsjson, "ignoreocclusion", (int)ignoreocclusion);
+    SetJsonValueByKey(extraoptionsjson, "bindetectionmode", bindetectionMode);
     if (customparameters.size() > 0) {
         SetJsonValueByKey(extraoptionsjson, "customparameters", customparameters);
     }
@@ -399,7 +399,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bForceRequestDetectionResults = false;
     _bIsGrabbingTarget = false;
     _bIsGrabbingLastTarget = false;
-    _bindetectionMode = 0;
+    _bindetectionMode = "never";
     _numPickAttempt = 0;
     _binpickingstateTimestamp = 0;
     _lastGrabbedTargetTimestamp = 0;
@@ -950,7 +950,11 @@ void MujinVisionManager::_ExecuteUserCommand(const rapidjson::Document& commandj
             unsigned long long newerthantimestamp = GetJsonValueByKey<unsigned long long>(commandjson, "newerthantimestamp", 0);
             unsigned int fetchimagetimeout = GetJsonValueByKey<unsigned int>(commandjson, "fetchimagetimeout", 0);
             bool fastdetection = GetJsonValueByKey<bool>(commandjson, "fastdetection", false);
-            int bindetection = GetJsonValueByKey<int>(commandjson, "bindetection", 0);
+            std::string bindetectionMode = GetJsonValueByKey<int>(commandjson, "bindetectionmode", "never");
+            bool bindetection = false;
+            if (bindetectionMode == "always" || bindetectionMode == "once") {
+                bindetection = true;
+            }
             std::vector<DetectedObjectPtr> detectedobjects;
             std::string resultstate;
             unsigned long long imageStartTimestamp=0, imageEndTimestamp=0;
@@ -1644,7 +1648,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     MUJIN_LOG_DEBUG("pBinpickingTask->Initialize() took " << (GetMilliTime()-time0)/1000.0f << " secs");
     int numfastdetection = maxnumfastdetection; // max num of times to run fast detection
     bool bindetectiononly = false;
-    if (numfastdetection == 0 && _bindetectionMode > 0) {
+    if (numfastdetection == 0 && (_bindetectionMode == "once" || _bindetectionMode == "always")) {
         MUJIN_LOG_INFO("maxnumfastdetection is set to 0, need to do bin detection for at least once");
         bindetectiononly = true;
     }
@@ -1817,7 +1821,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             if (detectcontaineronly) {
                 MUJIN_LOG_DEBUG("detect to check if container is empty");
                 bool fastdetection=false;
-                bool bindetection=false;
+                bool bindetection = false;
                 bool request=false;
                 bool useold=false;
                 bool checkcontaineremptyonly=true;
@@ -1825,7 +1829,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 if (lastGrabbedTargetTimestamp == 0) {
                     MUJIN_LOG_ERROR("lastGrabbedTargetTimestamp should not be 0!");
                 }
-                numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, std::max(newerthantimestamp, lastGrabbedTargetTimestamp), fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly, cycleindex);
+            numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, std::max(newerthantimestamp, lastGrabbedTargetTimestamp), fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly, cycleindex);
                 if (numresults == -1) {
                     if( lastCaptureResetTimestamp == 0 || GetMilliTime() - lastCaptureResetTimestamp > lastCaptureResetTimeout ) {
                         lastCaptureResetTimestamp = GetMilliTime();
@@ -1849,7 +1853,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 bool bFailedBecauseOfNoImage = false;
                 while (!_bStopDetectionThread && numresults == 0 && (numfastdetection > 0 || bindetectiononly)) {
                     bool fastdetection=true;
-                    bool bindetection=_bindetectionMode > 0;
+                    bool bindetection = false;
+                    if (_bindetectionMode == "once" || _bindetectionMode == "always") {
+                        bindetection = true;
+                    }
                     bool request=false;
                     bool useold=false;
                     bool checkcontaineremptyonly=false;
@@ -1860,9 +1867,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     } else {
                         MUJIN_LOG_DEBUG("DetectObjects() in fast mode");
                     }
-                    if (_bindetectionMode > 0) {
-                        MUJIN_LOG_DEBUG("call DetectObjects() with bindetection=true");
-                    }
+                    MUJIN_LOG_DEBUG(str(boost::format("call DetectObjects() with bindetection=%d _bindetectionMode=%s") % bindetection % _bindetectionMode));
                     bFailedBecauseOfNoImage = false;
                     numresults = _DetectObjects(TT_Detector, pBinpickingTask, regionname, cameranames, detectedobjects, resultstate, imageStartTimestamp, imageEndTimestamp, isContainerPresent, ignoreocclusion, newerthantimestamp, fetchimagetimeout, fastdetection, bindetection, request, useold, checkcontaineremptyonly, cycleindex);
                     if (numresults == -1) {
@@ -1917,7 +1922,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                 if (!_bStopDetectionThread && numresults == 0 && numfastdetection == 0 ) {
                     MUJIN_LOG_DEBUG("DetectObjects() in fast mode found no object, detect in normal mode");
                     bool fastdetection=false;
-                    bool bindetection = (bDetectorHasRunAtLeastOnce && _bindetectionMode == 2) || (!bDetectorHasRunAtLeastOnce && _bindetectionMode > 0);
+                    bool bindetection = false;
+                    if ((bDetectorHasRunAtLeastOnce && _bindetectionMode == "always") || (!bDetectorHasRunAtLeastOnce && (_bindetectionMode == "once" || _bindetectionMode == "always"))) {
+                        bindetection = true;
+                    }
                     bool request=false;
                     bool useold=!bFailedBecauseOfNoImage;//true;
                     bool checkcontaineremptyonly=false;
@@ -1945,7 +1953,10 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
             } else {
                 MUJIN_LOG_DEBUG("detect normally");
                 bool fastdetection=false;
-                bool bindetection= (bDetectorHasRunAtLeastOnce && _bindetectionMode == 2) || (!bDetectorHasRunAtLeastOnce && _bindetectionMode > 0);
+                bool bindetection = false;
+                if ((bDetectorHasRunAtLeastOnce && _bindetectionMode == "always") || (!bDetectorHasRunAtLeastOnce && (_bindetectionMode == "once" || _bindetectionMode == "always"))) {
+                    bindetection = true;
+                }
                 bool request=false;
                 bool useold=false;
                 bool checkcontaineremptyonly=false;
@@ -2257,7 +2268,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                     try {
                         MUJIN_LOG_DEBUG(str(boost::format("detectedobjects.size()=%d, _targetupdatename=%s")%detectedobjects.size()%_targetupdatename));
                         starttime = GetMilliTime();
-                        pBinpickingTask->UpdateEnvironmentState(_targetupdatename, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "mm", 10, locationIOName);
+                        pBinpickingTask->UpdateEnvironmentState(_targetupdatename, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "mm", 10, regionname, locationIOName);
                         std::stringstream ss;
                         ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                         _SetStatusMessage(TT_UpdateEnvironment, ss.str());
@@ -2721,7 +2732,7 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
     }
 }
 
-bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& resultcolorimages, std::vector<ImagePtr>& resultdepthimages, std::vector<ImagePtr>& resultresultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval, const bool bindetection)
+bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& resultcolorimages, std::vector<ImagePtr>& resultdepthimages, std::vector<ImagePtr>& resultresultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval)
 {
     if (useold && _lastcolorimages.size() == colorcameranames.size() && _lastdepthimages.size() == depthcameranames.size()) {
         // check if all old images are newer than newerthantimestamp
@@ -3214,24 +3225,54 @@ void MujinVisionManager::Initialize(
         _filteringvoxelsize = _filteringvoxelsize * 1000;
     }
     _filteringnumnn = GetJsonValueByKey<int>(_visionserverconfig, "filteringnumnn", 80);
+    std::string bindetectionMode = "never";
     if (_visionserverconfig.HasMember("bindetectionMode")) {
-        std::string bindetectionMode = GetJsonValueByKey<std::string>(_visionserverconfig, "bindetectionMode", "once");
-        if (bindetectionMode == "once" || bindetectionMode == "1") {
-            _bindetectionMode = 1;
-        } else if (bindetectionMode == "always" || bindetectionMode == "2") {
-            _bindetectionMode = 2;
-        } else if (bindetectionMode == "never" || bindetectionMode == "0") {
-            _bindetectionMode = 0;
-        } else {
-            MUJIN_LOG_WARN(str(boost::format("bindetectionMode=\"%s\" is not support, use default value \"never\"") % bindetectionMode));
-            _bindetectionMode = 0;
-        }
+        bindetectionMode = GetJsonValueByKey<std::string>(_visionserverconfig, "bindetectionMode", "once");
     } else if (_visionserverconfig.HasMember("bindetection")) {
         MUJIN_LOG_WARN("bindetection is deprecated, please use bindetectionMode instead");
-        _bindetectionMode = GetJsonValueByKey<int>(_visionserverconfig, "bindetection", 1);
+        bindetectionMode = GetJsonValueByKey<std::string>(_visionserverconfig, "bindetection", "once");
     }
-    std::string detectormodulename = GetJsonValueByKey<std::string>(_visionserverconfig, "modulename", "");
-    std::string detectorclassname = GetJsonValueByKey<std::string>(_visionserverconfig, "classname", "");
+    if (bindetectionMode == "once" || bindetectionMode == "1") {
+        _bindetectionMode = "once";
+    } else if (bindetectionMode == "always" || bindetectionMode == "2") {
+        _bindetectionMode = "always";
+    } else if (bindetectionMode == "never" || bindetectionMode == "0") {
+        _bindetectionMode = "never";
+    } else {
+        MUJIN_LOG_WARN(str(boost::format("bindetectionMode=\"%s\" is not support, use default value \"never\"") % bindetectionMode));
+        _bindetectionMode = "never";
+    }
+
+    std::string detectorconfigstr;
+    if (detectorconfigfilename.size() == 0) {
+        detectorconfigfilename = _GetConfigFileName("detector", detectorconfigname);
+        MUJIN_LOG_INFO("using default detector conf at " << detectorconfigfilename);
+    }
+    _LoadConfig(detectorconfigfilename, detectorconfigstr);
+
+    // append additional params to detectorconf string
+    bool debug = GetJsonValueByKey<bool>(_visionserverconfig, "debug", false);
+    rapidjson::Document detectorconfigjson;
+    if (detectorconfigjson.Parse(detectorconfigstr.c_str()).HasParseError()) {
+        throw MujinVisionException("invalid detectorconfig: " + detectorconfigstr, MVE_InvalidArgument);
+    }
+    SetJsonValueByKey(detectorconfigjson, "degbug", debug);
+    if (_visionserverconfig.HasMember("cleanParameters")) {
+        SetJsonValueByKey(detectorconfigjson, "cleanParameters", _visionserverconfig["cleanParameters"]);
+        SetJsonValueByKey(detectorconfigjson, "visionManagerConfiguration", _visionserverconfig);
+    }
+    SetJsonValueByKey(detectorconfigjson, "modelFilename", modelfilename);
+    _detectorconfig = DumpJson(detectorconfigjson);
+    
+
+    std::string detectormodulename = GetJsonValueByKey<std::string>(detectorconfigjson, "modulename", "");
+    std::string detectorclassname = GetJsonValueByKey<std::string>(detectorconfigjson, "classname", "");
+    if (detectormodulename.size() == 0) {
+        detectormodulename = GetJsonValueByKey<std::string>(_visionserverconfig, "modulename", "");
+    }
+    if (detectorclassname.size() == 0) {
+        detectorclassname = GetJsonValueByKey<std::string>(_visionserverconfig, "classname", "");
+    }
     if (detectormodulename.size() > 0 && detectorclassname.size() > 0) {
         _mDetectorExtraInitializationOptions["modulename"] = detectormodulename;
         _mDetectorExtraInitializationOptions["classname"] = detectorclassname;
@@ -3418,27 +3459,6 @@ void MujinVisionManager::Initialize(
     // set up detectors
     starttime = GetMilliTime();
     _SetStatusMessage(TT_Command, "Setting up detector.");
-    std::string detectorconfigstr;
-    if (detectorconfigfilename.size() == 0) {
-        detectorconfigfilename = _GetConfigFileName("detector", detectorconfigname);
-        MUJIN_LOG_INFO("using default detector conf at " << detectorconfigfilename);
-    }
-    _LoadConfig(detectorconfigfilename, detectorconfigstr);
-
-    // append additional params to detectorconf string
-    bool debug = GetJsonValueByKey<bool>(_visionserverconfig, "debug", false);
-    rapidjson::Document detectorconfigjson;
-    if (detectorconfigjson.Parse(detectorconfigstr.c_str()).HasParseError()) {
-        throw MujinVisionException("invalid detectorconfig: " + detectorconfigstr, MVE_InvalidArgument);
-    }
-    SetJsonValueByKey(detectorconfigjson, "degbug", debug);
-    if (_visionserverconfig.HasMember("cleanParameters")) {
-        SetJsonValueByKey(detectorconfigjson, "cleanParameters", _visionserverconfig["cleanParameters"]);
-        SetJsonValueByKey(detectorconfigjson, "visionManagerConfiguration", _visionserverconfig);
-    }
-    SetJsonValueByKey(detectorconfigjson, "modelFilename", modelfilename);
-    _detectorconfig = DumpJson(detectorconfigjson);
-
     _targetname = targetname;
     _targeturi = targeturi;
     _targetupdatename = targetupdatename;
@@ -3498,7 +3518,7 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
     // set up images
     std::vector<ImagePtr> colorimages, depthimages, resultimages;
     unsigned int waitinterval = 50;
-    bool bGotAllImages = _GetImages(tt, pBinpickingTask, regionname, colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, useold, waitinterval, bindetection);
+    bool bGotAllImages = _GetImages(tt, pBinpickingTask, regionname, colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, useold, waitinterval);
 
     MUJIN_LOG_INFO("Getting images took " << ((GetMilliTime() - starttime) / 1000.0f) << " for " << __GetString(colorcameranames) << " " << __GetString(depthcameranames) << " newerthantimestamp=" << newerthantimestamp);
     starttime = GetMilliTime();

@@ -121,7 +121,7 @@ public:
         \param newerthantimestamp if non 0, requries the starttimestamp of the image used for detection to be newer than the specified timestamp in milliseconds
         \param fetchimagetimeout max time in ms to wait for getting images for detection
         \param fastdetection whether to prioritize speed
-        \param bindetection whether to detect bin
+        \param bindetection
         \param request whether to request new images instead of getting them off the buffer
         \param useold whether to use previously captured images
         \param cycleindex cycle index
@@ -137,7 +137,7 @@ public:
                                const unsigned long long newerthantimestamp=0,
                                const unsigned int fetchimagetimeout=0,
                                const bool fastdetection=false,
-                               const bool bindetection=false,
+                               const bool bindetectionmode=false,
                                const bool request=false,
                                const bool useold=false,
                                const std::string& cycleindex="0");
@@ -522,10 +522,9 @@ private:
         \param output imageStartTimestamp for all captured images, the starttime in ms of the image captured
         \param output imageEndTimestamp for all captured images, the endtime in ms of the image captured
         \param newerthantimestamp images must be newer than the specified timestamp, the call blocks until all images satisfy requirements or passed fetchimagetimeout
-        \param bindetection whether to detect container when getting detection result, container's info is stored in result image's metadata field
         \return true if all the requested images are retrieved and imageStartTimestamp and imageEndTimestamp and resultimages are updated. Otherwise false
      */
-    bool _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/, const bool bindetection=false);
+    bool _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -687,7 +686,7 @@ private:
     int _numLeftInOrder; ///< num of order to go
     int _numLeftInSupply; ///< num of items left in supply
     int _placedInDest; ///< num placed in destination
-    int _bindetectionMode; ///< 0: do not detect; 1: detect once; 2: always detect
+    std::string _bindetectionMode; ///< "never", "once", "always"
     bool _bIsControllerPickPlaceRunning; ///< whether pick and place thread is running on the controller
     bool _bIsRobotOccludingSourceContainer; ///< whether robot is occluding the source container
     bool _bForceRequestDetectionResults; ///< whether to run detection ignoring _numPickAttempt

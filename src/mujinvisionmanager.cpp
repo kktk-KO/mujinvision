@@ -934,7 +934,7 @@ void MujinVisionManager::_ExecuteUserCommand(const ptree& command_pt, std::strin
             unsigned long long newerthantimestamp = command_pt.get<unsigned long long>("newerthantimestamp", 0);
             unsigned int fetchimagetimeout = command_pt.get<unsigned int>("fetchimagetimeout", 0);
             double voxelsize = command_pt.get<double>("voxelsize", 0.01 * 1000);
-            double pointsize = command_pt.get<double>("pointsize", 0 * 1000);
+            double pointsize = command_pt.get<double>("pointsize", 0 * 1000); // is this really needed anymore since region has point size?
             std::string obstaclename = command_pt.get<std::string>("obstaclename", "__dynamicobstacle__");
             bool fast = command_pt.get<bool>("fast", false);
             bool request = command_pt.get<bool>("request", true);
@@ -2525,6 +2525,10 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(evcamnames) << " and filteringvoxelsize=" << _filteringvoxelsize << ", and _filteringstddev=" << _filteringstddev << ", and filteringnumnn=" << _filteringnumnn);
                 _StartAndGetCaptureHandle(evcamnames, evcamnames, capturehandles, false, ignoreocclusion);
                 double newpointsize = 0;
+                size_t filteringsubsample = 0;
+                double filteringstddev = 0;
+                int filteringnumnn = 0;
+                
                 {
                     boost::mutex::scoped_lock lock(_mutexRegion);
                     if (_mCameranameActiveRegionname.find(cameraname) == _mCameranameActiveRegionname.end()) {
@@ -2534,16 +2538,31 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                         regionname = _mCameranameActiveRegionname[cameraname];
                     }
                     if (regionname.size() > 0 && _mNameRegion.find(regionname) != _mNameRegion.end()) {
-                        newpointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
-                        MUJIN_LOG_INFO("pointsize=0, using pointsize= " << newpointsize << " in regionparam for camera " << cameraname  << " (" << _GetHardwareId(cameraname) << ") of region " << regionname);
+                        RegionParametersPtr pregion = _mNameRegion[regionname]->pRegionParameters;
+                        filteringsubsample = pregion->filteringsubsample;
+                        filteringstddev = pregion->filteringstddev;
+                        filteringnumnn = pregion->filteringnumnn;
+                        newpointsize = pregion->pointsize;
+                        MUJIN_LOG_INFO("using pointsize= " << newpointsize << " in regionparam for camera " << cameraname  << " (" << _GetHardwareId(cameraname) << ") of region " << regionname);
                     } else {
                         newpointsize = 10;
                         MUJIN_LOG_INFO("pointsize=0 but no active region is found for this camera " << cameraname << " (" << _GetHardwareId(cameraname) << "), use default value=" << newpointsize);
                     }
                 }
+                
+                if( filteringnumnn == 0 ) {
+                    filteringnumnn = _filteringnumnn;
+                }
+                if( filteringsubsample == 0 ) {
+                    filteringsubsample = _filteringsubsample;
+                }
+                if( filteringstddev == 0 ) {
+                    filteringstddev = _filteringstddev;
+                }
+                
                 double timeout = 3.0; // secs
                 int isoccluded = -1;
-                isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout, 0, _filteringsubsample);
+                isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, newpointsize, filteringstddev, filteringnumnn, regionname, timeout, 0, filteringsubsample);
                 if (isoccluded == -2 ) {
                     MUJIN_LOG_DEBUG("did not get depth from " << cameraname << " (" << _GetHardwareId(cameraname) << "), so do not send to controller");
                     if( lastCaptureResetTimestamp == 0 || GetMilliTime() - lastCaptureResetTimestamp > lastCaptureResetTimeout ) {
@@ -3783,11 +3802,35 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
         _CheckAndUpdateRegionCameraMapping(regionname, cameranames);
         uint64_t starttime = GetMilliTime();
         double pointsize = ptsize;
-        if (pointsize == 0) {
+        size_t filteringsubsample = 0;
+        double filteringstddev = 0;
+        int filteringnumnn = 0;
+
+        {
             boost::mutex::scoped_lock lock(_mutexRegion);
-            pointsize = _mNameRegion[regionname]->pRegionParameters->pointsize;
-            MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
+
+            RegionParametersPtr pregion = _mNameRegion[regionname]->pRegionParameters;
+            if( !!pregion ) {
+                if (pointsize == 0) {
+                    MUJIN_LOG_INFO("pointsize=0, using pointsize= " << pointsize << " in regionparam");
+                    pointsize = pregion->pointsize;
+                }
+                
+                filteringsubsample = pregion->filteringsubsample;
+                filteringstddev = pregion->filteringstddev;
+                filteringnumnn = pregion->filteringnumnn;
+            }
         }
+        if( filteringnumnn == 0 ) {
+            filteringnumnn = _filteringnumnn;
+        }
+        if( filteringsubsample == 0 ) {
+            filteringsubsample = _filteringsubsample;
+        }
+        if( filteringstddev == 0 ) {
+            filteringstddev = _filteringstddev;
+        }
+        
         std::vector<ImagePtr> dummyimages;
         std::vector<std::string> dummycameranames;
         if (!async) {
@@ -3816,9 +3859,9 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                     // {
                     //     boost::mutex::scoped_lock lock(_mutexDetector);
                     //     _pDetector->SetDepthImage(depthimages.at(i));
-                    //     _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, _filteringstddev, _filteringnumnn, 2);
+                    //     _pDetector->GetPointCloudObstacle(regionname, cameraname, detectedobjectsworld, points, voxelsize, fast, true, filteringstddev, filteringnumnn, 2);
                     // }
-                    isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout, newerthantimestamp, _filteringsubsample);
+                    isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, pointsize, filteringstddev, filteringnumnn, regionname, timeout, newerthantimestamp, filteringsubsample);
                     if (points.size() / 3 == 0) {
                         _SetStatusMessage(TT_Command, "got 0 point from GetPointCloudObstacle()");
                         int numretries = 3;
@@ -3830,7 +3873,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                             _SetStatusMessage(TT_Command, "re-try getting depthimage and pointcloudobstacle");
                             bool bGotAllImages2 = _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames1, dummyimages, depthimages1, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, false);
                             if( bGotAllImages2 ) {
-                                isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, _filteringvoxelsize, _filteringstddev, _filteringnumnn, regionname, timeout, newerthantimestamp, _filteringsubsample);
+                                isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, pointsize, filteringstddev, filteringnumnn, regionname, timeout, newerthantimestamp, filteringsubsample);
                             }
                             numretries--;
                         }
@@ -3967,7 +4010,6 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
 //                    }
 
                     unsigned long long cloudstarttime, cloudendtime;
-                    double newpointsize = 0;
                     double timeout = 3.0; // secs
 
                     points.resize(0);

@@ -152,8 +152,8 @@ public:
                                     const std::vector<std::string>& cameranames,
                                     const std::vector<std::string>& executionverificationcameranames,
                                     const Transform& worldresultoffsettransform,
-                                    const double voxelsize=0.01 * 1000,
-                                    const double pointsize=5 * 1000,
+                                    const double voxelsize=10,
+                                    const double pointsize=5,
                                     const bool ignoreocclusion=false,
                                     const unsigned int fetchimagetimeout=0,
                                     const std::string& obstaclename="__dynamicobstacle__",
@@ -187,8 +187,8 @@ public:
                                                     const std::vector<DetectedObjectPtr>& detectedobjectsworld,
                                                     const unsigned long long newerthantimestamp=0,
                                                     const unsigned int fetchimagetimeout=0,
-                                                    const double voxelsize=0.01 * 1000,
-                                                    const double pointsize=5 * 1000,
+                                                    const double voxelsize=10,
+                                                    const double pointsize=5,
                                                     const std::string& obstaclename="__dynamicobstacle__",
                                                     const bool fast=false,
                                                     const bool request=true,
@@ -202,7 +202,7 @@ public:
      */
     virtual void VisualizePointCloudOnController(const std::string& regionname,
                                                  const std::vector<std::string>& cameranames,
-                                                 const double pointsize=5 * 1000,
+                                                 const double pointsize=5,
                                                  const bool ignoreocclusion=false,
                                                  const unsigned long long newerthantimestamp=0,
                                                  const unsigned int fetchimagetimeout=0,
@@ -220,7 +220,7 @@ public:
      */
     virtual void StartVisualizePointCloudThread(const std::string& regionname,
                                                 const std::vector<std::string>& cameranames,
-                                                const double pointsize=5 * 1000,
+                                                const double pointsize=5,
                                                 const bool ignoreocclusion=false,
                                                 const unsigned long long newerthantimestamp=0,
                                                 const unsigned int fetchimagetimeout=0,
@@ -464,7 +464,7 @@ private:
     void _StopDetectionThread();
 
     void _VisualizePointCloudThread(VisualizePointcloudThreadParams params);
-    void _StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005 * 1000, const bool ignoreocclusion=false, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005 * 1000);
+    void _StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=5, const bool ignoreocclusion=false, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005 * 1000);
     void _StopVisualizePointCloudThread();
 
     /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
@@ -488,11 +488,11 @@ private:
     void _StartControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StopControllerMonitorThread();
 
-    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01 * 1000, const double pointsize=0.005 * 1000, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
+    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01 * 1000, const double pointsize=5, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
     void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params);
     void _StopSendPointCloudObstacleToControllerThread();
 
-    void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005 * 1000, const bool ignoreocclusion=false, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005 * 1000);
+    void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=5, const bool ignoreocclusion=false, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005 * 1000);
 
     /** \brief Gets transform of the instobject in meters.
      */

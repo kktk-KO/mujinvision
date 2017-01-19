@@ -3494,7 +3494,6 @@ void MujinVisionManager::Initialize(
             if( find((*itregion)->cameranames.begin(), (*itregion)->cameranames.end(), it->first) != (*itregion)->cameranames.end() ) {
                 MUJIN_LOG_DEBUG(str(boost::format("adding camera %s since matching to region %s")%it->first%(*itregion)->instobjectname));
                 bInRegion = true;
-                _mCameranameActiveRegionname[it->first] = (*itregion)->instobjectname;
                 break;
             }
         }
@@ -3615,6 +3614,7 @@ void MujinVisionManager::Initialize(
                 }
                 MUJIN_LOG_DEBUG("adding camera " << cameraname  << " (" << _GetHardwareId(cameraname) << ") to region " << regionname);
                 mCameranameCamera[cameraname] = _mNameCamera[cameraname];
+                _mCameranameActiveRegionname[cameraname] = regionname;
             }
             mRegionnameCameramap[regionname] = mCameranameCamera;
         }

@@ -2389,7 +2389,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                     try {
                         MUJIN_LOG_DEBUG(str(boost::format("detectedobjects.size()=%d, _targetupdatename=%s")%detectedobjects.size()%_targetupdatename));
                         starttime = GetMilliTime();
-                        pBinpickingTask->UpdateEnvironmentState(_targetupdatename, detectedobjects, totalpoints, resultstate, obstaclename, "mm", 10, regionname, locationIOName);
+                        pBinpickingTask->UpdateEnvironmentState(_targetupdatename, detectedobjects, totalpoints, resultstate, pointsize, obstaclename, "mm", 10, regionname, locationIOName);
                         std::stringstream ss;
                         ss << "UpdateEnvironmentState with " << detectedobjects.size() << " objects " << (totalpoints.size()/3.) << " points, took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                         _SetStatusMessage(TT_UpdateEnvironment, ss.str());

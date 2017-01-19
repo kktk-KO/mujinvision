@@ -455,20 +455,20 @@ private:
         \param pointsize size of the point in millimeters to be sent to the mujin controller
      */
     void _UpdateEnvironmentThread(UpdateEnvironmentThreadParams params);
-    void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopUpdateEnvironmentThread();
 
     /** \brief thread that sends the execution verification point cloud
      */
     void _SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params);
-    void _StartExecutionVerificationPointCloudThread(const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double pointsize, const bool ignoreocclusion, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _StartExecutionVerificationPointCloudThread(const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const bool ignoreocclusion, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopExecutionVerificationPointCloudThread();
 
     void _ControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StartControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StopControllerMonitorThread();
 
-    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const double pointsize=5, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
+    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
     void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params);
     void _StopSendPointCloudObstacleToControllerThread();
 

@@ -3410,8 +3410,8 @@ void MujinVisionManager::Initialize(
     ptree detectorconfigpt;
     detectorconfigss << detectorconfig;
     read_json(detectorconfigss, detectorconfigpt);
-    std::string detectormodulename = detectorconfigpt.get("detector.modulename", "");
-    std::string detectorclassname = detectorconfigpt.get("detector.classname", "");
+    std::string detectormodulename = detectorconfigpt.get("detection.modulename", "");
+    std::string detectorclassname = detectorconfigpt.get("detection.classname", "");
     if (detectormodulename.size() == 0) {
         detectormodulename = _visionserverpt.get<std::string>("modulename", "");
     }

@@ -950,7 +950,7 @@ void MujinVisionManager::_ExecuteUserCommand(const rapidjson::Document& commandj
             unsigned long long newerthantimestamp = GetJsonValueByKey<unsigned long long>(commandjson, "newerthantimestamp", 0);
             unsigned int fetchimagetimeout = GetJsonValueByKey<unsigned int>(commandjson, "fetchimagetimeout", 0);
             bool fastdetection = GetJsonValueByKey<bool>(commandjson, "fastdetection", false);
-            std::string bindetectionMode = GetJsonValueByKey<int>(commandjson, "bindetectionmode", "never");
+            std::string bindetectionMode = GetJsonValueByKey<std::string>(commandjson, "bindetectionmode", "never");
             bool bindetection = false;
             if (bindetectionMode == "always" || bindetectionMode == "once") {
                 bindetection = true;
@@ -3256,7 +3256,7 @@ void MujinVisionManager::Initialize(
     if (detectorconfigjson.Parse(detectorconfigstr.c_str()).HasParseError()) {
         throw MujinVisionException("invalid detectorconfig: " + detectorconfigstr, MVE_InvalidArgument);
     }
-    SetJsonValueByKey(detectorconfigjson, "degbug", debug);
+    SetJsonValueByKey(detectorconfigjson, "debug", debug);
     if (_visionserverconfig.HasMember("cleanParameters")) {
         SetJsonValueByKey(detectorconfigjson, "cleanParameters", _visionserverconfig["cleanParameters"]);
         SetJsonValueByKey(detectorconfigjson, "visionManagerConfiguration", _visionserverconfig);

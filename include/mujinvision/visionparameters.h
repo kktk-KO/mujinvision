@@ -286,10 +286,18 @@ template<class T> inline void SaveJsonValue(rapidjson::Value& v, const boost::sh
 
 template<class T> inline void SaveJsonValue(rapidjson::Value& v, const std::vector<T>& t, rapidjson::Document::AllocatorType& alloc) {
     v.SetArray();
+    v.Reserve(t.size(), alloc);
     for (size_t i = 0; i < t.size(); ++i) {
         rapidjson::Value tmpv;
         SaveJsonValue(tmpv, t[i], alloc);
         v.PushBack(tmpv, alloc);
+    }
+}
+template<> inline void SaveJsonValue(rapidjson::Value& v, const std::vector<double>& t, rapidjson::Document::AllocatorType& alloc) {
+    v.SetArray();
+    v.Reserve(t.size(), alloc);
+    for (size_t i = 0; i < t.size(); ++i) {
+        v.PushBack(t[i], alloc);
     }
 }
 

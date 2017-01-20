@@ -2439,7 +2439,6 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
                         starttime = GetMilliTime();
                         pBinpickingTask->UpdateObjects("", std::vector<mujinclient::Transform>(), std::vector<std::string>(), resultstate, "mm", 10.0);
                     }
-
                     catch(const std::exception& ex) {
                         if (GetMilliTime() - lastwarnedtimestamp1 > 1000.0) {
                             lastwarnedtimestamp1 = GetMilliTime();

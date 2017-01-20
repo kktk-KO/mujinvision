@@ -81,6 +81,19 @@ inline std::string DumpJson(const rapidjson::Value& value) {
     return std::string(stringbuffer.GetString(), stringbuffer.GetSize());
 }
 
+inline void ParseJson(rapidjson::Document&d, const std::string& str) {
+    d.Parse(str.c_str());
+    if (d.HasParseError()) {
+        std::string substr;
+        if (str.length()> 200) {
+            substr = str.substr(0, 200);
+        } else {
+            substr = str;
+        }
+        throw std::invalid_argument("Json string is invalid: " + substr);
+    }
+}
+
 /// \brief base class of parameters
 struct MUJINVISION_API ParametersBase
 {

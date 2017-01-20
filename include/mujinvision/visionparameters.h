@@ -587,13 +587,13 @@ typedef boost::weak_ptr<DetectedObject> DetectedObjectWeakPtr;
 /// \brief Specifies region where vision system performs detection with a set of cameras
 struct MUJINVISION_API RegionParameters : public ParametersBase
 {
-    RegionParameters(): containerEmptyDivisor(150), pointsize(3) {
+    RegionParameters(): containerEmptyDivisor(150), pointsize(3), filteringstddev(0), filteringnumnn(0), filteringsubsample(0) {
         memset(cropContainerMarginsXYZXYZ, 0, sizeof(cropContainerMarginsXYZXYZ));
         memset(cropContainerEmptyMarginsXYZXYZ, 0, sizeof(cropContainerEmptyMarginsXYZXYZ));
         memset(containerRoiMarginsXYZXYZ, 0, sizeof(containerRoiMarginsXYZXYZ));
     }
 
-    RegionParameters(const rapidjson::Value& value): containerEmptyDivisor(150), pointsize(3){
+    RegionParameters(const rapidjson::Value& value): containerEmptyDivisor(150), pointsize(3), filteringstddev(0), filteringnumnn(0), filteringsubsample(0) {
         memset(cropContainerMarginsXYZXYZ, 0, sizeof(cropContainerMarginsXYZXYZ));
         memset(cropContainerEmptyMarginsXYZXYZ, 0, sizeof(cropContainerEmptyMarginsXYZXYZ));
         memset(containerRoiMarginsXYZXYZ, 0, sizeof(containerRoiMarginsXYZXYZ));
@@ -611,8 +611,11 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         LoadJsonValueByKey(value, "containerRoiMarginsXYZXYZ", containerRoiMarginsXYZXYZ);
         BOOST_ASSERT(value.HasMember("cropContainerEmptyMarginsXYZXYZ") && value["cropContainerEmptyMarginsXYZXYZ"].GetArray().Size() == 6);
         LoadJsonValueByKey(value, "cropContainerEmptyMarginsXYZXYZ", cropContainerEmptyMarginsXYZXYZ);
-        LoadJsonValueByKey(value, "containerEmptyDivisor", containerEmptyDivisor);
-        LoadJsonValueByKey(value, "pointsize", pointsize, 3);
+        LoadJsonValueByKey(value, "containerEmptyDivisor", containerEmptyDivisor, 150);
+        LoadJsonValueByKey(value, "pointsize", pointsize);
+        LoadJsonValueByKey(value, "filteringsubsample", filteringsubsample);
+        LoadJsonValueByKey(value, "filteringstddev", filteringstddev);
+        LoadJsonValueByKey(value, "filteringnumnn", filteringnumnn);
     }
 
     virtual ~RegionParameters() {
@@ -637,6 +640,9 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     std::vector<double> outerExtents; ///< the outer extents of the region defining the outer walls of container (physical).
     std::vector<double> outerRotationmat; ///< defining rotation of outer box (physical) in the world frame, 3x3 row major
     double pointsize; ///< pointcloud pointsize in millimeter
+    double filteringstddev;  ///< if not 0, the point cloud filting param for exec verification. invalid if 0.
+    int filteringnumnn;  ///< if not 0, point cloud filting param for exec verification. invalid if 0.
+    int filteringsubsample;  ///< if not 0, point cloud filting param for exec verification. invalid if 0.
 
     Transform baselinkcenter_T_region; ///< transform of the container link's coordinate system with respect to the inner region's center top face (baselinkcenter_T_region)
 
@@ -651,6 +657,9 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
         SetJsonValueByKey(d, "containerEmptyDivisor", containerEmptyDivisor);
         SetJsonValueByKey(d, "visualizationuri", visualizationuri);
         SetJsonValueByKey(d, "pointsize", pointsize);
+        SetJsonValueByKey(d, "filteringstddev", filteringstddev);
+        SetJsonValueByKey(d, "filteringnumnn", filteringnumnn);
+        SetJsonValueByKey(d, "filteringsubsample", filteringsubsample);
         if (!innerTranslation.empty()) {
             SetJsonValueByKey(d, "innerTranslation", innerTranslation);
         }

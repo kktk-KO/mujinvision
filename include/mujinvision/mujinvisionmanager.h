@@ -146,7 +146,6 @@ public:
         \param detectionstarttimestamp timestamp in ms indicating the start of the detection, if not specified, used the current time when detection thread is started. only images taken after detectionstarttime will be used for detection
         \param sendVerificationPointCloud whether send verification point cloud or not from current detection loop
         \param worldresultoffsettransform in millimeter
-        \param voxelsize in millimeter
         \param targetupdatename name of the detected objects, if not specified, uses the name from the Initialize
         \param cycleindex cycle index
      */
@@ -154,8 +153,6 @@ public:
                                     const std::vector<std::string>& cameranames,
                                     const std::vector<std::string>& executionverificationcameranames,
                                     const Transform& worldresultoffsettransform,
-                                    const double voxelsize=0.01 * 1000,
-                                    const double pointsize=5 * 1000,
                                     const bool ignoreocclusion=false,
                                     const unsigned int fetchimagetimeout=0,
                                     const std::string& obstaclename="__dynamicobstacle__",
@@ -178,8 +175,6 @@ public:
         \param detectedobjects detection result in millimeters in  world frame
         \param newerthantimestamp if non 0, requries the starttimestamp of the image used for getting pointcloud obstacle to be newer than the specified timestamp in milliseconds
         \param fetchimagetimeout max time in ms to wait for getting images for detection
-        \param voxelsize size of the voxel grid in millimeters used for simplifying the cloud
-        \param pointsize size of the point in millimeters to be sent to the mujin controller
         \param fast whether to prioritize speed
         \param request whether to request new images instead of getting them off the buffer
         \param async whether to return immediately
@@ -189,8 +184,6 @@ public:
                                                     const std::vector<DetectedObjectPtr>& detectedobjectsworld,
                                                     const unsigned long long newerthantimestamp=0,
                                                     const unsigned int fetchimagetimeout=0,
-                                                    const double voxelsize=0.01 * 1000,
-                                                    const double pointsize=5 * 1000,
                                                     const std::string& obstaclename="__dynamicobstacle__",
                                                     const bool fast=false,
                                                     const bool request=true,
@@ -199,17 +192,15 @@ public:
 
     /** \brief Visualizes the raw camera point clouds on mujin controller
         \param newerthantimestamp if non 0, requries the starttimestamp of the image used for visualization to be newer than the specified timestamp in milliseconds
-        \param voxelsize in millimeters
         \param pointsize in millimeters
      */
     virtual void VisualizePointCloudOnController(const std::string& regionname,
                                                  const std::vector<std::string>& cameranames,
-                                                 const double pointsize=5 * 1000,
+                                                 const double pointsize=5,
                                                  const bool ignoreocclusion=false,
                                                  const unsigned long long newerthantimestamp=0,
                                                  const unsigned int fetchimagetimeout=0,
-                                                 const bool request=true,
-                                                 const double voxelsize=0.005 * 1000);
+                                                 const bool request=true);
 
     /** \brief Clears visualization made by VisualizePointCloudOnController on mujin controller.
      */
@@ -217,17 +208,15 @@ public:
 
     /** \brief Continuously synchronizing cameras and visualizing point clouds on mujin controller
         \param newerthantimestamp if non 0, requries the starttimestamp of the image used for visualization to be newer than the specified timestamp in milliseconds
-        \param voxelsize in millimeters
         \param pointsize in millimeters
      */
     virtual void StartVisualizePointCloudThread(const std::string& regionname,
                                                 const std::vector<std::string>& cameranames,
-                                                const double pointsize=5 * 1000,
+                                                const double pointsize=5,
                                                 const bool ignoreocclusion=false,
                                                 const unsigned long long newerthantimestamp=0,
                                                 const unsigned int fetchimagetimeout=0,
-                                                const bool request=true,
-                                                const double voxelsize=0.005 * 1000);
+                                                const bool request=true);
 
     virtual void StopVisualizePointCloudThread();
 
@@ -328,8 +317,6 @@ private:
     };
 
     struct DetectionThreadParams {
-        double voxelsize;
-        double pointsize;
         bool ignoreocclusion;
         bool stoponleftinorder;
         unsigned long long newerthantimestamp;
@@ -343,8 +330,6 @@ private:
     struct UpdateEnvironmentThreadParams {
         std::string regionname;
         std::vector<std::string> cameranames;
-        double voxelsize;
-        double pointsize;
         std::string obstaclename;
         unsigned int waitinterval;
         std::string locale;
@@ -353,8 +338,6 @@ private:
     struct SendExecutionVerificationPointCloudParams {
         std::vector<std::string> cameranames;
         std::vector<std::string> executionverificationcameranames;
-        double voxelsize;
-        double pointsize;
         bool ignoreocclusion;
         std::string obstaclename;
         unsigned int waitinterval;
@@ -367,7 +350,6 @@ private:
         std::vector<DetectedObjectPtr> detectedobjectsworld;
         unsigned long long newerthantimestamp;
         unsigned int fetchimagetimeout;
-        double voxelsize;
         double pointsize;
         std::string obstaclename;
     };
@@ -380,7 +362,6 @@ private:
         unsigned long long newerthantimestamp;
         unsigned int fetchimagetimeout;
         bool request;
-        double voxelsize;
     };
 
     // for managing camera capturing life cycle
@@ -462,39 +443,38 @@ private:
     /** \brief runs detection in a loop
      */
     void _DetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, DetectionThreadParams params);
-    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const unsigned int fetchimagetimeout, const unsigned long long detectionstarttimestamp, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder, const std::string& targetupdatename="", const unsigned int numthreads=0, const std::string& cycleindex="0");
+    void _StartDetectionThread(const std::string& regionname, const std::vector<std::string>& cameranames, const bool ignoreocclusion, const unsigned int fetchimagetimeout, const unsigned long long detectionstarttimestamp, const unsigned int maxnumfastdetection, const unsigned int maxnumdetection, const bool stoponleftinorder, const std::string& targetupdatename="", const unsigned int numthreads=0, const std::string& cycleindex="0");
     void _StopDetectionThread();
 
     void _VisualizePointCloudThread(VisualizePointcloudThreadParams params);
-    void _StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005 * 1000, const bool ignoreocclusion=false, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005 * 1000);
+    void _StartVisualizePointCloudThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=5, const bool ignoreocclusion=false, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const bool request=true);
     void _StopVisualizePointCloudThread();
 
     /** \brief Updates the environment state on mujin controller with the pointcloud obstacle and detected objects.
         \param regionname name of the region of which the pointcloud obstacle represents
         \param cameranames names of the cameras to be used to capture the pointcloud obstacle
         \param detectobjectsworld detected objects in world frame
-        \param voxelsize size of the voxel grid in millimeters used for simplifying the cloud
         \param pointsize size of the point in millimeters to be sent to the mujin controller
      */
     void _UpdateEnvironmentThread(UpdateEnvironmentThreadParams params);
-    void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const double voxelsize, const double pointsize, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _StartUpdateEnvironmentThread(const std::string& regionname, const std::vector<std::string>& cameranames, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopUpdateEnvironmentThread();
 
     /** \brief thread that sends the execution verification point cloud
      */
     void _SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params);
-    void _StartExecutionVerificationPointCloudThread(const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const double voxelsize, const double pointsize, const bool ignoreocclusion, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
+    void _StartExecutionVerificationPointCloudThread(const std::vector<std::string>& cameranames, const std::vector<std::string>& evcamnames, const bool ignoreocclusion, const std::string& obstaclename, const unsigned int waitinterval=50, const std::string& locale="en_US");
     void _StopExecutionVerificationPointCloudThread();
 
     void _ControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StartControllerMonitorThread(const unsigned int waitinterval=100, const std::string& locale="en_US");
     void _StopControllerMonitorThread();
 
-    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const double voxelsize=0.01 * 1000, const double pointsize=0.005 * 1000, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
+    void _SendPointCloudObstacleToController(const std::string& regionname, const std::vector<std::string>& cameranames, const std::vector<DetectedObjectPtr>& detectedobjectsworld, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const std::string& obstaclename="__dynamicobstacle__", const bool fast=false, const bool request=true, const bool async=false, const std::string& locale="en_US");
     void _SendPointCloudObstacleToControllerThread(SendPointCloudObstacleToControllerThreadParams params);
     void _StopSendPointCloudObstacleToControllerThread();
 
-    void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=0.005 * 1000, const bool ignoreocclusion=false, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const bool request=true, const double voxelsize=0.005 * 1000);
+    void _VisualizePointCloudOnController(const std::string& regionname, const std::vector<std::string>& cameranames, const double pointsize=5, const bool ignoreocclusion=false, const unsigned long long newerthantimestamp=0, const unsigned int fetchimagetimeout=0, const bool request=true);
 
     /** \brief Gets transform of the instobject in meters.
      */

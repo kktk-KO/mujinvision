@@ -172,32 +172,50 @@ inline void LoadJsonValue(const rapidjson::Value& v, bool& t) {
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, ParametersBase& t) {
-    t.LoadFromJson(v);
+    if (v.IsObject()) {
+        t.LoadFromJson(v);
+    } else {
+        throw std::invalid_argument("Cannot convert json type " + _getJsonTypeName(v) + " to Object");
+    }
 }
 
 template<class T> inline void LoadJsonValue(const rapidjson::Value& v, boost::shared_ptr<T>& ptr) {
-    T t;
-    LoadJsonValue(v, t);
-    ptr = boost::shared_ptr<T>(new T(t));
+    if (v.IsObject()) {
+        T t;
+        LoadJsonValue(v, t);
+        ptr = boost::shared_ptr<T>(new T(t));
+    } else {
+        throw std::invalid_argument("Cannot convert json type " + _getJsonTypeName(v) + " to Object");
+    }
+
 }
 
-template<class T> inline void LoadJsonValue(const rapidjson::Value& v, T* p) {
-    size_t i = 0;
-    for (rapidjson::Value::ConstValueIterator it = v.Begin();
-            it != v.End(); ++it) {
-        LoadJsonValue(*it, p[i]);
-        i++;
+template<class T, size_t N> inline void LoadJsonValue(const rapidjson::Value& v, T (&p)[N]) {
+    if (v.IsArray()) {
+        if (v.GetArray().Size() != N) {
+            throw std::invalid_argument("Json array size doesn't match");
+        }
+        size_t i = 0;
+        for (rapidjson::Value::ConstValueIterator it = v.Begin(); it != v.End(); ++it) {
+            LoadJsonValue(*it, p[i]);
+            i++;
+        }
+    } else {
+        throw std::invalid_argument("Cannot convert json type " + _getJsonTypeName(v) + " to Array");
     }
 }
 
 template<class T> inline void LoadJsonValue(const rapidjson::Value& v, std::vector<T>& t) {
-    t.clear();
-    t.resize(v.GetArray().Size());
-    size_t i =0;
-    for (rapidjson::Value::ConstValueIterator it = v.Begin();
-        it != v.End(); ++it) {
-        LoadJsonValue(*it, t[i]);
-        i++;
+    if (v.IsArray()) {
+        t.clear();
+        t.resize(v.GetArray().Size());
+        size_t i = 0;
+        for (rapidjson::Value::ConstValueIterator it = v.Begin(); it != v.End(); ++it) {
+            LoadJsonValue(*it, t[i]);
+            i++;
+        }
+    } else {
+        throw std::invalid_argument("Cannot convert json type " + _getJsonTypeName(v) + " to Array");
     }
 }
 

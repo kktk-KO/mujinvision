@@ -26,6 +26,7 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <stdint.h>
+#include <stdexcept>
 #include <rapidjson/pointer.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -50,8 +51,28 @@ using geometry::MathVector;
 typedef MathVector<double> Vector;
 using boost::property_tree::ptree;
 
-/// \brief base class of parameters
 
+inline std::string _getJsonTypeName(const rapidjson::Value& v) {
+    int type = v.GetType();
+    switch (type) {
+        case 0:
+            return "Null";
+        case 1:
+            return "False";
+        case 2:
+            return "True";
+        case 3:
+            return "Object";
+        case 4:
+            return "Array";
+        case 5:
+            return "String";
+        case 6:
+            return "Number";
+        default:
+            return "Unknown";
+    }
+}
 
 inline std::string DumpJson(const rapidjson::Value& value) {
     rapidjson::StringBuffer stringbuffer;
@@ -60,6 +81,7 @@ inline std::string DumpJson(const rapidjson::Value& value) {
     return std::string(stringbuffer.GetString(), stringbuffer.GetSize());
 }
 
+/// \brief base class of parameters
 struct MUJINVISION_API ParametersBase
 {
     virtual ~ParametersBase() {
@@ -77,34 +99,76 @@ struct MUJINVISION_API ParametersBase
 };
 
 //store a json value to local data structures
-
+//for compatibility with ptree, type conversion is made. will remove them in the future
 inline void LoadJsonValue(const rapidjson::Value& v, std::string& t) {
-    t = v.GetString();
+    if (v.IsString()) {
+        t = v.GetString();
+    } else if (v.IsInt64()) {
+        t = boost::lexical_cast<std::string>(v.GetInt64());
+    } else {
+        throw std::invalid_argument("Cannot convert json type " + _getJsonTypeName(v) + " to String");
+    }
+
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, int& t) {
-    t = v.GetInt();
+    if (v.IsInt()) {
+        t = v.GetInt();
+    } else if (v.IsString()) {
+        t = boost::lexical_cast<int>(v.GetString());
+    } else {
+        throw std::invalid_argument("Cannot convert json type " + _getJsonTypeName(v) + " to Int");
+    }
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, unsigned int& t) {
-    t = v.GetInt();
+    if (v.IsInt()) {
+        t = v.GetInt();
+    } else if (v.IsString()) {
+        t = boost::lexical_cast<unsigned int>(v.GetString());
+    } else {
+        throw std::invalid_argument("Cannot convert json type " + _getJsonTypeName(v) + " to Int");
+    }
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, unsigned long long& t) {
-    t = v.GetInt64();
+    if (v.IsInt64()) {
+        t = v.GetInt64();
+    } else if (v.IsString()) {
+        t = boost::lexical_cast<unsigned long long>(v.GetString());
+    } else {
+        throw std::invalid_argument("Cannot convert json type " + _getJsonTypeName(v) + " to Int64");
+    }
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, uint64_t& t) {
-    t = v.GetInt64();
+    if (v.IsInt64()) {
+        t = v.GetInt64();
+    } else if (v.IsString()) {
+        t = boost::lexical_cast<uint64_t>(v.GetString());
+    } else {
+        throw std::invalid_argument("Cannot convert json type " + _getJsonTypeName(v) + " to Int64");
+    }
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, double& t) {
-    t = v.GetDouble();
+    if (v.IsDouble()) {
+        t = v.GetDouble();
+    } else if (v.IsString()) {
+        t = boost::lexical_cast<double>(v.GetString());
+    } else {
+        throw std::invalid_argument("Cannot convert json type " + _getJsonTypeName(v) + " to Double");
+    }
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, bool& t) {
     if (v.IsInt()) t = v.GetInt();
-    else t = v.GetBool();
+    else if (v.IsBool()) t = v.GetBool();
+    else if (v.IsString())  {
+        t = boost::lexical_cast<bool>(v.GetString());
+    } else {
+        throw std::invalid_argument("Cannot convert json type " + _getJsonTypeName(v) + " to Bool");
+    }
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, ParametersBase& t) {

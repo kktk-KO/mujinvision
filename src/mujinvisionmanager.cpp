@@ -1764,7 +1764,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
     ParametersBase::ValidateJsonString(userinfo_json);
     MUJIN_LOG_DEBUG("ValidateJsonString took " << (GetMilliTime()-time0)/1000.0f << " secs");
     time0 = GetMilliTime();
-    pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+    pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, 0, _controllerCommandTimeout, userinfo_json, _slaverequestid);
     MUJIN_LOG_DEBUG("pBinpickingTask->Initialize() took " << (GetMilliTime()-time0)/1000.0f << " secs");
     int numfastdetection = maxnumfastdetection; // max num of times to run fast detection
     bool bindetectiononly = false;
@@ -2304,7 +2304,7 @@ void MujinVisionManager::_UpdateEnvironmentThread(UpdateEnvironmentThreadParams 
 
         ParametersBase::ValidateJsonString(userinfo_json);
 
-        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, 0, _controllerCommandTimeout, userinfo_json, _slaverequestid);
         uint64_t starttime;
         uint64_t lastwarnedtimestamp1 = 0;
 
@@ -2512,7 +2512,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
 
         ParametersBase::ValidateJsonString(userinfo_json);
 
-        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, 0, _controllerCommandTimeout, userinfo_json, _slaverequestid);
         //uint64_t starttime;
         uint64_t lastwarnedtimestamp0 = 0;
         uint64_t lastwarnedtimestamp1 = 0;
@@ -3526,7 +3526,7 @@ void MujinVisionManager::Initialize(
 
     ParametersBase::ValidateJsonString(_userinfo_json);
 
-    _pBinpickingTask->Initialize(defaultTaskParameters, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, _userinfo_json, slaverequestid);
+    _pBinpickingTask->Initialize(defaultTaskParameters, binpickingTaskZmqPort, binpickingTaskHeartbeatPort, _zmqcontext, false, 0, _controllerCommandTimeout, _userinfo_json, slaverequestid);
 
     _SetStatusMessage(TT_Command, "Syncing regions");
     BinPickingTaskResource::ResultGetInstObjectAndSensorInfo resultgetinstobjectandsensorinfo;
@@ -3980,7 +3980,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
 
         ParametersBase::ValidateJsonString(userinfo_json);
 
-        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, _binpickingTaskHeartbeatTimeout, _controllerCommandTimeout, userinfo_json, _slaverequestid);
+        pBinpickingTask->Initialize(_defaultTaskParameters, _binpickingTaskZmqPort, _binpickingTaskHeartbeatPort, _zmqcontext, false, 0, _controllerCommandTimeout, userinfo_json, _slaverequestid);
 
         std::vector<std::string> depthcameranames = _GetDepthCameraNames(regionname, cameranames);
         // set up images

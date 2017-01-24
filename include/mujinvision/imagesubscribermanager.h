@@ -86,8 +86,9 @@ public:
         \param imagepacktimestamp timestamp of the image pack
         \param checkpreemptbits specifying which bit to check for preempting
         \param newerthan imagepack must be taken later than this timestamp
+        \param mCameraIdRegionName camera id regionname mapping
      */
-    virtual void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout=10.0, const unsigned long long newerthan=0, const unsigned int checkpreemptbits=0) = 0;
+    virtual void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout=10.0, const unsigned long long newerthan=0, const std::map<std::string, std::string>& mCameraIdRegionName=std::map<std::string, std::string>(), const unsigned int checkpreemptbits=0) = 0;
 
     /** \brief Gets a point cloud from the camera name and prunes and subsamples it.
         \param regionnameforocclusionchecking regionname for occlusion checking, if not specified, do not check for occlusion

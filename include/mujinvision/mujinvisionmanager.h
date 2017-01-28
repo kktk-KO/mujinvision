@@ -500,7 +500,7 @@ private:
         \param output imageStartTimestamp for all captured images, the starttime in ms of the image captured
         \param output imageEndTimestamp for all captured images, the endtime in ms of the image captured
         \param newerthantimestamp images must be newer than the specified timestamp, the call blocks until all images satisfy requirements or passed fetchimagetimeout
-        \param checkpreemptbits specifying which bits to check for preempting
+        \param checkpreemptbits specifying which bits to check for preempting. \see PreemptComponent
         \return true if all the requested images are retrieved and imageStartTimestamp and imageEndTimestamp and resultimages are updated. Otherwise false
         \return true if all the requested images are retrieved and imageStartTimestamp and imageEndTimestamp and resultimages are updated. Otherwise false
      */
@@ -547,8 +547,11 @@ private:
     std::string _GetConfigFileName(const std::string& type, const std::string& configname);
     void _LoadConfig(const std::string& filename, std::string& content);
 
-    bool _CheckPreemptSubscriber(const unsigned int checkpreemptbits);
-    bool _CheckPreemptDetector(const unsigned int checkpreemptbits);
+    /// \param checkpreemptbits a combination of values from PreemptComponent
+    void _CheckPreemptSubscriber(const unsigned int checkpreemptbits);
+
+    /// \param checkpreemptbits a combination of values from PreemptComponent
+    void _CheckPreemptDetector(const unsigned int checkpreemptbits);
 
     /** \brief checks if region camera mapping has changed for specified region and cameras, if so, reset cached data, detector, and streamer accordingly
      */

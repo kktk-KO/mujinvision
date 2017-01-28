@@ -500,9 +500,11 @@ private:
         \param output imageStartTimestamp for all captured images, the starttime in ms of the image captured
         \param output imageEndTimestamp for all captured images, the endtime in ms of the image captured
         \param newerthantimestamp images must be newer than the specified timestamp, the call blocks until all images satisfy requirements or passed fetchimagetimeout
+        \param checkpreemptbits specifying which bits to check for preempting. \see PreemptComponent
+        \return true if all the requested images are retrieved and imageStartTimestamp and imageEndTimestamp and resultimages are updated. Otherwise false
         \return true if all the requested images are retrieved and imageStartTimestamp and imageEndTimestamp and resultimages are updated. Otherwise false
      */
-    bool _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
+    bool _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/, const unsigned int checkpreemptbits=0);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -545,8 +547,11 @@ private:
     std::string _GetConfigFileName(const std::string& type, const std::string& configname);
     void _LoadConfig(const std::string& filename, std::string& content);
 
-    bool _CheckPreemptSubscriber();
-    bool _CheckPreemptDetector(const unsigned int checkpreemptbits);
+    /// \param checkpreemptbits a combination of values from PreemptComponent
+    void _CheckPreemptSubscriber(const unsigned int checkpreemptbits);
+
+    /// \param checkpreemptbits a combination of values from PreemptComponent
+    void _CheckPreemptDetector(const unsigned int checkpreemptbits);
 
     /** \brief checks if region camera mapping has changed for specified region and cameras, if so, reset cached data, detector, and streamer accordingly
      */
@@ -682,6 +687,7 @@ private:
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
     bool _bIsDetectionRunning; ///< true if detection thread is running
+    bool _bIsExecutionVerificationPointCloudRunning; ///< true if execution verification thread is running
     bool _bIsVisualizePointcloudRunning; ///< whether the point cloud visualization thread is running
     bool _bIsSendPointcloudRunning; ///< whether send point cloud obstacle thread is running
     bool _bIsEnvironmentUpdateRunning; ///< whether env update thread is running

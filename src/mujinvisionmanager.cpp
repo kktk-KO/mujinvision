@@ -1984,7 +1984,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             continue;
                         } else {
                             lastPickedId = numPickAttempt;
-                            MUJIN_LOG_INFO("robot has picked");
+                            MUJIN_LOG_INFO(str(boost::format("robot has picked %d")%lastPickedId));
                             continue;
                         }
                     } else { // do not detect if binpicking status message is old (controller in bad state)
@@ -2097,7 +2097,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                         _resultTimestamp = GetMilliTime();
                         _resultImageStartTimestamp = imageStartTimestamp;
                         _resultImageEndTimestamp = imageEndTimestamp;
-                        MUJIN_LOG_INFO(str(boost::format("send %d (%d) detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u detectcontaineronly=%d")%_vDetectedObject.size()%detectedobjects.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp%detectcontaineronly));
+                        MUJIN_LOG_INFO(str(boost::format("send %d (%d) detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u detectcontaineronly=%d")%_vDetectedObject.size()%(int)_bDetectedObjectsValid%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp%detectcontaineronly));
                         numfastdetection -= 1;
                     } else {
                         numfastdetection = 0;
@@ -2647,7 +2647,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                         }
                     }
                 } else {
-                    MUJIN_LOG_WARN("got old point cloud from camera " << cameraname << " (" << _GetHardwareId(cameraname) << "), do not send to controller. cloudstarttime=" << cloudstarttime << " oldtime=" << mCameranameLastsentcloudtime[cameraname]);
+                    MUJIN_LOG_INFO("got old point cloud from camera " << cameraname << " (" << _GetHardwareId(cameraname) << "), do not send to controller. cloudstarttime=" << cloudstarttime << " oldtime=" << mCameranameLastsentcloudtime[cameraname]);
 
                     if (GetMilliTime() - mCameranameLastsentcloudtime[cameraname] > 10 * 1000.0) {
                         MUJIN_LOG_INFO("it has been " << (GetMilliTime() - mCameranameLastsentcloudtime[cameraname]) / 1000.0f << " secs since we got the last pointcloud, cameras might be stopped, try to force capturing");
@@ -3104,7 +3104,7 @@ bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBi
         if (newerthantimestamp > 0 && imageStartTimestamp <= newerthantimestamp) {
             oldimagepacktimestamp = imagepacktimestamp;
             if (GetMilliTime() - lastimagetscheckfailurets > 1000.0) {
-                MUJIN_LOG_WARN("image is older than newerthantimestamp=" << newerthantimestamp << " imageStartTimestamp=" << imageStartTimestamp);
+                MUJIN_LOG_INFO("image is older than newerthantimestamp=" << newerthantimestamp << " imageStartTimestamp=" << imageStartTimestamp);
                 lastimagetscheckfailurets = GetMilliTime();
             }
             colorimages.resize(0);

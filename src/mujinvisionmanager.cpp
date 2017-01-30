@@ -1695,7 +1695,7 @@ void MujinVisionManager::_StopSendPointCloudObstacleToControllerThread()
 void MujinVisionManager::_StopDetectionThread()
 {
     std::stringstream ss;
-    _SetStatusMessage(TT_Command, "Stopping detectoin thread.");
+    _SetStatusMessage(TT_Command, "Stopping detection thread.");
     if (!_bStopDetectionThread) {
         _bStopDetectionThread = true;
         if (!!_pDetectionThread) {
@@ -2071,10 +2071,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                         numresults = 0;
                     }
                     else if( numresults >= 0 ) {
-                        // have to update newerthantimestamp or else detector will continue processing old images
-                        if( newerthantimestamp < imageEndTimestamp ) {
-                            newerthantimestamp = imageEndTimestamp;
-                        }
+                        // do not update newerthantimestamp since might have to rerun on the same old images, which will require using the original newerthantimestamp
                         bDetectorHasRunThisCycle = bDetectorHasRunAtLeastOnce = true;
                     }
 
@@ -2100,7 +2097,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                         _resultTimestamp = GetMilliTime();
                         _resultImageStartTimestamp = imageStartTimestamp;
                         _resultImageEndTimestamp = imageEndTimestamp;
-                        MUJIN_LOG_INFO(str(boost::format("send %d detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u")%_vDetectedObject.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp));
+                        MUJIN_LOG_INFO(str(boost::format("send %d (%d) detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u detectcontaineronly=%d")%_vDetectedObject.size()%detectedobjects.size()%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp%detectcontaineronly));
                         numfastdetection -= 1;
                     } else {
                         numfastdetection = 0;
@@ -2137,6 +2134,15 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                         bDetectorHasRunThisCycle = bDetectorHasRunAtLeastOnce = true;
                     }
                 }
+                else {
+                    if( numresults >= 0 ) {
+                        // have to update newerthantimestamp or else detector will continue processing old images
+                        if( newerthantimestamp < imageEndTimestamp ) {
+                            newerthantimestamp = imageEndTimestamp;
+                        }
+                    }
+                }
+                        
             } else {
                 MUJIN_LOG_DEBUG("detect normally");
                 bool fastdetection=false;

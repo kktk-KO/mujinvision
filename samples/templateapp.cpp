@@ -23,38 +23,38 @@ public:
     void UpdateCameras(const std::map<std::string, CameraPtr >&mNameCamera) {
     }
 
-    ImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout)
+    ImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout, const unsigned int checkpreemptbits=0)
     {
         return ImagePtr();
     }
-    ImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout=1.0)
+    ImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout=1.0, const unsigned int checkpreemptbits=0)
     {
         return ImagePtr();
     }
 
-    ImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout)
+    ImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout, const unsigned int checkpreemptbits=0)
     {
         return ImagePtr();
     }
-    ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=1.0, const int numimages=-1)
+    ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=1.0, const int numimages=-1, const unsigned int checkpreemptbits=0)
     {
         return ImagePtr();
     }
-    ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/, const std::string& extraoptions="")
+    ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/, const std::string& extraoptions="", const unsigned int checkpreemptbits=0)
     {
         return ImagePtr();
     }
-    void SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const double timeout=1.0, const int numimages=-1, const std::string& extraoptions="")
+    void SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const double timeout=1.0, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0)
     {
     }
-    void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout, const unsigned long long laterthan, const std::map<std::string, std::string>& mCameraIdRegionName=std::map<std::string, std::string>())
+    void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout, const unsigned long long laterthan, const std::map<std::string, std::string>& mCameraIdRegionName=std::map<std::string, std::string>(), const unsigned int checkpreemptbits=0)
     {
     }
-    void StartCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="")
+    void StartCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0)
     {
     }
 
-    void StopCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0)
+    void StopCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0, const unsigned int checkpreemptbits=0)
     {
     }
 
@@ -63,11 +63,11 @@ public:
         return 0;
     }
 
-    int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize, const double stddev, const size_t numnn, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1) {
+    int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize, const double stddev, const size_t numnn, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1, const unsigned int checkpreemptbits=0) {
         return -2;
     }
 
-    int GetCollisionPointCloud(const std::string& cameraname, ImagePtr depthimage, std::vector<double>& points, const double voxelsize, const double stddev, const size_t numnn, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1) {
+    int GetCollisionPointCloud(const std::string& cameraname, ImagePtr depthimage, std::vector<double>& points, const double voxelsize, const double stddev, const size_t numnn, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1, const unsigned int checkpreemptbits=0) {
         return -2;
     }
 };
@@ -154,7 +154,7 @@ int main(int argc, char* argv[])
     UserDetectorManagerPtr detectormanager(new UserDetectorManager());
     MujinVisionManagerPtr visionmanager;
     visionmanager.reset(new MujinVisionManager(imagesubscribermanager, detectormanager,50001, 50002, 50003, "/tmp", "/tmp"));
-    
+
     while (!visionmanager->IsShutdown()) {
         boost::this_thread::sleep(boost::posix_time::milliseconds(1000));
     }

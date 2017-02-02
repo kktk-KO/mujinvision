@@ -172,6 +172,15 @@ enum CommandThreadIndex
     CDI_Configure=1,
 };
 
+/// \brief the components of the system used to signify which one is being preempted
+enum PreemptComponent
+{
+    PC_DetectionThread=1,
+    PC_SendPointcloudThread=2,
+    PC_ExecutionVerificationThread=4,
+    PC_VisualizePointCloudThread=8,
+};
+
 std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, const std::vector<std::string>& cameraidstocheckocclusion, const rapidjson::Document& visionserverconfig, const std::string& controllerip, int binpickingTaskZmqPort, const std::string& slaverequestid, const std::map<std::string, std::string>& mCameraNameHardwareId, const std::map<std::string, std::string>& mCameranameActiveRegionname, const std::string& subscriberid, const bool ignoreocclusion=false, const std::string& bindetectionMode="never")
 {
     std::string controllerclientconnectionstring = str(boost::format("tcp://%s:%d") % controllerip % binpickingTaskZmqPort);
@@ -216,12 +225,6 @@ std::string _GetExtraCaptureOptions(const std::vector<std::string>& cameraids, c
         MUJIN_LOG_WARN("failed to get extraoptions string. controllerclientconnectionstring=" << controllerclientconnectionstring << " occlusioncheckcommandtemplate=" << occlusioncheckcommandtemplate);
         return "";
     }
-}
-
-
-void ParametersBase::Print()
-{
-    MUJIN_LOG_INFO(GetJsonString());
 }
 
 void MujinVisionManager::_CheckPreemptSubscriber(const unsigned int checkpreemptbits)

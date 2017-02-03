@@ -165,7 +165,7 @@ inline void LoadJsonValue(const rapidjson::Value& v, uint64_t& t) {
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, double& t) {
-    if (v.IsDouble()) {
+    if (v.IsNumber()) {
         t = v.GetDouble();
     } else if (v.IsString()) {
         t = boost::lexical_cast<double>(v.GetString());

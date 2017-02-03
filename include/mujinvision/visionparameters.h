@@ -135,8 +135,8 @@ inline void LoadJsonValue(const rapidjson::Value& v, int& t) {
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, unsigned int& t) {
-    if (v.IsInt()) {
-        t = v.GetInt();
+    if (v.IsUint()) {
+        t = v.GetUint();
     } else if (v.IsString()) {
         t = boost::lexical_cast<unsigned int>(v.GetString());
     } else {
@@ -145,8 +145,8 @@ inline void LoadJsonValue(const rapidjson::Value& v, unsigned int& t) {
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, unsigned long long& t) {
-    if (v.IsInt64()) {
-        t = v.GetInt64();
+    if (v.IsUint64()) {
+        t = v.GetUint64();
     } else if (v.IsString()) {
         t = boost::lexical_cast<unsigned long long>(v.GetString());
     } else {
@@ -155,8 +155,8 @@ inline void LoadJsonValue(const rapidjson::Value& v, unsigned long long& t) {
 }
 
 inline void LoadJsonValue(const rapidjson::Value& v, uint64_t& t) {
-    if (v.IsInt64()) {
-        t = v.GetInt64();
+    if (v.IsUint64()) {
+        t = v.GetUint64();
     } else if (v.IsString()) {
         t = boost::lexical_cast<uint64_t>(v.GetString());
     } else {
@@ -247,7 +247,7 @@ inline void SaveJsonValue(rapidjson::Value& v, const int& t, rapidjson::Document
 }
 
 inline void SaveJsonValue(rapidjson::Value& v, const unsigned int& t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetInt(t);
+    v.SetUint(t);
 }
 
 inline void SaveJsonValue(rapidjson::Value& v, const long long& t, rapidjson::Document::AllocatorType& alloc) {
@@ -255,11 +255,11 @@ inline void SaveJsonValue(rapidjson::Value& v, const long long& t, rapidjson::Do
 }
 
 inline void SaveJsonValue(rapidjson::Value& v, const unsigned long long& t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetInt64(t);
+    v.SetUint64(t);
 }
 
 inline void SaveJsonValue(rapidjson::Value& v, const uint64_t& t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetInt64(t);
+    v.SetUint64(t);
 }
 
 inline void SaveJsonValue(rapidjson::Value& v, const bool& t, rapidjson::Document::AllocatorType& alloc) {

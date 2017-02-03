@@ -1954,12 +1954,14 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             else {
                                 _bDetectedObjectsValid = false;
                             }
+                        } else {
+                            resultstate = "{}";
                         }
                         _resultState = resultstate;
                         _resultTimestamp = GetMilliTime();
                         _resultImageStartTimestamp = imageStartTimestamp;
                         _resultImageEndTimestamp = imageEndTimestamp;
-                        MUJIN_LOG_INFO(str(boost::format("send %d (%d) detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u detectcontaineronly=%d")%_vDetectedObject.size()%(int)_bDetectedObjectsValid%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp%detectcontaineronly));
+                        MUJIN_LOG_INFO(str(boost::format("send %d (%d) detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u detectcontaineronly=%d resultstate=%s")%_vDetectedObject.size()%(int)_bDetectedObjectsValid%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp%detectcontaineronly%resultstate));
                         numfastdetection -= 1;
                     } else {
                         numfastdetection = 0;

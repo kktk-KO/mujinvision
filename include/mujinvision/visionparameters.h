@@ -187,11 +187,9 @@ inline void LoadJsonValue(const rapidjson::Value& v, ParametersBase& t) {
     }
 }
 
-template<class T> inline void LoadJsonValue(const rapidjson::Value& v, boost::shared_ptr<T>& ptr) {
+template<class T> inline void LoadJsonValue(const rapidjson::Value& v, T& t) {
     if (v.IsObject()) {
-        T t;
         LoadJsonValue(v, t);
-        ptr = boost::shared_ptr<T>(new T(t));
     } else {
         throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Object", MVE_InvalidArgument);
     }

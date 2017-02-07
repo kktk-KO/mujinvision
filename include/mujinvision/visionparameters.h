@@ -407,6 +407,14 @@ typedef boost::shared_ptr<ConnectionParameters> ConnectionParametersPtr;
 typedef boost::shared_ptr<ConnectionParameters const> ConnectionParametersConstPtr;
 typedef boost::weak_ptr<ConnectionParameters> ConnectionParametersWeakPtr;
 
+inline void SaveJsonValue(rapidjson::Value& v, ConnectionParametersPtr ptr, rapidjson::Document::AllocatorType& alloc) {
+    if (!!ptr) {
+        rapidjson::Document d;
+        ptr->GetJson(d);
+        v.CopyFrom(d, alloc);
+    }
+}
+
 /// \brief information about camera
 struct MUJINVISION_API CameraParameters : public ParametersBase
 {
@@ -445,6 +453,13 @@ typedef boost::shared_ptr<CameraParameters> CameraParametersPtr;
 typedef boost::shared_ptr<CameraParameters const> CameraParametersConstPtr;
 typedef boost::weak_ptr<CameraParameters> CameraParametersWeakPtr;
 
+inline void SaveJsonValue(rapidjson::Value& v, CameraParametersPtr ptr, rapidjson::Document::AllocatorType& alloc) {
+    if (!!ptr) {
+        rapidjson::Document d;
+        ptr->GetJson(d);
+        v.CopyFrom(d, alloc);
+    }
+}
 
 /// \brief sensor calibration data
 struct MUJINVISION_API CalibrationData : public ParametersBase
@@ -511,6 +526,14 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
 typedef boost::shared_ptr<CalibrationData> CalibrationDataPtr;
 typedef boost::shared_ptr<CalibrationData const> CalibrationDataConstPtr;
 typedef boost::weak_ptr<CalibrationData> CalibrationDataWeakPtr;
+
+inline void SaveJsonValue(rapidjson::Value& v, CalibrationDataPtr ptr, rapidjson::Document::AllocatorType& alloc) {
+    if (!!ptr) {
+        rapidjson::Document d;
+        ptr->GetJson(d);
+        v.CopyFrom(d, alloc);
+    }
+}
 
 /// \brief converts ptree to Transform in meters
 inline Transform GetTransform(const rapidjson::Value& config) {
@@ -621,6 +644,14 @@ typedef boost::shared_ptr<DetectedObject> DetectedObjectPtr;
 typedef boost::shared_ptr<DetectedObject const> DetectedObjectConstPtr;
 typedef boost::weak_ptr<DetectedObject> DetectedObjectWeakPtr;
 
+inline void SaveJsonValue(rapidjson::Value& v, DetectedObjectPtr ptr, rapidjson::Document::AllocatorType& alloc) {
+    if (!!ptr) {
+        rapidjson::Document d;
+        ptr->GetJson(d);
+        v.CopyFrom(d, alloc);
+    }
+}
+
 /// \brief Specifies region where vision system performs detection with a set of cameras
 struct MUJINVISION_API RegionParameters : public ParametersBase
 {
@@ -720,6 +751,14 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
 typedef boost::shared_ptr<RegionParameters> RegionParametersPtr;
 typedef boost::shared_ptr<RegionParameters const> RegionParametersConstPtr;
 typedef boost::weak_ptr<RegionParameters> RegionParametersWeakPtr;
+
+inline void SaveJsonValue(rapidjson::Value& v, RegionParametersPtr ptr, rapidjson::Document::AllocatorType& alloc) {
+    if (!!ptr) {
+        rapidjson::Document d;
+        ptr->GetJson(d);
+        v.CopyFrom(d, alloc);
+    }
+}
 
 /// \brief camera class
 class MUJINVISION_API Camera
@@ -865,6 +904,7 @@ public:
 typedef boost::shared_ptr<Image> ImagePtr;
 typedef boost::shared_ptr<Image const> ImageConstPtr;
 typedef boost::weak_ptr<Image> ImageWeakPtr;
+
 
 } // namespace mujinvision
 #endif

@@ -391,6 +391,26 @@ private:
         TT_SendExecutionVerificationPointCloud=7
     };
 
+    /**
+       bool ignoreocclusion, const unsigned long long newerthantimestamp=0 ms, const unsigned int fetchimagetimeout=0 ms, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 ms, const unsigned int checkpreemptbits=0
+        \param newerthantimestamp images must be newer than the specified timestamp, the call blocks until all images satisfy requirements or passed fetchimagetimeout
+        \param checkpreemptbits specifying which bits to check for preempting. \see PreemptComponent
+    */
+    struct GetImagesParams {
+        ThreadType threadtype;
+        BinPickingTaskResourcePtr pBinpickingTask;
+        std::string regionname;
+        std::vector<std::string> colorcameranames;
+        std::vector<std::string> depthcameranames;
+        bool ignoreocclusion;
+        unsigned long long newerthantimestamp;
+        unsigned int fetchimagetimeout;
+        bool request;
+        bool useold;
+        unsigned int waitinterval;
+        unsigned int checkpreemptbits;
+    };
+
     void _SetDetectorStatusMessage(const std::string& msg, const std::string& err="");
     void _SetStatusMessage(ThreadType tt, const std::string& msg, const std::string& err="");
     void _SetStatus(ThreadType tt, ManagerStatus status, const std::string& msg="", const std::string& err="", const bool allowInterrupt=true);
@@ -501,12 +521,9 @@ private:
     /** \brief gets images from specified cameras for specified region
         \param output imageStartTimestamp for all captured images, the starttime in ms of the image captured
         \param output imageEndTimestamp for all captured images, the endtime in ms of the image captured
-        \param newerthantimestamp images must be newer than the specified timestamp, the call blocks until all images satisfy requirements or passed fetchimagetimeout
-        \param checkpreemptbits specifying which bits to check for preempting. \see PreemptComponent
-        \return true if all the requested images are retrieved and imageStartTimestamp and imageEndTimestamp and resultimages are updated. Otherwise false
         \return true if all the requested images are retrieved and imageStartTimestamp and imageEndTimestamp and resultimages are updated. Otherwise false
      */
-    bool _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/, const unsigned int checkpreemptbits=0);
+    bool _GetImages(GetImagesParams params, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */

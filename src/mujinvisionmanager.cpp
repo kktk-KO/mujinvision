@@ -1034,11 +1034,12 @@ void MujinVisionManager::_ExecuteUserCommand(const rapidjson::Document& commandj
             }
             std::string regionname = GetJsonValueByKey<std::string>(commandjson, "regionname");
             std::vector<std::string> cameranames = GetJsonValueByKey<std::vector<std::string> >(commandjson, "cameranames");
+            double pointsize = GetJsonValueByKey<double>(commandjson, "pointsize", 5);
             bool ignoreocclusion = GetJsonValueByKey<bool>(commandjson, "ignoreocclusion", false);
             unsigned long long newerthantimestamp = GetJsonValueByKey<unsigned long long>(commandjson, "newerthantimestamp", 0);
             unsigned int fetchimagetimeout = GetJsonValueByKey<unsigned int>(commandjson, "fetchimagetimeout", 0);
             bool request = GetJsonValueByKey<bool>(commandjson, "request", true);
-            StartVisualizePointCloudThread(regionname, cameranames, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request);
+            StartVisualizePointCloudThread(regionname, cameranames, pointsize, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request);
             SetJsonValueByKey(resultjson, "computationtime", GetMilliTime() - starttime);
         } else if (command == "StopVisualizePointCloudThread") {
             // do not need controllerclient
@@ -2800,8 +2801,20 @@ void MujinVisionManager::UnregisterCommand(const std::string& cmdname)
     }
 }
 
-bool MujinVisionManager::_GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& resultcolorimages, std::vector<ImagePtr>& resultdepthimages, std::vector<ImagePtr>& resultresultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp, const unsigned int fetchimagetimeout, const bool request, const bool useold, const unsigned int waitinterval, const unsigned int checkpreemptbits)
+bool MujinVisionManager::_GetImages(GetImagesParams params, std::vector<ImagePtr>& resultcolorimages, std::vector<ImagePtr>& resultdepthimages, std::vector<ImagePtr>& resultresultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp)
 {
+    ThreadType tt = params.threadtype;
+    BinPickingTaskResourcePtr pBinpickingTask = params.pBinpickingTask;
+    const std::string& regionname = params.regionname;
+    const std::vector<std::string>& colorcameranames = params.colorcameranames;
+    const std::vector<std::string>& depthcameranames = params.depthcameranames;
+    bool ignoreocclusion = params.ignoreocclusion;
+    const unsigned long long newerthantimestamp = params.newerthantimestamp;
+    const unsigned int fetchimagetimeout = params.fetchimagetimeout;
+    const bool request = params.request;
+    const bool useold = params.useold;
+    const unsigned int waitinterval = params.waitinterval;
+    const unsigned int checkpreemptbits = params.checkpreemptbits;
     if (useold && _lastcolorimages.size() == colorcameranames.size() && _lastdepthimages.size() == depthcameranames.size()) {
         // check if all old images are newer than newerthantimestamp
         bool needToGetNewImages = false;
@@ -3587,7 +3600,20 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
     // set up images
     std::vector<ImagePtr> colorimages, depthimages, resultimages;
     unsigned int waitinterval = 50;
-    bool bGotAllImages = _GetImages(tt, pBinpickingTask, regionname, colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, useold, waitinterval, PC_DetectionThread);
+    GetImagesParams params;
+    params.threadtype = tt;
+    params.pBinpickingTask = pBinpickingTask;
+    params.regionname = regionname;
+    params.colorcameranames = colorcameranames;
+    params.depthcameranames = depthcameranames;
+    params.ignoreocclusion = ignoreocclusion;
+    params.newerthantimestamp = newerthantimestamp;
+    params.fetchimagetimeout = fetchimagetimeout;
+    params.request = request;
+    params.useold = useold;
+    params.waitinterval = waitinterval;
+    params.checkpreemptbits = PC_DetectionThread;
+    bool bGotAllImages = _GetImages(params, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp);
 
     MUJIN_LOG_INFO("Getting images took " << ((GetMilliTime() - starttime) / 1000.0f) << " for " << __GetString(colorcameranames) << " " << __GetString(depthcameranames) << " newerthantimestamp=" << newerthantimestamp);
     starttime = GetMilliTime();
@@ -3740,7 +3766,20 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
             std::vector<ImagePtr> depthimages;
             bool ignoreocclusion = true;
             unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
-            bool bGotAllImages = _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, false, 50, PC_SendPointcloudThread);
+            GetImagesParams params;
+            params.threadtype = TT_Command;
+            params.pBinpickingTask = _pBinpickingTask;
+            params.regionname = regionname;
+            params.colorcameranames = dummycameranames;
+            params.depthcameranames = depthcameranames;
+            params.ignoreocclusion = ignoreocclusion;
+            params.newerthantimestamp = newerthantimestamp;
+            params.fetchimagetimeout = fetchimagetimeout;
+            params.request = request;
+            params.useold = false;
+            params.waitinterval = 50;
+            params.checkpreemptbits = PC_SendPointcloudThread;
+            bool bGotAllImages = _GetImages(params, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp);
             if (bGotAllImages && depthimages.size() == depthcameranames.size()) {
                 std::vector<Real> totalpoints;
                 int isregionoccluded = -2;
@@ -3764,7 +3803,20 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                         while (numretries > 0 && points.size() / 3 == 0) {
                             points.clear();
                             _SetStatusMessage(TT_Command, "re-try getting depthimage and pointcloudobstacle");
-                            bool bGotAllImages2 = _GetImages(TT_Command, _pBinpickingTask, regionname, dummycameranames, depthcameranames1, dummyimages, depthimages1, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, false, 50, PC_SendPointcloudThread);
+                            GetImagesParams params;
+                            params.threadtype = TT_Command;
+                            params.pBinpickingTask = _pBinpickingTask;
+                            params.regionname = regionname;
+                            params.colorcameranames = dummycameranames;
+                            params.depthcameranames = depthcameranames1;
+                            params.ignoreocclusion = ignoreocclusion;
+                            params.newerthantimestamp = newerthantimestamp;
+                            params.fetchimagetimeout = fetchimagetimeout;
+                            params.request = request;
+                            params.useold = false;
+                            params.waitinterval = 50;
+                            params.checkpreemptbits = PC_SendPointcloudThread;
+                            bool bGotAllImages2 = _GetImages(params, dummyimages, depthimages1, dummyimages, imageStartTimestamp, imageEndTimestamp);
                             if( bGotAllImages2 ) {
                                 isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, pointsize, filteringstddev, filteringnumnn, regionname, timeout, newerthantimestamp, filteringsubsample, PC_SendPointcloudThread);
                             }
@@ -3901,7 +3953,20 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
         while (!_bStopSendPointCloudObstacleToControllerThread) {
             MUJIN_LOG_DEBUG("_StartAndGetCaptureHandle with cameranames " << __GetString(depthcameranames));
             _StartAndGetCaptureHandle(depthcameranames, depthcameranames, capturehandles);  // always force for SendPointCloudObstacleToController
-            bool bGotAllImages = _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, true, false, 50, PC_SendPointcloudThread); // TODO update GetCollisionPointCloud() to remove this
+            GetImagesParams params;
+            params.threadtype = TT_SendPointcloudObstacle;
+            params.pBinpickingTask = pBinpickingTask;
+            params.regionname = regionname;
+            params.colorcameranames = dummycameranames;
+            params.depthcameranames = depthcameranames;
+            params.ignoreocclusion = ignoreocclusion;
+            params.newerthantimestamp = newerthantimestamp;
+            params.fetchimagetimeout = fetchimagetimeout;
+            params.request = true;
+            params.useold = false;
+            params.waitinterval = 50;
+            params.checkpreemptbits = PC_SendPointcloudThread;
+            bool bGotAllImages = _GetImages(params, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp); // TODO update GetCollisionPointCloud() to remove this
             MUJIN_LOG_DEBUG(str(boost::format("got %d images in SendPointCloudObstacleToControllerThread imageStartTimestamp=%u newerthantimestamp=%u")%depthimages.size()%imageStartTimestamp%newerthantimestamp));
             if (bGotAllImages && depthimages.size() == depthcameranames.size()) {
                 std::vector<Real> totalpoints;
@@ -3929,7 +3994,20 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                             _StartAndGetCaptureHandle(depthcameranames1, depthcameranames1, capturehandles, true);  // always force for SendPointCloudObstacleToController
                             points.clear();
                             _SetStatusMessage(TT_SendPointcloudObstacle, "re-try getting depthimage and pointcloudobstacle");
-                            bool bGotAllImages2 = _GetImages(TT_SendPointcloudObstacle, pBinpickingTask, regionname, dummycameranames, depthcameranames1, dummyimages, depthimages1, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, true, false, PC_SendPointcloudThread); // TODO update GetCollisionPointCloud() to remove this
+                            GetImagesParams params;
+                            params.threadtype = TT_SendPointcloudObstacle;
+                            params.pBinpickingTask = pBinpickingTask;
+                            params.regionname = regionname;
+                            params.colorcameranames = dummycameranames;
+                            params.depthcameranames = depthcameranames1;
+                            params.ignoreocclusion = ignoreocclusion;
+                            params.newerthantimestamp = newerthantimestamp;
+                            params.fetchimagetimeout = fetchimagetimeout;
+                            params.request = true;
+                            params.useold = false;
+                            params.waitinterval = 50;
+                            params.checkpreemptbits = PC_SendPointcloudThread;
+                            bool bGotAllImages2 = _GetImages(params, dummyimages, depthimages1, dummyimages, imageStartTimestamp, imageEndTimestamp); // TODO update GetCollisionPointCloud() to remove this
                             if( bGotAllImages2 ) {
                                 isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, pointsize, filteringstddev, filteringnumnn, regionname, timeout, 0, filteringsubsample, PC_SendPointcloudThread);
                             }
@@ -4032,7 +4110,20 @@ void MujinVisionManager::_VisualizePointCloudOnController(const std::string& reg
         dcamnames.push_back(cameraname);
         MUJIN_LOG_DEBUG("Visualize for depth camera " << cameraname << " (" << _GetHardwareId(cameraname) << ")");
         unsigned long long imageStartTimestamp = 0, imageEndTimestamp = 0;
-        bool bGotAllImages = _GetImages(TT_Command, _pBinpickingTask, "", dummycameranames, dcamnames, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp, ignoreocclusion, newerthantimestamp, fetchimagetimeout, request, false, 50, PC_VisualizePointCloudThread);
+        GetImagesParams params;
+        params.threadtype = TT_Command;
+        params.pBinpickingTask = _pBinpickingTask;
+        params.regionname = "";
+        params.colorcameranames = dummycameranames;
+        params.depthcameranames = dcamnames;
+        params.ignoreocclusion = ignoreocclusion;
+        params.newerthantimestamp = newerthantimestamp;
+        params.fetchimagetimeout = fetchimagetimeout;
+        params.request = request;
+        params.useold = false;
+        params.waitinterval = 50;
+        params.checkpreemptbits = PC_VisualizePointCloudThread;
+        bool bGotAllImages = _GetImages(params, dummyimages, depthimages, dummyimages, imageStartTimestamp, imageEndTimestamp);
         if (!bGotAllImages || depthimages.size() == 0) {
             throw MujinVisionException("failed to get depth image for " + cameraname + ", cannot visualize point cloud", MVE_Failed);
         }

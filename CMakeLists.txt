@@ -133,6 +133,15 @@ else()
   set(MUJINVISION_INCLUDE_LOCAL_DIRS ${MUJINVISION_INCLUDE_LOCAL_DIRS} ${libzmq_INCLUDE_DIRS})
 endif()
 
+#ranpidjson
+find_package(RapidJSON QUIET)
+if (NOT RapidJSON_FOUND)
+  message(FATAL_ERROR "could not find RapidJSON")
+else()
+  set(MUJINVISION_INCLUDE_LOCAL_DIRS ${MUJINVISION_INCLUDE_LOCAL_DIRS} ${RAPIDJSON_INCLUDE_DIRS})
+  add_definitions("-DRAPIDJSON_ASSERT=BOOST_ASSERT")
+endif()
+
 file(GLOB mujin_header_files ${CMAKE_CURRENT_SOURCE_DIR}/include/mujinvision/*.h)
 install(FILES ${mujin_header_files} ${CMAKE_CURRENT_BINARY_DIR}/include/mujinvision/config.h DESTINATION include/mujinvision)
 

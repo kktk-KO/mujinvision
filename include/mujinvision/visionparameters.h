@@ -17,8 +17,6 @@
 #ifndef MUJIN_VISION_PARAMETERS_H
 #define MUJIN_VISION_PARAMETERS_H
 
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/json_parser.hpp>
 #include <boost/foreach.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/format.hpp>
@@ -26,6 +24,10 @@
 #include <boost/function.hpp>
 #include <boost/algorithm/string.hpp>
 #include <stdint.h>
+#include <stdexcept>
+#include <rapidjson/pointer.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 #include "geometry.h"
 #include "visionexceptions.h"
@@ -45,191 +47,339 @@ using geometry::MathTransformMatrix;
 typedef MathTransformMatrix<double> TransformMatrix;
 using geometry::MathVector;
 typedef MathVector<double> Vector;
-using boost::property_tree::ptree;
+
+/// \brief gets a string of the Value type for debugging purposes 
+inline std::string GetJsonTypeName(const rapidjson::Value& v) {
+    int type = v.GetType();
+    switch (type) {
+        case 0:
+            return "Null";
+        case 1:
+            return "False";
+        case 2:
+            return "True";
+        case 3:
+            return "Object";
+        case 4:
+            return "Array";
+        case 5:
+            return "String";
+        case 6:
+            return "Number";
+        default:
+            return "Unknown";
+    }
+}
+
+inline std::string DumpJson(const rapidjson::Value& value) {
+    rapidjson::StringBuffer stringbuffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(stringbuffer);
+    value.Accept(writer);
+    return std::string(stringbuffer.GetString(), stringbuffer.GetSize());
+}
+
+inline void ParseJson(rapidjson::Document&d, const std::string& str) {
+    d.Parse(str.c_str());
+    if (d.HasParseError()) {
+        std::string substr;
+        if (str.length()> 200) {
+            substr = str.substr(0, 200);
+        } else {
+            substr = str;
+        }
+        throw MujinVisionException("Json string is invalid: " + substr, MVE_InvalidArgument);
+    }
+}
 
 /// \brief base class of parameters
 struct MUJINVISION_API ParametersBase
 {
-    ParametersBase() {
-    }
     virtual ~ParametersBase() {
     }
+    inline std::string GetJsonString() {
+        rapidjson::Document d;
+        GetJson(d);
+        return DumpJson(d);
 
-    virtual std::string GetJsonString() = 0;
-    virtual ptree GetPropertyTree() = 0;
-
-    void Print();
-
-    static void ValidateJsonString(const std::string& str)
-    {
-        try {
-            std::stringstream ss;
-            ss << str;
-            ptree tmppt;
-            read_json(ss, tmppt);
-        } catch (...) {
-            throw MujinVisionException("json string " + str + " is invalid.", MVE_InvalidArgument);
-        }
     }
-
-    /** \brief sets up proper json string by adding proper escaping back slashes
-        \param str unquoted string that may contain special chars
-     */
-    static std::string GetJsonString(const std::string& str)
-    {
-        std::string newstr = str;
-        boost::replace_all(newstr, "\\", "\\\\");
-        boost::replace_all(newstr, "\"", "\\\"");
-        boost::replace_all(newstr, "\n", "\\n");
-        return "\""+newstr+"\"";
-    }
-
-    static std::string GetJsonString(const std::string& key, const std::string& value)
-    {
-        return GetJsonString(key) + ": " + GetJsonString(value);
-    }
-
-    static std::string GetJsonString(const std::string& key, const unsigned int& value)
-    {
-        std::stringstream ss;
-        ss << ParametersBase::GetJsonString(key) << ": " << value;
-        return ss.str();
-    }
-
-    static std::string GetJsonString(const std::string& key, const bool value)
-    {
-        std::stringstream ss;
-        ss << ParametersBase::GetJsonString(key) << ": " << value;
-        return ss.str();
-    }
-
-    static std::string GetJsonString(const std::string& key, const double& value) {
-        std::stringstream ss;
-        ss << std::setprecision(std::numeric_limits<double>::digits10+1);
-        ss << ParametersBase::GetJsonString(key) << ": " << value;
-        return ss.str();
-    }
-
-    static std::string GetJsonString(const std::string& key, int value)
-    {
-        std::stringstream ss;
-        ss << ParametersBase::GetJsonString(key) << ": " << value;
-        return ss.str();
-    }
-
-    static std::string GetJsonString(const std::string& key, const unsigned long long& value)
-    {
-        std::stringstream ss;
-        ss << ParametersBase::GetJsonString(key) << ": " << value;
-        return ss.str();
-    }
-
-    static std::string GetJsonString(const std::vector<std::string>& vec)
-    {
-        std::stringstream ss;
-        ss << "[";
-        for (unsigned int i = 0; i < vec.size(); i++) {
-            ss << GetJsonString(vec[i]);
-            if( i != vec.size()-1) {
-                ss << ", ";
-            }
-        }
-        ss << "]";
-        return ss.str();
-    }
-
-    static std::string GetJsonString(const std::vector<double>& vec)
-    {
-        std::stringstream ss;
-        ss << std::setprecision(std::numeric_limits<double>::digits10+1);
-        ss << "[";
-        for (unsigned int i = 0; i < vec.size(); i++) {
-            ss << vec[i];
-            if( i != vec.size()-1) {
-                ss << ", ";
-            }
-        }
-        ss << "]";
-        return ss.str();
-    }
-
-    static std::string GetJsonString (const std::vector<int>& vec)
-    {
-        std::stringstream ss;
-        ss << "[";
-        for (unsigned int i = 0; i < vec.size(); i++) {
-            ss << vec[i];
-            if( i != vec.size()-1) {
-                ss << ", ";
-            }
-        }
-        ss << "]";
-        return ss.str();
-    }
-
-    static std::string GetJsonString(const double(&array)[6]) {
-        std::stringstream ss;
-        ss << std::setprecision(std::numeric_limits<double>::digits10+1);
-        ss << "[";
-        for (unsigned int i=0; i<6; ++i) {
-            ss << array[i];
-            if (i != 5) {
-                ss << ", ";
-            }
-        }
-        ss << "]";
-        return ss.str();
-    }
-
-    static std::string GetJsonString(const Transform& transform)
-    {
-        std::stringstream ss;
-        ss << std::setprecision(std::numeric_limits<double>::digits10+1);
-        // \"translation\":[%.15f, %.15f, %.15f], \"quaternion\":[%.15f, %.15f, %.15f, %.15f]
-        ss << "\"translation\": [";
-        for (unsigned int i=0; i<3; i++) {
-            ss << transform.trans[i];
-            if (i!=3-1) {
-                ss << ", ";
-            }
-        }
-        ss << "], ";
-        ss << "\"quaternion\": [";
-        for (unsigned int i=0; i<4; i++) {
-            ss << transform.rot[i];
-            if (i!=4-1) {
-                ss << ", ";
-            }
-        }
-        ss << "]";
-        return ss.str();
-    }
-
-    static std::string GetJsonString(const MujinVisionException& exception)
-    {
-        std::stringstream ss;
-        ss << GetJsonString("error") << ": {";
-        ss << GetJsonString("type") << ": " << GetJsonString(exception.GetCodeString()) << ",";
-        ss << GetJsonString("desc") << ": " << GetJsonString(exception.message());
-        ss << "}";
-        return ss.str();
-    }
-
-    static std::string GetExceptionJsonString(const std::string& type, const std::string& desc)
-    {
-        std::stringstream ss;
-        ss << GetJsonString("error") << ": {";
-        ss << GetJsonString("type") << ": " << GetJsonString(type) << ",";
-        ss << GetJsonString("desc") << ": " << GetJsonString(desc);
-        ss << "}";
-        return ss.str();
-    }
-
-
-protected:
-    ptree _pt;
-
+    virtual void GetJson(rapidjson::Document& d) const = 0;
+    virtual void LoadFromJson(const rapidjson::Value& value) = 0;
 };
+
+//store a json value to local data structures
+//for compatibility with ptree, type conversion is made. will remove them in the future
+inline void LoadJsonValue(const rapidjson::Value& v, std::string& t) {
+    if (v.IsString()) {
+        t = v.GetString();
+    } else if (v.IsInt64()) {
+        t = boost::lexical_cast<std::string>(v.GetInt64());
+    } else {
+        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to String", MVE_InvalidArgument);
+    }
+
+}
+
+inline void LoadJsonValue(const rapidjson::Value& v, int& t) {
+    if (v.IsInt()) {
+        t = v.GetInt();
+    } else if (v.IsString()) {
+        t = boost::lexical_cast<int>(v.GetString());
+    } else {
+        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Int", MVE_InvalidArgument);
+    }
+}
+
+inline void LoadJsonValue(const rapidjson::Value& v, unsigned int& t) {
+    if (v.IsUint()) {
+        t = v.GetUint();
+    } else if (v.IsString()) {
+        t = boost::lexical_cast<unsigned int>(v.GetString());
+    } else {
+        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Int", MVE_InvalidArgument);
+    }
+}
+
+inline void LoadJsonValue(const rapidjson::Value& v, unsigned long long& t) {
+    if (v.IsUint64()) {
+        t = v.GetUint64();
+    } else if (v.IsString()) {
+        t = boost::lexical_cast<unsigned long long>(v.GetString());
+    } else {
+        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Int64", MVE_InvalidArgument);
+    }
+}
+
+inline void LoadJsonValue(const rapidjson::Value& v, uint64_t& t) {
+    if (v.IsUint64()) {
+        t = v.GetUint64();
+    } else if (v.IsString()) {
+        t = boost::lexical_cast<uint64_t>(v.GetString());
+    } else {
+        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Int64", MVE_InvalidArgument);
+    }
+}
+
+inline void LoadJsonValue(const rapidjson::Value& v, double& t) {
+    if (v.IsNumber()) {
+        t = v.GetDouble();
+    } else if (v.IsString()) {
+        t = boost::lexical_cast<double>(v.GetString());
+    } else {
+        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Double", MVE_InvalidArgument);
+    }
+}
+
+inline void LoadJsonValue(const rapidjson::Value& v, bool& t) {
+    if (v.IsInt()) t = v.GetInt();
+    else if (v.IsBool()) t = v.GetBool();
+    else if (v.IsString())  {
+        t = boost::lexical_cast<bool>(v.GetString());
+    } else {
+        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Bool", MVE_InvalidArgument);
+    }
+}
+
+inline void LoadJsonValue(const rapidjson::Value& v, ParametersBase& t) {
+    if (v.IsObject()) {
+        t.LoadFromJson(v);
+    } else {
+        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Object", MVE_InvalidArgument);
+    }
+}
+
+template<class T> inline void LoadJsonValue(const rapidjson::Value& v, boost::shared_ptr<T>& ptr) {
+    if (v.IsObject()) {
+        T t;
+        LoadJsonValue(v, t);
+        ptr = boost::shared_ptr<T>(new T(t));
+    } else {
+        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Object", MVE_InvalidArgument);
+    }
+
+}
+template<class T, size_t N> inline void LoadJsonValue(const rapidjson::Value& v, T (&p)[N]) {
+    if (v.IsArray()) {
+        if (v.GetArray().Size() != N) {
+            throw MujinVisionException("Json array size doesn't match", MVE_InvalidArgument);
+        }
+        size_t i = 0;
+        for (rapidjson::Value::ConstValueIterator it = v.Begin(); it != v.End(); ++it) {
+            LoadJsonValue(*it, p[i]);
+            i++;
+        }
+    } else {
+        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Array", MVE_InvalidArgument);
+    }
+}
+
+template<class T> inline void LoadJsonValue(const rapidjson::Value& v, std::vector<T>& t) {
+    if (v.IsArray()) {
+        t.clear();
+        t.resize(v.GetArray().Size());
+        size_t i = 0;
+        for (rapidjson::Value::ConstValueIterator it = v.Begin(); it != v.End(); ++it) {
+            LoadJsonValue(*it, t[i]);
+            i++;
+        }
+    } else {
+        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Array", MVE_InvalidArgument);
+    }
+}
+
+//Save a data structure to rapidjson::Value format
+
+inline void SaveJsonValue(rapidjson::Value& v, const std::string& t, rapidjson::Document::AllocatorType& alloc) {
+    v.SetString(t.c_str(), alloc);
+}
+
+inline void SaveJsonValue(rapidjson::Value& v, const char* t, rapidjson::Document::AllocatorType& alloc) {
+    v.SetString(t, alloc);
+}
+
+inline void SaveJsonValue(rapidjson::Value& v, int t, rapidjson::Document::AllocatorType& alloc) {
+    v.SetInt(t);
+}
+
+inline void SaveJsonValue(rapidjson::Value& v, unsigned int t, rapidjson::Document::AllocatorType& alloc) {
+    v.SetUint(t);
+}
+
+inline void SaveJsonValue(rapidjson::Value& v, long long t, rapidjson::Document::AllocatorType& alloc) {
+    v.SetInt64(t);
+}
+
+inline void SaveJsonValue(rapidjson::Value& v, unsigned long long t, rapidjson::Document::AllocatorType& alloc) {
+    v.SetUint64(t);
+}
+
+inline void SaveJsonValue(rapidjson::Value& v, uint64_t t, rapidjson::Document::AllocatorType& alloc) {
+    v.SetUint64(t);
+}
+
+inline void SaveJsonValue(rapidjson::Value& v, bool t, rapidjson::Document::AllocatorType& alloc) {
+    v.SetBool(t);
+}
+
+inline void SaveJsonValue(rapidjson::Value& v, double t, rapidjson::Document::AllocatorType& alloc) {
+    v.SetDouble(t);
+}
+
+inline void SaveJsonValue(rapidjson::Value& v, const rapidjson::Value& t, rapidjson::Document::AllocatorType& alloc) {
+    v.CopyFrom(t, alloc);
+}
+
+inline void SaveJsonValue(rapidjson::Value& v, const ParametersBase& p, rapidjson::Document::AllocatorType& alloc) {
+    rapidjson::Document d;
+    p.GetJson(d);
+    v.CopyFrom(d, alloc);
+}
+
+template<class T> inline void SaveJsonValue(rapidjson::Value& v, const std::vector<T>& t, rapidjson::Document::AllocatorType& alloc) {
+    v.SetArray();
+    v.Reserve(t.size(), alloc);
+    for (size_t i = 0; i < t.size(); ++i) {
+        rapidjson::Value tmpv;
+        SaveJsonValue(tmpv, t[i], alloc);
+        v.PushBack(tmpv, alloc);
+    }
+}
+
+template<> inline void SaveJsonValue(rapidjson::Value& v, const std::vector<double>& t, rapidjson::Document::AllocatorType& alloc) {
+    v.SetArray();
+    v.Reserve(t.size(), alloc);
+    for (size_t i = 0; i < t.size(); ++i) {
+        v.PushBack(t[i], alloc);
+    }
+}
+
+template<class T> inline void SaveJsonValue(rapidjson::Document& v, const T& t) {
+    SaveJsonValue(v, t, v.GetAllocator());
+}
+
+/** do not remove: otherwise boost::shared_ptr could be treated as bool
+ */
+template<class T> inline void SaveJsonValue(rapidjson::Value& v, const boost::shared_ptr<T>& ptr, rapidjson::Document::AllocatorType& alloc) {
+    SaveJsonValue(v, *ptr, alloc);
+}
+
+template<class T, class U> inline void SetJsonValueByKey(rapidjson::Value& v, const U& key, const T& t, rapidjson::Document::AllocatorType& alloc);
+
+inline void SaveJsonValue(rapidjson::Value& v, const MujinVisionException& e, rapidjson::Document::AllocatorType& alloc) {
+    v.SetObject();
+    SetJsonValueByKey(v, "type", (int)(e.GetCode()), alloc);
+    SetJsonValueByKey(v, "desc", e.GetCodeString(), alloc);
+}
+
+//get one json value by key, and store it in local data structures
+template<class T> void inline LoadJsonValueByKey(const rapidjson::Value& v, const char* key, T& t) {
+    if (v.HasMember(key)) {
+        LoadJsonValue(v[key], t);
+    }
+}
+template<class T, class U> inline void LoadJsonValueByKey(const rapidjson::Value& v, const char* key, T& t, const U& d) {
+    if (v.HasMember(key)) {
+        LoadJsonValue(v[key], t);
+    }
+    else {
+        t = d;
+    }
+}
+
+//work the same as LoadJsonValueByKey, but the value is returned instead of being passed as reference
+template<class T, class U> T GetJsonValueByKey(const rapidjson::Value& v, const char* key, const U& t) {
+    if (v.HasMember(key)) {
+        T r;
+        LoadJsonValue(v[key], r);
+        return r;
+    }
+    else {
+        return T(t);
+    }
+}
+template<class T> inline T GetJsonValueByKey(const rapidjson::Value& v, const char* key) {
+    T r;
+    if (v.HasMember(key)) {
+        LoadJsonValue(v[key], r);
+    }
+    return r;
+}
+template<class T, class U> inline void SetJsonValueByKey(rapidjson::Value& v, const U& key, const T& t, rapidjson::Document::AllocatorType& alloc)
+{
+    if (v.HasMember(key)) {
+        SaveJsonValue(v[key], t, alloc);
+    }
+    else {
+        rapidjson::Value value, name;
+        SaveJsonValue(name, key, alloc);
+        SaveJsonValue(value, t, alloc);
+        v.AddMember(name, value, alloc);
+    }
+}
+
+template<class T>
+inline void SetJsonValueByKey(rapidjson::Document& d, const char* key, const T& t)
+{
+    SetJsonValueByKey(d, key, t, d.GetAllocator());
+}
+
+template<class T>
+inline void SetJsonValueByKey(rapidjson::Document& d, const std::string& key, const T& t)
+{
+    SetJsonValueByKey(d, key.c_str(), t, d.GetAllocator());
+}
+
+inline void ValidateJsonString(const std::string& str) {
+    rapidjson::Document d;
+    if (d.Parse(str.c_str()).HasParseError()) {
+        throw MujinVisionException("json string " + str + " is invalid.", MVE_InvalidArgument);
+    }
+}
+template<class T> inline std::string GetJsonString(const T& t) {
+    rapidjson::Document d;
+    SaveJsonValue(d, t);
+    return DumpJson(d);
+}
+
 
 /// \brief ip and port of a connection
 struct MUJINVISION_API ConnectionParameters : public ParametersBase
@@ -237,11 +387,19 @@ struct MUJINVISION_API ConnectionParameters : public ParametersBase
     ConnectionParameters() {
     }
 
-    ConnectionParameters(const ptree& pt)
-    {
-        _pt = pt;
-        ip = pt.get<std::string>("ip");
-        port = pt.get<int>("port");
+    ConnectionParameters(const rapidjson::Value& value) {
+        LoadFromJson(value);
+    }
+
+    void LoadFromJson(const rapidjson::Value& value) {
+        LoadJsonValueByKey(value, "ip", ip);
+        LoadJsonValueByKey(value, "port", port);
+    }
+
+    void GetJson(rapidjson::Document& d) const {
+        d.SetObject();
+        SetJsonValueByKey(d, "ip", ip);
+        SetJsonValueByKey(d, "port", port);
     }
 
     virtual ~ConnectionParameters() {
@@ -249,25 +407,8 @@ struct MUJINVISION_API ConnectionParameters : public ParametersBase
 
     std::string ip;
     int port;
-
-    std::string GetJsonString()
-    {
-        std::stringstream ss;
-        ss << "{";
-        ss << "\"ip\": \"" << ip << "\", \"port\": " << port;
-        ss << "}";
-        return ss.str();
-    }
-
-    ptree GetPropertyTree()
-    {
-        if (_pt.empty()) {
-            _pt.put<std::string>("ip", ip);
-            _pt.put<int>("port", port);
-        }
-        return _pt;
-    }
 };
+
 typedef boost::shared_ptr<ConnectionParameters> ConnectionParametersPtr;
 typedef boost::shared_ptr<ConnectionParameters const> ConnectionParametersConstPtr;
 typedef boost::weak_ptr<ConnectionParameters> ConnectionParametersWeakPtr;
@@ -275,22 +416,28 @@ typedef boost::weak_ptr<ConnectionParameters> ConnectionParametersWeakPtr;
 /// \brief information about camera
 struct MUJINVISION_API CameraParameters : public ParametersBase
 {
-    CameraParameters() {
+    CameraParameters(): isColorCamera(true), isDepthCamera(true){
     }
 
-    CameraParameters(const std::string cameraid)
-    {
-        id = cameraid;
-        isColorCamera = true;
-        isDepthCamera = true;
+    CameraParameters(const std::string cameraid): id(cameraid), isColorCamera(true), isDepthCamera(true) {
+
     }
 
-    CameraParameters(const ptree& pt)
-    {
-        _pt = pt;
-        id = pt.get<std::string>("id", "");
-        isColorCamera = pt.get<bool>("is_color_camera", true);
-        isDepthCamera = pt.get<bool>("is_depth_camera", true);
+    CameraParameters(const rapidjson::Value& value): id(""), isColorCamera(true), isDepthCamera(true) {
+        LoadFromJson(value);
+    }
+
+    void LoadFromJson(const rapidjson::Value& value) {
+        LoadJsonValueByKey(value, "id", id);
+        LoadJsonValueByKey(value, "is_color_camera", isColorCamera);
+        LoadJsonValueByKey(value, "is_depth_camera", isDepthCamera);
+    }
+
+    void GetJson(rapidjson::Document& d) const {
+        d.SetObject();
+        SetJsonValueByKey(d, "id", id);
+        SetJsonValueByKey(d, "is_color_camera", isColorCamera);
+        SetJsonValueByKey(d, "is_depth_camera", isDepthCamera);
     }
 
     virtual ~CameraParameters() {
@@ -299,35 +446,6 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
     std::string id;
     bool isColorCamera;
     bool isDepthCamera;
-
-    std::string GetJsonString()
-    {
-        std::stringstream ss;
-        ss << "{";
-        ss << "\"id\": \"" << id << "\"";
-        if (!isColorCamera) {
-            ss << ", \"is_color_camera\": false";
-        } else {
-            ss << ", \"is_color_camera\": true";
-        }
-        if (!isDepthCamera) {
-            ss << ", \"is_depth_camera\": false";
-        } else {
-            ss << ", \"is_depth_camera\": true";
-        }
-        ss << "}";
-        return ss.str();
-    }
-
-    ptree GetPropertyTree()
-    {
-        if (_pt.empty()) {
-            _pt.put<std::string>("id", id);
-            _pt.put<bool>("isColorCamera", isColorCamera);
-            _pt.put<bool>("isDepthCamera", isDepthCamera);
-        }
-        return _pt;
-    }
 };
 typedef boost::shared_ptr<CameraParameters> CameraParametersPtr;
 typedef boost::shared_ptr<CameraParameters const> CameraParametersConstPtr;
@@ -337,30 +455,44 @@ typedef boost::weak_ptr<CameraParameters> CameraParametersWeakPtr;
 struct MUJINVISION_API CalibrationData : public ParametersBase
 {
 
-    CalibrationData() {
-        distortion_coeffs.resize(5);
+    CalibrationData() : distortion_coeffs(5) {
     }
 
-    CalibrationData(const ptree& pt)
-    {
-        _pt = pt;
-        fx = pt.get<double>("fx");
-        fy = pt.get<double>("fy");
-        pu = pt.get<double>("pu");
-        pv = pt.get<double>("pv");
-        s = pt.get<double>("s");
-        focal_length = pt.get<double>("focal_length");
-        kappa = pt.get<double>("kappa");
-        image_width = pt.get<double>("image_width");
-        image_height = pt.get<double>("image_height");
-        pixel_width = pt.get<double>("pixel_width");
-        pixel_height = pt.get<double>("pixel_height");
-        distortion_model = pt.get<std::string>("distortion_model");
-        unsigned int i=0;
-        FOREACH(v, pt.get_child("distortion_coeffs")) {
-            distortion_coeffs[i] = boost::lexical_cast<double>(v->second.data());
-            i++;
-        }
+    CalibrationData(const rapidjson::Value& value) : distortion_coeffs(5) {
+        LoadFromJson(value);
+    }
+
+    void LoadFromJson(const rapidjson::Value& value) {
+        LoadJsonValueByKey(value, "fx", fx);
+        LoadJsonValueByKey(value, "fy", fx);
+        LoadJsonValueByKey(value, "pu", pv);
+        LoadJsonValueByKey(value, "pv", pv);
+        LoadJsonValueByKey(value, "s", s);
+        LoadJsonValueByKey(value, "focal_length", focal_length);
+        LoadJsonValueByKey(value, "kappa", kappa);
+        LoadJsonValueByKey(value, "image_width", image_width);
+        LoadJsonValueByKey(value, "image_height", image_height);
+        LoadJsonValueByKey(value, "pixel_width", pixel_width);
+        LoadJsonValueByKey(value, "pixel_height", pixel_height);
+        LoadJsonValueByKey(value, "distortion_model", distortion_model);
+        LoadJsonValueByKey(value, "distortion_coeffs", distortion_coeffs);
+    }
+
+    void GetJson(rapidjson::Document& d) const {
+        d.SetObject();
+        SetJsonValueByKey(d, "fx", fx);
+        SetJsonValueByKey(d, "fy", fx);
+        SetJsonValueByKey(d, "pu", pv);
+        SetJsonValueByKey(d, "pv", pv);
+        SetJsonValueByKey(d, "s", s);
+        SetJsonValueByKey(d, "focal_length", focal_length);
+        SetJsonValueByKey(d, "kappa", kappa);
+        SetJsonValueByKey(d, "image_width", image_width);
+        SetJsonValueByKey(d, "image_height", image_height);
+        SetJsonValueByKey(d, "pixel_width", pixel_width);
+        SetJsonValueByKey(d, "pixel_height", pixel_height);
+        SetJsonValueByKey(d, "distortion_model", distortion_model);
+        SetJsonValueByKey(d, "distortion_coeffs", distortion_coeffs);
     }
 
     virtual ~CalibrationData() {
@@ -380,76 +512,17 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
     std::string distortion_model;
     std::vector<double> distortion_coeffs;
     std::vector<double> extra_parameters;
-
-    std::string GetJsonString()
-    {
-        std::stringstream ss;
-        ss << "{";
-        ss << "fx: " << fx << ", ";
-        ss << "fy: " << fy << ", ";
-        ss << "pu: " << pu << ", ";
-        ss << "pv: " << pv << ", ";
-        ss << "s: " << s << ", ";
-        ss << "focal_length: " << focal_length << ", ";
-        ss << "kappa: " << kappa << ", ";
-        ss << "image_width: " << image_width << ", ";
-        ss << "image_height: " << image_height << ", ";
-        ss << "pixel_width: " << pixel_width << ", ";
-        ss << "pixel_height: " << pixel_height << ", ";
-        ss << "distortion_model: " << distortion_model << ", ";
-        ss << "distortion_coeffs: [";
-        for (size_t i = 0; i < distortion_coeffs.size(); i++) {
-            ss << distortion_coeffs[i];
-            if (i != distortion_coeffs.size()) {
-                ss << ", ";
-            }
-        }
-        ss << "]";
-        ss << "extra_parameters: [";
-        for (size_t iparam = 0; iparam < extra_parameters.size(); iparam++) {
-            ss << extra_parameters[iparam];
-            if (iparam != extra_parameters.size()) {
-                ss << ", ";
-            }
-        }
-        ss << "]";
-        ss << "}";
-        return ss.str();
-    }
-
-    ptree GetPropertyTree()
-    {
-        if (_pt.empty()) {
-            _pt.put<double>("fx", fx);
-            _pt.put<double>("fy", fy);
-            _pt.put<double>("pu", pu);
-            _pt.put<double>("pv", pv);
-            _pt.put<double>("s", s);
-            _pt.put<double>("focal_length", focal_length);
-            _pt.put<double>("kappa", kappa);
-            _pt.put<double>("image_width", image_width);
-            _pt.put<double>("image_height", image_height);
-            _pt.put<double>("pixel_width", pixel_width);
-            _pt.put<double>("pixel_height", pixel_height);
-            ptree extrapt;
-            for (unsigned int i=0; i<extra_parameters.size(); i++) {
-                ptree p;
-                p.put<double>("",extra_parameters[i]);
-                extrapt.push_back(std::make_pair("",p));
-            }
-            _pt.put_child("extra_parameters", extrapt);
-        }
-        return _pt;
-    }
 };
 typedef boost::shared_ptr<CalibrationData> CalibrationDataPtr;
 typedef boost::shared_ptr<CalibrationData const> CalibrationDataConstPtr;
 typedef boost::weak_ptr<CalibrationData> CalibrationDataWeakPtr;
 
+
 /// \brief converts ptree to Transform in meters
-inline Transform GetTransform(const ptree& pt) {
+inline Transform GetTransform(const rapidjson::Value& config) {
     Transform transform;
-    std::string unit = pt.get<std::string>("unit", "m");
+    std::string unit =  "m";
+    LoadJsonValueByKey(config, "unit", unit);
     double scale = 1.0;
     if (unit == "mm") {
         scale = 0.001;
@@ -458,64 +531,48 @@ inline Transform GetTransform(const ptree& pt) {
     } else {
         throw MujinVisionException("got unsupported unit " + unit, MVE_Failed);
     }
+
     unsigned int i=0;
-    FOREACH(v, pt.get_child("translation_")) {
-        transform.trans[i] = boost::lexical_cast<double>(v->second.data()) * scale;
+    const rapidjson::Value& translation = config["translation_"];
+    for (rapidjson::Value::ConstMemberIterator it = translation.MemberBegin(); it != translation.MemberEnd(); ++it) {
+        transform.trans[i] = boost::lexical_cast<double>(it->value.GetString()) * scale;
         i++;
     }
     i=0;
-    boost::optional< const boost::property_tree::ptree& > optchild;
-    optchild = pt.get_child_optional( "quat_" );
-    if (!!optchild) {
-        FOREACH(v, pt.get_child("quat_")) {
-            transform.rot[i] = boost::lexical_cast<double>(v->second.data());
-            i++;
-        }
+    const rapidjson::Value& quat = config["quat_"];
+    for (rapidjson::Value::ConstMemberIterator it = quat.MemberBegin(); it != quat.MemberEnd(); ++it) {
+        transform.rot[i] = boost::lexical_cast<double>(it->value.GetString());
     }
     return transform;
 }
 
 /// \brief information about the detected object
-struct MUJINVISION_API DetectedObject : public ParametersBase
+struct MUJINVISION_API DetectedObject: public ParametersBase
 {
-    DetectedObject() {
-        //type = "part";
-        confidence = "0";
-        extra = "null";
+    DetectedObject(): confidence("0"), extra("null"){
     }
 
     /// assume input is in milimeter
-    DetectedObject(const ptree& pt) {
-        _pt = pt;
-        name = pt.get<std::string>("name");
-        //type = pt.get<std::string>("type", "part");
-        objecturi = pt.get<std::string>("object_uri");
-        unsigned int i=0;
-        FOREACH(v, pt.get_child("translation_")) {
-            transform.trans[i] = boost::lexical_cast<double>(v->second.data()); // assuming in milimeter
-            i++;
-        }
-        i=0;
-        boost::optional< const boost::property_tree::ptree& > optchild;
-        optchild = pt.get_child_optional( "quat_" );
-        if (!!optchild) {
-            FOREACH(v, pt.get_child("quat_")) {
-                transform.rot[i] = boost::lexical_cast<double>(v->second.data());
-                i++;
-            }
-        }
-        i=0;
-        optchild = pt.get_child_optional( "dir_" );
-        if (!!optchild) {
-            FOREACH(v, pt.get_child("dir_")) {
-                transform.rot[i] = boost::lexical_cast<double>(v->second.data());
-                i++;
-            }
-        }
-        confidence = pt.get<std::string>("confidence");
-        timestamp = pt.get<uint64_t>("timestamp");
-        extra = "null";
-    }
+//    DetecetedObject(const rapidjson::Value& value): extra("null") {
+//        LoadJsonValueByKey(value, "name", name);
+//        LoadJsonValueByKey(value, "object_uri", objecturi);
+//        vector<double> trans, rot;
+//        LoadJsonValueByKey(value, "translation_", trans);
+//        if (trans.size() >= 3) {
+//            for (size_t i = 0; i < 3; i++) {
+//                transform.trans[i] = trans[i] * 0.001;
+//            }
+//        }
+//        LoadJsonValueByKey(value, "quat_", rot);
+//        LoadJsonValueByKey(value, "dir_", rot);
+//        if (rot.size() >= 4) {
+//            for (size_t i = 0; i < 4; i ++){
+//                transform.rot[i] = rot[i];
+//            }
+//        }
+//        LoadJsonValueByKey(value, "confidence", confidence);
+//        LoadJsonValueByKey(vlaue, "timestamp", timestamp);
+//    }
 
     /// assume input is in meter
     DetectedObject(const std::string& n, const std::string& u, const Transform& t, const std::string& c, const uint64_t ts, const std::string& e)
@@ -529,6 +586,31 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
         //type = ty;
     }
 
+    void LoadFromJson(const rapidjson::Value& value) {
+        //dummpy function
+    }
+
+    void GetJson(rapidjson::Document& d) const {
+        d.SetObject();
+        SetJsonValueByKey(d, "name", name);
+        //SetJsonValueByKey(d, "type", type);
+        SetJsonValueByKey(d, "object_uri", objecturi);
+        std::vector<double> trans, quat;
+        for (size_t i = 0; i < 3; ++i) {
+            trans.push_back(transform.trans[i]);
+        }
+        for (size_t i = 0; i < 4; ++i) {
+            quat.push_back(transform.rot[i]);
+        }
+        SetJsonValueByKey(d, "translation_", trans);
+        SetJsonValueByKey(d, "quat_", quat);
+        rapidjson::Document confidencejson;
+        confidencejson.Parse(confidence.c_str());
+        SetJsonValueByKey(d, "confidence", confidencejson);
+        SetJsonValueByKey(d, "timestamp", timestamp);
+        SetJsonValueByKey(d, "extra", extra);
+    }
+
     virtual ~DetectedObject() {
     }
 
@@ -536,67 +618,10 @@ struct MUJINVISION_API DetectedObject : public ParametersBase
     //std::string type; ///< default is "part", could be "container"
     std::string objecturi;  ///< could be empty for "container" type
     Transform transform; ///< in meter
-    std::string confidence; ///< detection confidence
-    uint64_t timestamp; ///< timestamp of the detection
-    std::string extra; ///< could be used to define random box dimensions
+    std::string confidence; ///< detection confidence, dumped string of a json object
+    unsigned long long timestamp; ///< timestamp of the detection
+    std::string extra; ///< could be used to define random box dimensions, dumped string of a json object
 
-    std::string GetJsonString()
-    {
-        std::stringstream ss;
-        ss << std::setprecision(std::numeric_limits<double>::digits10+1);
-        //"{\"name\": \"obj\",\"translation_\":[100,200,300],\"quat_\":[1,0,0,0],\"confidence\":{}}"
-        ss << "{";
-        ss << ParametersBase::GetJsonString("name") << ": " << ParametersBase::GetJsonString(name) << ", ";
-        //ss << ParametersBase::GetJsonString("type") << ": " << ParametersBase::GetJsonString(type) << ", ";
-        ss << ParametersBase::GetJsonString("object_uri") << ": " << ParametersBase::GetJsonString(objecturi) << ", ";
-        ss << ParametersBase::GetJsonString("translation_") << ": [";
-        for (unsigned int i=0; i<3; i++) {
-            ss << transform.trans[i];
-            if (i!=3-1) {
-                ss << ", ";
-            }
-        }
-        ss << "], ";
-        ss << ParametersBase::GetJsonString("quat_") << ": [";
-        for (unsigned int i=0; i<4; i++) {
-            ss << transform.rot[i];
-            if (i!=4-1) {
-                ss << ", ";
-            }
-        }
-        ss << "], ";
-        ss << ParametersBase::GetJsonString("confidence") << ": " << confidence << ", ";
-        ss << ParametersBase::GetJsonString("timestamp") << ": " << timestamp << ", ";
-        ss << ParametersBase::GetJsonString("extra") << ": " << ParametersBase::GetJsonString(extra);
-        ss << "}";
-        return ss.str();
-    }
-
-    ptree GetPropertyTree()
-    {
-        if (_pt.empty()) {
-            _pt.put<std::string>("name", name);
-            //_pt.put<std::string>("type", type);
-            _pt.put<std::string>("object_uri", objecturi);
-            ptree translation_pt;
-            for (unsigned int i=0; i<3; i++) {
-                ptree p;
-                p.put<double>("",transform.trans[i]*1000.0f); // convert from meter to milimeter
-                translation_pt.push_back(std::make_pair("",p));
-            }
-            _pt.put_child("translation_", translation_pt);
-            ptree quat_pt;
-            for (unsigned int i=0; i<4; i++) {
-                ptree p;
-                p.put<double>("",transform.rot[i]);
-                quat_pt.push_back(std::make_pair("",p));
-            }
-            _pt.put_child("quat_", quat_pt);
-            _pt.put<std::string>("confidence", confidence);
-            _pt.put<uint64_t>("timestamp", timestamp);
-        }
-        return _pt;
-    }
 };
 typedef boost::shared_ptr<DetectedObject> DetectedObjectPtr;
 typedef boost::shared_ptr<DetectedObject const> DetectedObjectConstPtr;
@@ -605,48 +630,35 @@ typedef boost::weak_ptr<DetectedObject> DetectedObjectWeakPtr;
 /// \brief Specifies region where vision system performs detection with a set of cameras
 struct MUJINVISION_API RegionParameters : public ParametersBase
 {
-    RegionParameters() {
+    RegionParameters(): containerEmptyDivisor(150), pointsize(3), filteringstddev(0), filteringnumnn(0), filteringsubsample(0) {
         memset(cropContainerMarginsXYZXYZ, 0, sizeof(cropContainerMarginsXYZXYZ));
         memset(cropContainerEmptyMarginsXYZXYZ, 0, sizeof(cropContainerEmptyMarginsXYZXYZ));
         memset(containerRoiMarginsXYZXYZ, 0, sizeof(containerRoiMarginsXYZXYZ));
-        containerEmptyDivisor = 150;
-        pointsize = 3;
-        filteringsubsample = filteringstddev = filteringnumnn = 0;
     }
 
-    RegionParameters(const ptree& pt)
-    {
-        _pt = pt;
-        instobjectname = pt.get<std::string>("instobjectname", std::string());
-        locationIOName = pt.get<std::string>("locationIOName", std::string());
-        FOREACH(cv, pt.get_child("cameranames")) {
-            cameranames.push_back(cv->second.data());
-        }
-        type = pt.get<std::string>("type", "boxAxisAligned");
-        unsigned int i=0;
-        FOREACH(v, pt.get_child("cropContainerMarginsXYZXYZ")) {
-            cropContainerMarginsXYZXYZ[i] = boost::lexical_cast<double>(v->second.data());
-            i++;
-        }
-        BOOST_ASSERT(i == 6);
-        i=0;
-        FOREACH(v, pt.get_child("containerRoiMarginsXYZXYZ")) {
-            containerRoiMarginsXYZXYZ[i] = boost::lexical_cast<double>(v->second.data());
-            i++;
-        }
-        BOOST_ASSERT(i == 6);
-        i=0;
-        FOREACH(v, pt.get_child("cropContainerEmptyMarginsXYZXYZ")) {
-            cropContainerEmptyMarginsXYZXYZ[i] = boost::lexical_cast<double>(v->second.data());
-            i++;
-        }
-        BOOST_ASSERT(i == 6);
-        containerEmptyDivisor = pt.get<double>("containerEmptyDivisor", 150);
-        visualizationuri = pt.get<std::string>("visualizationuri", "");
-        pointsize = pt.get<double>("pointsize", 3);
-        filteringstddev = pt.get<double>("filteringstddev",0);
-        filteringnumnn = pt.get<int>("filteringnumnn", 0);
-        filteringsubsample = pt.get<int>("filteringsubsample",0);
+    RegionParameters(const rapidjson::Value& value): containerEmptyDivisor(150), pointsize(3), filteringstddev(0), filteringnumnn(0), filteringsubsample(0) {
+        memset(cropContainerMarginsXYZXYZ, 0, sizeof(cropContainerMarginsXYZXYZ));
+        memset(cropContainerEmptyMarginsXYZXYZ, 0, sizeof(cropContainerEmptyMarginsXYZXYZ));
+        memset(containerRoiMarginsXYZXYZ, 0, sizeof(containerRoiMarginsXYZXYZ));
+        LoadFromJson(value);
+    }
+
+    void LoadFromJson(const rapidjson::Value& value) {
+        LoadJsonValueByKey(value, "instobjectname", instobjectname);
+        LoadJsonValueByKey(value, "locationIOName", locationIOName);
+        LoadJsonValueByKey(value, "cameranames", cameranames);
+        LoadJsonValueByKey(value, "type", type);
+        BOOST_ASSERT(value.HasMember("cropContainerMarginsXYZXYZ") && value["cropContainerMarginsXYZXYZ"].GetArray().Size() == 6);
+        LoadJsonValueByKey(value, "cropContainerMarginsXYZXYZ", cropContainerMarginsXYZXYZ);
+        BOOST_ASSERT(value.HasMember("containerRoiMarginsXYZXYZ") && value["containerRoiMarginsXYZXYZ"].GetArray().Size() == 6);
+        LoadJsonValueByKey(value, "containerRoiMarginsXYZXYZ", containerRoiMarginsXYZXYZ);
+        BOOST_ASSERT(value.HasMember("cropContainerEmptyMarginsXYZXYZ") && value["cropContainerEmptyMarginsXYZXYZ"].GetArray().Size() == 6);
+        LoadJsonValueByKey(value, "cropContainerEmptyMarginsXYZXYZ", cropContainerEmptyMarginsXYZXYZ);
+        LoadJsonValueByKey(value, "containerEmptyDivisor", containerEmptyDivisor, 150);
+        LoadJsonValueByKey(value, "pointsize", pointsize);
+        LoadJsonValueByKey(value, "filteringsubsample", filteringsubsample);
+        LoadJsonValueByKey(value, "filteringstddev", filteringstddev);
+        LoadJsonValueByKey(value, "filteringnumnn", filteringnumnn);
     }
 
     virtual ~RegionParameters() {
@@ -676,76 +688,39 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
     int filteringsubsample;  ///< if not 0, point cloud filting param for exec verification. invalid if 0.
 
     Transform baselinkcenter_T_region; ///< transform of the container link's coordinate system with respect to the inner region's center top face (baselinkcenter_T_region)
-    std::string GetJsonString()
-    {
-        std::stringstream ss;
-        ss << "{";
-        ss << "\"instobjectname\": \"" <<  instobjectname << "\", ";
-        ss << "\"cameranames\": " << ParametersBase::GetJsonString(cameranames);
-        ss << ", " << ParametersBase::GetJsonString("type") << ": " << ParametersBase::GetJsonString(type);
-        ss << ", " << ParametersBase::GetJsonString("cropContainerMarginsXYZXYZ") << ": " << ParametersBase::GetJsonString(cropContainerMarginsXYZXYZ);
-        ss << ", " << ParametersBase::GetJsonString("cropContainerEmptyMarginsXYZXYZ") << ": " << ParametersBase::GetJsonString(cropContainerEmptyMarginsXYZXYZ);
-        ss << ", " << ParametersBase::GetJsonString("containerRoiMarginsXYZXYZ") << ": " << ParametersBase::GetJsonString(containerRoiMarginsXYZXYZ);
-        ss << ", " << ParametersBase::GetJsonString("containerEmptyDivisor") << ": " << containerEmptyDivisor;
-        ss << ", " << ParametersBase::GetJsonString("visualizationuri") << ": " << ParametersBase::GetJsonString(visualizationuri);
-        ss << ", " << ParametersBase::GetJsonString("pointsize") << ": " << pointsize;
-        ss << ", " << ParametersBase::GetJsonString("filteringstddev") << ": " << filteringstddev;
-        ss << ", " << ParametersBase::GetJsonString("filteringnumnn") << ": " << filteringnumnn;
-        ss << ", " << ParametersBase::GetJsonString("filteringsubsample") << ": " << filteringsubsample;
-        if (innerTranslation.size() > 0) {
-            ss << ", " << ParametersBase::GetJsonString("innerTranslation") << ": " << ParametersBase::GetJsonString(innerTranslation);
-        }
-        if (innerExtents.size() > 0) {
-            ss << ", " << ParametersBase::GetJsonString("innerExtents") << ": " << ParametersBase::GetJsonString(innerExtents);
-        }
-        if (innerRotationmat.size() > 0) {
-            ss << ", " << ParametersBase::GetJsonString("innerRotationmat") << ": " << ParametersBase::GetJsonString(innerRotationmat);
-        }
-        if (outerTranslation.size() > 0) {
-            ss << ", " << ParametersBase::GetJsonString("outerTranslation") << ": " << ParametersBase::GetJsonString(outerTranslation);
-        }
-        if (outerExtents.size() > 0) {
-            ss << ", " << ParametersBase::GetJsonString("outerExtents") << ": " << ParametersBase::GetJsonString(outerExtents);
-        }
-        if (outerRotationmat.size() > 0) {
-            ss << ", " << ParametersBase::GetJsonString("outerRotationmat") << ": " << ParametersBase::GetJsonString(outerRotationmat);
-        }
-        ss << "}";
-        return ss.str();
-    }
 
-    ptree GetPropertyTree()
-    {
-        if (_pt.empty()) {
-            _pt.put<std::string>("instobjectname", instobjectname);
-            ptree cameranames_pt;
-            for (size_t i=0; i<cameranames.size(); i++) {
-                cameranames_pt.put<std::string>("", cameranames[i]);
-            }
-            _pt.put_child("cameranames", cameranames_pt);
-            _pt.put<std::string>("type", type);
-            ptree crop_pt;
-            for (size_t i=0; i<6; i++) {
-                crop_pt.put<double>("", cropContainerMarginsXYZXYZ[i]);
-            }
-            _pt.put_child("cropContainerMarginsXYZXYZ", crop_pt);
-            ptree crop_empty_pt;
-            for (size_t i=0; i<6; i++) {
-                crop_empty_pt.put<double>("", cropContainerEmptyMarginsXYZXYZ[i]);
-            }
-            _pt.put_child("cropContainerEmptyMarginsXYZXYZ", crop_empty_pt);
-            ptree container_pt;
-            for (size_t i=0; i<6; i++) {
-                container_pt.put<double>("", containerRoiMarginsXYZXYZ[i]);
-            }
-            _pt.put_child("containerRoiMarginsXYZXYZ", container_pt);
-            _pt.put<std::string>("visualizationuri", visualizationuri);
-            _pt.put<double>("pointsize", pointsize);
-            _pt.put<double>("filteringstddev", filteringstddev);
-            _pt.put<int>("filteringnumnn", filteringnumnn);
-            _pt.put<int>("filteringsubsample", filteringsubsample);
+    void GetJson(rapidjson::Document& d) const {
+        d.SetObject();
+        SetJsonValueByKey(d, "instobjectname", instobjectname);
+        SetJsonValueByKey(d, "cameranames", cameranames);
+        SetJsonValueByKey(d, "type", type);
+        SetJsonValueByKey(d, "cropContainerMarginsXYZXYZ", std::vector<double>(cropContainerMarginsXYZXYZ, cropContainerMarginsXYZXYZ + 6));
+        SetJsonValueByKey(d, "cropContainerEmptyMarginsXYZXYZ", std::vector<double>(cropContainerEmptyMarginsXYZXYZ, cropContainerEmptyMarginsXYZXYZ + 6));
+        SetJsonValueByKey(d, "containerRoiMarginsXYZXYZ", std::vector<double>(containerRoiMarginsXYZXYZ, containerRoiMarginsXYZXYZ + 6));
+        SetJsonValueByKey(d, "containerEmptyDivisor", containerEmptyDivisor);
+        SetJsonValueByKey(d, "visualizationuri", visualizationuri);
+        SetJsonValueByKey(d, "pointsize", pointsize);
+        SetJsonValueByKey(d, "filteringstddev", filteringstddev);
+        SetJsonValueByKey(d, "filteringnumnn", filteringnumnn);
+        SetJsonValueByKey(d, "filteringsubsample", filteringsubsample);
+        if (!innerTranslation.empty()) {
+            SetJsonValueByKey(d, "innerTranslation", innerTranslation);
         }
-        return _pt;
+        if (!innerExtents.empty()) {
+            SetJsonValueByKey(d, "innerExtents", innerExtents);
+        }
+        if (!innerRotationmat.empty()) {
+            SetJsonValueByKey(d, "innerRotationmat", innerRotationmat);
+        }
+        if (!outerTranslation.empty()) {
+            SetJsonValueByKey(d, "outerTranslation", outerTranslation);
+        }
+        if (!outerExtents.empty()) {
+            SetJsonValueByKey(d, "outerExtents", outerExtents);
+        }
+        if (!outerRotationmat.empty()) {
+            SetJsonValueByKey(d, "outerRotationmat", outerRotationmat);
+        }
     }
 };
 typedef boost::shared_ptr<RegionParameters> RegionParametersPtr;
@@ -896,6 +871,7 @@ public:
 typedef boost::shared_ptr<Image> ImagePtr;
 typedef boost::shared_ptr<Image const> ImageConstPtr;
 typedef boost::weak_ptr<Image> ImageWeakPtr;
+
 
 } // namespace mujinvision
 #endif

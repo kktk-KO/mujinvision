@@ -18,6 +18,7 @@
 #define MUJIN_VISION_DETECTOR_MANAGER_H
 
 #include "detector.h"
+#include <mujincontrollerclient/mujinzmq.h>
 
 namespace mujinvision {
 
@@ -37,7 +38,7 @@ public:
         \param setstatusfn function the detector can use to set status
         \param extraInitializationOptions extra initialization options that can override the values in the contructor
      */
-    virtual ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr> >& mRegionnameCameramap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn, const std::map<std::string, std::string>& extraInitializationOptions = std::map<std::string, std::string>(), const CheckPreemptFn& preemptfn=CheckPreemptFn()) = 0;
+    virtual ObjectDetectorPtr CreateObjectDetector(const std::string& detectorconfig, const std::string& targetname, const std::map<std::string, RegionPtr >& mNameRegion, const std::map<std::string, std::map<std::string, CameraPtr> >& mRegionnameCameramap, const boost::function<void(const std::string& msg, const std::string& err)>& setstatusfn, const std::map<std::string, std::string>& extraInitializationOptions = std::map<std::string, std::string>(), const mujinzmq::CheckPreemptFn& preemptfn=mujinzmq::CheckPreemptFn()) = 0;
 };
 
 typedef boost::shared_ptr<DetectorManager> DetectorManagerPtr;

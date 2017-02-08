@@ -1,5 +1,5 @@
 // -*- coding: utf-8 -*-
-// Copyright (C) 2012-2015 MUJIN Inc.
+// Copyright (C) 2012-2016 MUJIN Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,11 +37,11 @@ enum MujinVisionErrorCode
     MVE_NotInitialized=9,
     MVE_ControllerError=10,
     MVE_NoResponse=11,
-    MVE_UserInterrupted=12,
-    MVE_UnexpectedReturnData = 13, ///< return unexptected data
-    MVE_StreamerError = 14, ///< streamer returned an error,
-    MVE_EigenError = 15, ///< something went wrong with Eigen library,
-
+    //MVE_UserInterrupted=12, ///< use UserInterruptException
+    MVE_UnexpectedReturnData=13, ///< return unexptected data
+    MVE_StreamerError=14, ///< streamer returned an error
+    MVE_Timeout=15,
+    MVE_EigenError=16 ///< something went wrong with Eigen library,
 };
 
 inline const char* GetErrorCodeString(MujinVisionErrorCode error)
@@ -59,9 +59,10 @@ inline const char* GetErrorCodeString(MujinVisionErrorCode error)
     case MVE_NotInitialized: return "NotInitialized";
     case MVE_ControllerError: return "ControllerError";
     case MVE_NoResponse: return "NoResponse";
-    case MVE_UserInterrupted: return "UserInterrupted";
+    //case MVE_UserInterrupted: return "UserInterrupted";
     case MVE_UnexpectedReturnData: return "UnexpectedReturnData";
     case MVE_StreamerError: return "StreamerError";
+    case MVE_Timeout: return "TimeoutError";
     case MVE_EigenError: return "EigenError";
     }
     // throw an exception?
@@ -110,27 +111,6 @@ private:
     std::string _s;
     MujinVisionErrorCode _error;
 
-};
-
-/// \brief exception throw when user interrupts the function
-class MUJINVISION_API UserInterruptException : public std::exception
-{
-public:
-    UserInterruptException() : std::exception() {
-    }
-    UserInterruptException(const std::string& s) : std::exception(), _s(s) {
-    }
-    virtual ~UserInterruptException() throw() {
-    }
-    char const* what() const throw() {
-        return _s.c_str();
-    }
-    const std::string& message() const {
-        return _s;
-    }
-
-private:
-    std::string _s;
 };
 
 } // namespace mujinvision

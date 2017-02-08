@@ -28,6 +28,8 @@
 #include <boost/thread.hpp>
 #include <boost/thread/condition.hpp>
 
+#include <rapidjson/document.h>
+
 namespace mujinvision {
 
 using namespace mujinclient;
@@ -265,7 +267,7 @@ public:
 
     /** \brief Registers a command.
      */
-    typedef boost::function<bool (MujinVisionManager*, const ptree&, std::ostream&)> CustomCommandFn;
+    typedef boost::function<bool (MujinVisionManager*, const rapidjson::Document&, rapidjson::Document&)> CustomCommandFn;
 
     class MUJINVISION_API CustomCommand
     {
@@ -389,14 +391,39 @@ private:
         TT_SendExecutionVerificationPointCloud=7
     };
 
+    struct GetImagesParams {
+
+        GetImagesParams() {
+            newerthantimestamp=0;
+            fetchimagetimeout=0;
+            request=false;
+            useold=false;
+            waitinterval=50;
+            checkpreemptbits=0;
+        }
+
+        ThreadType threadtype;
+        BinPickingTaskResourcePtr pBinpickingTask;
+        std::string regionname;
+        std::vector<std::string> colorcameranames;
+        std::vector<std::string> depthcameranames;
+        bool ignoreocclusion;
+        unsigned long long newerthantimestamp;  ///< images must be newer than the specified timestamp in ms, the call blocks until all images satisfy requirements or passed fetchimagetimeout
+        unsigned int fetchimagetimeout; ///< ms
+        bool request;
+        bool useold;
+        unsigned int waitinterval; ///< ms
+        unsigned int checkpreemptbits; ///< specifying which bits to check for preempting. \see PreemptComponent
+    };
+
     void _SetDetectorStatusMessage(const std::string& msg, const std::string& err="");
     void _SetStatusMessage(ThreadType tt, const std::string& msg, const std::string& err="");
     void _SetStatus(ThreadType tt, ManagerStatus status, const std::string& msg="", const std::string& err="", const bool allowInterrupt=true);
 
     /** \brief Executes command in json string. Returns result in json string.
      */
-    void _ExecuteConfigurationCommand(const ptree& command_pt, std::stringstream& result_ss);
-    void _ExecuteUserCommand(const ptree& command_pt, std::stringstream& result_ss);
+    void _ExecuteConfigurationCommand(const rapidjson::Document& commandjson, rapidjson::Document& resultjson);
+    void _ExecuteUserCommand(const rapidjson::Document& commandconfig, rapidjson::Document& result_ss);
 
     /** \brief Receives and executes commands from the user and sends results back.
 
@@ -499,10 +526,9 @@ private:
     /** \brief gets images from specified cameras for specified region
         \param output imageStartTimestamp for all captured images, the starttime in ms of the image captured
         \param output imageEndTimestamp for all captured images, the endtime in ms of the image captured
-        \param newerthantimestamp images must be newer than the specified timestamp, the call blocks until all images satisfy requirements or passed fetchimagetimeout
         \return true if all the requested images are retrieved and imageStartTimestamp and imageEndTimestamp and resultimages are updated. Otherwise false
      */
-    bool _GetImages(ThreadType tt, BinPickingTaskResourcePtr pBinpickingTask, const std::string& regionname, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp, bool ignoreocclusion, const unsigned long long newerthantimestamp=0 /*ms*/, const unsigned int fetchimagetimeout=0 /*ms*/, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 /*ms*/);
+    bool _GetImages(GetImagesParams params, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& imageStartTimestamp, unsigned long long& imageEndTimestamp);
 
     /** \brief Converts a vector detectedobjects to "objects": [detectedobject->GetJsonString()]
      */
@@ -531,6 +557,8 @@ private:
      */
     std::string _GetString(const Transform& transform);
 
+    std::string _GetUserInfoJsonString();
+
     /** \brief Gets status json string.
      */
     std::string _GetStatusJsonString(const unsigned long long timestamp, const std::string& status, const std::string& cmdmsg="", const std::string& cmderr="", const std::string& cfgmsg="", const std::string& cfgerr="", const std::string& detectormsg="", const std::string& detectorerr="", const std::string& updateenvmsg="", const std::string& updateenverr="", const std::string& controllermonmsg="", const std::string& controllermonerr="", const std::string& sendpclmsg="", const std::string& sendpclerr="");
@@ -545,8 +573,11 @@ private:
     std::string _GetConfigFileName(const std::string& type, const std::string& configname);
     void _LoadConfig(const std::string& filename, std::string& content);
 
-    bool _CheckPreemptSubscriber();
-    bool _CheckPreemptDetector(const unsigned int checkpreemptbits);
+    /// \param checkpreemptbits a combination of values from PreemptComponent
+    void _CheckPreemptSubscriber(const unsigned int checkpreemptbits);
+
+    /// \param checkpreemptbits a combination of values from PreemptComponent
+    void _CheckPreemptDetector(const unsigned int checkpreemptbits);
 
     /** \brief checks if region camera mapping has changed for specified region and cameras, if so, reset cached data, detector, and streamer accordingly
      */
@@ -631,7 +662,7 @@ private:
     boost::mutex _mutexImagesubscriber; ///< lock for image subscriber
     boost::mutex _mutexDetector; ///< lock for detector
 
-    ptree _visionserverpt; ///< ptree storing visionserver params
+    rapidjson::Document _visionserverconfig; ///< ptree storing visionserver params
     std::vector<std::string> _vExecutionVerificationCameraNames; ///< names of cameras for exec verification
     size_t _filteringsubsample;  ///< point cloud filting param for exec verification
     double _filteringvoxelsize;  ///< point cloud filting param for exec verification
@@ -682,6 +713,7 @@ private:
     bool _bCancelCommand; ///< whether to cancel the current user command
     bool _bExecutingUserCommand; ///< whether currently executing a user command
     bool _bIsDetectionRunning; ///< true if detection thread is running
+    bool _bIsExecutionVerificationPointCloudRunning; ///< true if execution verification thread is running
     bool _bIsVisualizePointcloudRunning; ///< whether the point cloud visualization thread is running
     bool _bIsSendPointcloudRunning; ///< whether send point cloud obstacle thread is running
     bool _bIsEnvironmentUpdateRunning; ///< whether env update thread is running

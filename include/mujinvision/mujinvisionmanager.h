@@ -391,24 +391,29 @@ private:
         TT_SendExecutionVerificationPointCloud=7
     };
 
-    /**
-       bool ignoreocclusion, const unsigned long long newerthantimestamp=0 ms, const unsigned int fetchimagetimeout=0 ms, const bool request=false, const bool useold=false, const unsigned int waitinterval=50 ms, const unsigned int checkpreemptbits=0
-        \param newerthantimestamp images must be newer than the specified timestamp, the call blocks until all images satisfy requirements or passed fetchimagetimeout
-        \param checkpreemptbits specifying which bits to check for preempting. \see PreemptComponent
-    */
     struct GetImagesParams {
+
+        GetImagesParams() {
+            newerthantimestamp=0;
+            fetchimagetimeout=0;
+            request=false;
+            useold=false;
+            waitinterval=50;
+            checkpreemptbits=0;
+        }
+
         ThreadType threadtype;
         BinPickingTaskResourcePtr pBinpickingTask;
         std::string regionname;
         std::vector<std::string> colorcameranames;
         std::vector<std::string> depthcameranames;
         bool ignoreocclusion;
-        unsigned long long newerthantimestamp;
-        unsigned int fetchimagetimeout;
+        unsigned long long newerthantimestamp;  ///< images must be newer than the specified timestamp in ms, the call blocks until all images satisfy requirements or passed fetchimagetimeout
+        unsigned int fetchimagetimeout; ///< ms
         bool request;
         bool useold;
-        unsigned int waitinterval;
-        unsigned int checkpreemptbits;
+        unsigned int waitinterval; ///< ms
+        unsigned int checkpreemptbits; ///< specifying which bits to check for preempting. \see PreemptComponent
     };
 
     void _SetDetectorStatusMessage(const std::string& msg, const std::string& err="");

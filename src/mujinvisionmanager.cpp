@@ -3346,14 +3346,16 @@ void MujinVisionManager::Initialize(
     _detectorconfig = DumpJson(detectorconfigjson);
     
 
-    std::string detectormodulename = GetJsonValueByKey<std::string>(detectorconfigjson, "detection.modulename", "");
-    std::string detectorclassname = GetJsonValueByKey<std::string>(detectorconfigjson, "detection.classname", "");
+    std::string detectormodulename = rapidjson::GetValueByPointerWithDefault(detectorconfigjson, "/detection/modulename", "").GetString();
+    std::string detectorclassname = rapidjson::GetValueByPointerWithDefault(detectorconfigjson, "/detection/classname", "").GetString();;
+    MUJIN_LOG_DEBUG(str(boost::format("from detector.json detectormodulename=%s detectorclassname=%s")%detectormodulename%detectorclassname));
     if (detectormodulename.size() == 0) {
         detectormodulename = GetJsonValueByKey<std::string>(_visionserverconfig, "modulename", "");
     }
     if (detectorclassname.size() == 0) {
         detectorclassname = GetJsonValueByKey<std::string>(_visionserverconfig, "classname", "");
     }
+    MUJIN_LOG_DEBUG(str(boost::format("final detectormodulename=%s detectorclassname=%s")%detectormodulename%detectorclassname));
     if (detectormodulename.size() > 0 && detectorclassname.size() > 0) {
         _mDetectorExtraInitializationOptions["modulename"] = detectormodulename;
         _mDetectorExtraInitializationOptions["classname"] = detectorclassname;

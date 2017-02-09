@@ -848,7 +848,7 @@ void MujinVisionManager::_ExecuteUserCommand(const rapidjson::Document& commandj
             SetJsonValueByKey(resultjson, "detectedobjects", detectedobjectsworld);
             if( resultstate.size() > 0 ) {
                 rapidjson::Document resultstatejson;
-                resultstatejson.Parse(resultstate.c_str());
+                ParseJson(resultstatejson, resultstate);
                 SetJsonValueByKey(resultjson, "state", resultstatejson);
             }
             else {
@@ -874,21 +874,21 @@ void MujinVisionManager::_ExecuteUserCommand(const rapidjson::Document& commandj
             std::string config;
             GetConfig("visionmanager", config); // is this never used?
             rapidjson::Document configjson;
-            configjson.Parse(config.c_str());
+            ParseJson(configjson, config);
             SetJsonValueByKey(resultjson, "visionmanagerconfig", configjson);
             SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
         } else if (command == "GetDetectorConfig") {
             std::string config;
             rapidjson::Document configjson;
             GetConfig("detector", config);
-            configjson.Parse(config.c_str());
+            ParseJson(configjson, config);
             SetJsonValueByKey(resultjson, "detectorconfigname", configjson);
             SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
         } else if (command == "GetImagesubscriberConfig") {
             std::string config;
             rapidjson::Document configjson;
             GetConfig("imagesubscriber", config);
-            configjson.Parse(config.c_str());
+            ParseJson(configjson, config);
             SetJsonValueByKey(resultjson, "imagesubscriberconfigname", configjson);
             SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
         } else if (command == "GetConfigPort") {
@@ -1005,7 +1005,7 @@ void MujinVisionManager::_ExecuteUserCommand(const rapidjson::Document& commandj
             SetJsonValueByKey(resultjson, "objects", detectedobjects);
             SetJsonValueByKey(resultjson, "iscontainerpresent", isContainerPresent);
             rapidjson::Document resultstatejson;
-            resultstatejson.Parse(resultstate.c_str());
+            ParseJson(resultstatejson, resultstate);
             SetJsonValueByKey(resultjson, "state", resultstatejson);
             SetJsonValueByKey(resultjson, "imagestarttime", imageStartTimestamp);
             SetJsonValueByKey(resultjson, "imageendtime", imageEndTimestamp);
@@ -1322,7 +1322,7 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
             if (pCommandServer->Recv(incomingmessage, 100) > 0) {
                 MUJIN_LOG_DEBUG("Received command message: " + incomingmessage + ".");
                 // execute command
-                commandjson.Parse(incomingmessage.c_str());
+                ParseJson(commandjson, incomingmessage);
                 resultjson.SetObject();
                 try {
                     if (port == _configport) {
@@ -3025,7 +3025,7 @@ bool MujinVisionManager::_GetImages(GetImagesParams params, std::vector<ImagePtr
                     if (std::find(checkedcameranames.begin(), checkedcameranames.end(), cameraname) == checkedcameranames.end()) {
                         int isoccluded = -1;
                         if (image->GetMetadata().size() > 0) {
-                            tmpjson.Parse(image->GetMetadata().c_str());
+                            ParseJson(tmpjson, image->GetMetadata());
                             isoccluded = GetJsonValueByKey<int>(tmpjson, "isoccluded", -1);
                         }
                         if (isoccluded == -1) {
@@ -3048,7 +3048,7 @@ bool MujinVisionManager::_GetImages(GetImagesParams params, std::vector<ImagePtr
                     if (std::find(checkedcameranames.begin(), checkedcameranames.end(), cameraname) == checkedcameranames.end()) {
                         int isoccluded = -1;
                         if (image->GetMetadata().size() > 0) {
-                            tmpjson.Parse(image->GetMetadata().c_str());
+                            ParseJson(tmpjson, image->GetMetadata());
                             isoccluded = GetJsonValueByKey<int>(tmpjson, "isoccluded", -1);
                         }
                         if (isoccluded == -1) {
@@ -3293,7 +3293,7 @@ void MujinVisionManager::Initialize(
 
     // load visionserver configuration
 
-    _visionserverconfig.Parse(visionmanagerconfig.c_str());
+    ParseJson(_visionserverconfig, visionmanagerconfig);
 
     _filteringsubsample = GetJsonValueByKey<double>(_visionserverconfig, "filteringsubsample", 1.0);
     if (_filteringsubsample == 1) {
@@ -3334,9 +3334,7 @@ void MujinVisionManager::Initialize(
     // append additional params to detectorconf string
     bool debug = GetJsonValueByKey<bool>(_visionserverconfig, "debug", false);
     rapidjson::Document detectorconfigjson;
-    if (detectorconfigjson.Parse(detectorconfigstr.c_str()).HasParseError()) {
-        throw MujinVisionException("invalid detectorconfig: " + detectorconfigstr, MVE_InvalidArgument);
-    }
+    ParseJson(detectorconfigjson, detectorconfigstr);
     SetJsonValueByKey(detectorconfigjson, "debug", debug);
     if (_visionserverconfig.HasMember("cleanParameters")) {
         SetJsonValueByKey(detectorconfigjson, "cleanParameters", _visionserverconfig["cleanParameters"]);
@@ -3373,7 +3371,7 @@ void MujinVisionManager::Initialize(
         _mNameRegion.clear();
         RegionParametersPtr pRegionParameters;
         rapidjson::Document regionparametersjson;
-        regionparametersjson.Parse(containerParameters.c_str());
+        ParseJson(regionparametersjson, containerParameters);
         vRegionParameters = GetJsonValueByKey<std::vector<RegionParametersPtr> >(regionparametersjson, "regions");
         FOREACH(v, vRegionParameters) {
             _mNameRegion[(*v)->instobjectname] = RegionPtr(new Region(*v));
@@ -3533,7 +3531,7 @@ void MujinVisionManager::Initialize(
     // load subscriber configuration
     _imagesubscriberconfig = imagesubscriberconfig;
     rapidjson::Document imagesubscriberjson;
-    imagesubscriberjson.Parse(imagesubscriberconfig.c_str());
+    ParseJson(imagesubscriberjson, imagesubscriberconfig);
 
     // set up image subscriber manager
     _subscriberid = GetJsonValueByKey<std::string>(imagesubscriberjson, "subscriberid", "");
@@ -3648,7 +3646,7 @@ int MujinVisionManager::_DetectObjects(ThreadType tt, BinPickingTaskResourcePtr 
         resultstate = "null";
     } else {
         rapidjson::Document d;
-        d.Parse(resultstate.c_str());
+        ParseJson(d, resultstate);
         if (!d.HasMember("numDetectedParts")) {
             MUJIN_LOG_WARN("numDetectedObjects is not in resultstate");
         }
@@ -3833,7 +3831,7 @@ void MujinVisionManager::_SendPointCloudObstacleToController(const std::string& 
                     // check only if we are not sure region is occluded
                     if (isregionoccluded < 1 && !!depthimage && depthimage->GetMetadata().size() > 0) {
                         rapidjson::Document tmpjson;
-                        tmpjson.Parse(depthimage->GetMetadata().c_str());
+                        ParseJson(tmpjson, depthimage->GetMetadata());
                         int iscameraoccluded = GetJsonValueByKey<int>(tmpjson, "isoccluded", -1);
                         if (isregionoccluded == -2 || isregionoccluded == 0) { // use camera occlusion status if region occlusion status is never set or not occluded
                             isregionoccluded = iscameraoccluded;
@@ -4023,7 +4021,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
                     // check only if we are not sure region is occluded
                     if (isregionoccluded < 1 && !!depthimage && depthimage->GetMetadata().size() > 0) {
                         rapidjson::Document tmpjson;
-                        tmpjson.Parse((depthimage->GetMetadata().c_str()));
+                        ParseJson(tmpjson, depthimage->GetMetadata());
                         int iscameraoccluded = GetJsonValueByKey<int>(tmpjson, "isoccluded", -1);
                         if (isregionoccluded == -2 || isregionoccluded == 0) { // use camera occlusion status if region occlusion status is never set or not occluded
                             isregionoccluded = iscameraoccluded;

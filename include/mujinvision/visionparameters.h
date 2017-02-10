@@ -535,7 +535,7 @@ inline Transform GetTransform(const rapidjson::Value& config) {
     }
     const rapidjson::Value& translation = config["translation_"];
     const rapidjson::Value& quat = config["quat_"];
-    if (!translation.IsArray() || !translation.Size() != 3 || !quat.IsArray() || !quat.Size() != 4) {
+    if (!translation.IsArray() || !translation.Size() == 3 || !quat.IsArray() || !quat.Size() == 4) {
         throw MujinVisionException("Wrong data format in tranform json", MVE_Failed);
     }
     unsigned int i=0;

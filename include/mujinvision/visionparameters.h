@@ -380,7 +380,6 @@ template<class T> inline std::string GetJsonString(const T& t) {
     return DumpJson(d);
 }
 
-
 /// \brief ip and port of a connection
 struct MUJINVISION_API ConnectionParameters : public ParametersBase
 {
@@ -531,17 +530,23 @@ inline Transform GetTransform(const rapidjson::Value& config) {
     } else {
         throw MujinVisionException("got unsupported unit " + unit, MVE_Failed);
     }
-
-    unsigned int i=0;
+    if (!config.HasMember("translation_") || !config.HasMember("quat_")) {
+        throw MujinVisionException("Missed field in tranform json", MVE_Failed);
+    }
     const rapidjson::Value& translation = config["translation_"];
-    for (rapidjson::Value::ConstMemberIterator it = translation.MemberBegin(); it != translation.MemberEnd(); ++it) {
-        transform.trans[i] = boost::lexical_cast<double>(it->value.GetString()) * scale;
+    const rapidjson::Value& quat = config["quat_"];
+    if (!translation.IsArray() || !translation.Size() != 3 || !quat.IsArray() || !quat.Size() != 4) {
+        throw MujinVisionException("Wrong data format in tranform json", MVE_Failed);
+    }
+    unsigned int i=0;
+    for (rapidjson::Value::ValueIterator it = translation.Begin(); it != translation.End(); ++it) {
+        transform.trans[i] = it->GetDouble() * scale;
         i++;
     }
     i=0;
-    const rapidjson::Value& quat = config["quat_"];
-    for (rapidjson::Value::ConstMemberIterator it = quat.MemberBegin(); it != quat.MemberEnd(); ++it) {
-        transform.rot[i] = boost::lexical_cast<double>(it->value.GetString());
+    for (rapidjson::Value::ValueIterator it = quat.Begin(); it != quat.End(); ++it) {
+        transform.rot[i] = it->GetDouble();
+        i++;
     }
     return transform;
 }

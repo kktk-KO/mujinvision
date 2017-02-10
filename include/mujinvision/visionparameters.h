@@ -539,12 +539,12 @@ inline Transform GetTransform(const rapidjson::Value& config) {
         throw MujinVisionException("Wrong data format in tranform json", MVE_Failed);
     }
     unsigned int i=0;
-    for (rapidjson::Value::ValueIterator it = translation.Begin(); it != translation.End(); ++it) {
+    for (rapidjson::Value::ConstValueIterator it = translation.Begin(); it != translation.End(); ++it) {
         transform.trans[i] = it->GetDouble() * scale;
         i++;
     }
     i=0;
-    for (rapidjson::Value::ValueIterator it = quat.Begin(); it != quat.End(); ++it) {
+    for (rapidjson::Value::ConstValueIterator it = quat.Begin(); it != quat.End(); ++it) {
         transform.rot[i] = it->GetDouble();
         i++;
     }

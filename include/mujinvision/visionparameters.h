@@ -531,20 +531,24 @@ inline Transform GetTransform(const rapidjson::Value& config) {
         throw MujinVisionException("got unsupported unit " + unit, MVE_Failed);
     }
 
-    const rapidjson::Value* translation = rapidjson::Pointer("/translation_").Get(config);
-    const rapidjson::Value* quat = rapidjson::Pointer("/quat_").Get(config);
-    if (translation->IsArray() && translation->Size() == 3) {
-        int i = 0;
-        for (rapidjson::Value::ConstValueIterator it = translation->Begin(); it != translation->End(); ++it) {
-            transform.trans[i] = it->GetDouble() * scale;
-            i++;
+    if (config.HasMember("translation_")) {
+        const rapidjson::Value &translation = config.HasMember("translation_");
+        if (translation.IsArray() && translation.Size() == 3) {
+            int i = 0;
+            for (rapidjson::Value::ConstValueIterator it = translation.Begin(); it != translation.End(); ++it) {
+                transform.trans[i] = it->GetDouble() * scale;
+                i++;
+            }
         }
     }
-    if (quat->IsArray() && quat->Size() == 4) {
-        int i = 0;
-        for (rapidjson::Value::ConstValueIterator it = quat->Begin(); it != quat->End(); ++it) {
-            transform.rot[i] = it->GetDouble();
-            i++;
+    if (config.HasMember("quat_")) {
+        const rapidjson::Value &quat = config.HasMember("quat_");
+        if (quat.IsArray() && quat.Size() == 4) {
+            int i = 0;
+            for (rapidjson::Value::ConstValueIterator it = quat.Begin(); it != quat.End(); ++it) {
+                transform.rot[i] = it->GetDouble();
+                i++;
+            }
         }
     }
     return transform;

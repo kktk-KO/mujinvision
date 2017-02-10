@@ -344,17 +344,17 @@ template<class T> inline T GetJsonValueByKey(const rapidjson::Value& v, const ch
     return r;
 }
 
-template<class T> inline T GetJsonValueByURL(const rapidjson::Value& v, const char* key) {
+template<class T> inline T GetJsonValueByPath(const rapidjson::Value& v, const char* key) {
     T r;
-    rapidjson::Value *child = rapidjson::Pointer(key).Get(v);
+    const rapidjson::Value *child = rapidjson::Pointer(key).Get(v);
     if (child) {
         LoadJsonValue(*child, r);
     }
     return r;
 }
 
-template<class T, class U> T GetJsonValueByURL(const rapidjson::Value& v, const char* key, const U& t) {
-    rapidjson::Value *child = rapidjson::Pointer(key).Get(v);
+template<class T, class U> T GetJsonValueByPath(const rapidjson::Value& v, const char* key, const U& t) {
+    const rapidjson::Value *child = rapidjson::Pointer(key).Get(v);
     if (child) {
         T r;
         LoadJsonValue(*child, r);

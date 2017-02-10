@@ -3344,8 +3344,8 @@ void MujinVisionManager::Initialize(
     _detectorconfig = DumpJson(detectorconfigjson);
     
 
-    std::string detectormodulename = GetJsonValueByURL<std::string>(detectorconfigjson, "/detection/modulename", "");
-    std::string detectorclassname = GetJsonValueByURL<std::string>(detectorconfigjson, "/detection/classname", "");
+    std::string detectormodulename = GetJsonValueByPath<std::string>(detectorconfigjson, "/detection/modulename", "");
+    std::string detectorclassname = GetJsonValueByPath<std::string>(detectorconfigjson, "/detection/classname", "");
     MUJIN_LOG_DEBUG(str(boost::format("from detector.json detectormodulename=%s detectorclassname=%s")%detectormodulename%detectorclassname));
     if (detectormodulename.size() == 0) {
         detectormodulename = GetJsonValueByKey<std::string>(_visionserverconfig, "modulename", "");

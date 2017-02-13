@@ -1,0 +1,6 @@
+find_package(gtest REQUIRED)
+if (gtest_FOUND)
+  message("googletest found")
+else()
+  message("googletest not found, will not build test")
+endif()

@@ -532,7 +532,7 @@ inline Transform GetTransform(const rapidjson::Value& config) {
     }
 
     if (config.HasMember("translation_")) {
-        const rapidjson::Value &translation = config.HasMember("translation_");
+        const rapidjson::Value &translation = config["translation_"];
         if (translation.IsArray() && translation.Size() == 3) {
             int i = 0;
             for (rapidjson::Value::ConstValueIterator it = translation.Begin(); it != translation.End(); ++it) {
@@ -542,7 +542,7 @@ inline Transform GetTransform(const rapidjson::Value& config) {
         }
     }
     if (config.HasMember("quat_")) {
-        const rapidjson::Value &quat = config.HasMember("quat_");
+        const rapidjson::Value &quat = config["quat_"];
         if (quat.IsArray() && quat.Size() == 4) {
             int i = 0;
             for (rapidjson::Value::ConstValueIterator it = quat.Begin(); it != quat.End(); ++it) {

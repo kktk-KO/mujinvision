@@ -1945,7 +1945,7 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                     }
                     if (numresults == 0) {
                         // have to do again, so publish the current result. even if no detected objects, resultstate can have info about the container (like empty)
-                        if (resultstate != "null") {
+                        if (resultstate != "null") { // only publish result when resultstate is valid
                             boost::mutex::scoped_lock lock(_mutexDetectedInfo);
                             if( !detectcontaineronly ) {
                                 // only update the objects if detector actually returned them, otherwise will be erasing previously sent good results
@@ -1955,15 +1955,15 @@ void MujinVisionManager::_DetectionThread(const std::string& regionname, const s
                             else {
                                 _bDetectedObjectsValid = false;
                             }
-                        } else {
-                            resultstate = "{}";
+                            _resultState = resultstate;
+                            _resultTimestamp = GetMilliTime();
+                            _resultImageStartTimestamp = imageStartTimestamp;
+                            _resultImageEndTimestamp = imageEndTimestamp;
+                            MUJIN_LOG_INFO(str(boost::format("send %d (%d) detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u detectcontaineronly=%d resultstate=%s")%_vDetectedObject.size()%(int)_bDetectedObjectsValid%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp%detectcontaineronly%resultstate));
                         }
-                        _resultState = resultstate;
-                        _resultTimestamp = GetMilliTime();
-                        _resultImageStartTimestamp = imageStartTimestamp;
-                        _resultImageEndTimestamp = imageEndTimestamp;
-                        MUJIN_LOG_INFO(str(boost::format("send %d (%d) detected objects with _resultTimestamp=%u, imageStartTimestamp=%u imageEndTimestamp=%u detectcontaineronly=%d resultstate=%s")%_vDetectedObject.size()%(int)_bDetectedObjectsValid%_resultTimestamp%imageStartTimestamp%_resultImageEndTimestamp%detectcontaineronly%resultstate));
-                        numfastdetection -= 1;
+                        if (!bFailedBecauseOfNoImage) { // do not skip fast detection due to no image
+                            numfastdetection -= 1;
+                        }
                     } else {
                         numfastdetection = 0;
                     }
@@ -3346,14 +3346,16 @@ void MujinVisionManager::Initialize(
     _detectorconfig = DumpJson(detectorconfigjson);
     
 
-    std::string detectormodulename = GetJsonValueByKey<std::string>(detectorconfigjson, "detection.modulename", "");
-    std::string detectorclassname = GetJsonValueByKey<std::string>(detectorconfigjson, "detection.classname", "");
+    std::string detectormodulename = rapidjson::GetValueByPointerWithDefault(detectorconfigjson, "/detection/modulename", "").GetString();
+    std::string detectorclassname = rapidjson::GetValueByPointerWithDefault(detectorconfigjson, "/detection/classname", "").GetString();;
+    MUJIN_LOG_DEBUG(str(boost::format("from detector.json detectormodulename=%s detectorclassname=%s")%detectormodulename%detectorclassname));
     if (detectormodulename.size() == 0) {
         detectormodulename = GetJsonValueByKey<std::string>(_visionserverconfig, "modulename", "");
     }
     if (detectorclassname.size() == 0) {
         detectorclassname = GetJsonValueByKey<std::string>(_visionserverconfig, "classname", "");
     }
+    MUJIN_LOG_DEBUG(str(boost::format("final detectormodulename=%s detectorclassname=%s")%detectormodulename%detectorclassname));
     if (detectormodulename.size() > 0 && detectorclassname.size() > 0) {
         _mDetectorExtraInitializationOptions["modulename"] = detectormodulename;
         _mDetectorExtraInitializationOptions["classname"] = detectorclassname;

@@ -4,7 +4,13 @@ find_path(GTEST_INCLUDE_DIR
     NAMES gtest/gtest.h
     PATHS "${CMAKE_INSTALL_PREFIX}/include")
 
+find_library(GTEST_LIBRARY_DIR
+    NAMES gtest_main
+    PATHS "${CMAKE_INSTALL_PREFIX}/lib")
+
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(gtest DEFAULT_MSG GTEST_INCLUDE_DIR)
+find_package_handle_standard_args(gtest DEFAULT_MSG GTEST_INCLUDE_DIR GTEST_LIBRARY_DIR)
 
 set(GTEST_INCLUDE_DIRS ${GTEST_INCLUDE_DIR})
+get_filename_component(GTEST_LIBRARY_DIRS ${GTEST_LIBRARY_DIR} PATH)
+set(GTEST_LIBRARIES "gtest")

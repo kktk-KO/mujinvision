@@ -96,7 +96,7 @@ struct MUJINVISION_API ParametersBase
 {
     virtual ~ParametersBase() {
     }
-    inline std::string GetJsonString() {
+    inline std::string GetJsonString() const {
         rapidjson::Document d;
         GetJson(d);
         return DumpJson(d);
@@ -187,16 +187,14 @@ inline void LoadJsonValue(const rapidjson::Value& v, ParametersBase& t) {
     }
 }
 
-template<class T> inline void LoadJsonValue(const rapidjson::Value& v, boost::shared_ptr<T>& ptr) {
-    if (v.IsObject()) {
-        T t;
-        LoadJsonValue(v, t);
-        ptr = boost::shared_ptr<T>(new T(t));
-    } else {
-        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Object", MVE_InvalidArgument);
-    }
+template<class T> inline void LoadJsonValue(const rapidjson::Value& v, std::vector<T>& t);
 
+template<class T> inline void LoadJsonValue(const rapidjson::Value& v, boost::shared_ptr<T>& ptr) {
+    T t;
+    LoadJsonValue(v, t);
+    ptr = boost::shared_ptr<T>(new T(t));
 }
+
 template<class T, size_t N> inline void LoadJsonValue(const rapidjson::Value& v, T (&p)[N]) {
     if (v.IsArray()) {
         if (v.GetArray().Size() != N) {
@@ -274,6 +272,14 @@ inline void SaveJsonValue(rapidjson::Value& v, const ParametersBase& p, rapidjso
     v.CopyFrom(d, alloc);
 }
 
+template<class T> inline void SaveJsonValue(rapidjson::Value& v, const std::vector<T>& t, rapidjson::Document::AllocatorType& alloc);
+
+/** do not remove: otherwise boost::shared_ptr could be treated as bool
+ */
+template<class T> inline void SaveJsonValue(rapidjson::Value& v, const boost::shared_ptr<T>& ptr, rapidjson::Document::AllocatorType& alloc) {
+    SaveJsonValue(v, *ptr, alloc);
+}
+
 template<class T> inline void SaveJsonValue(rapidjson::Value& v, const std::vector<T>& t, rapidjson::Document::AllocatorType& alloc) {
     v.SetArray();
     v.Reserve(t.size(), alloc);
@@ -296,11 +302,6 @@ template<class T> inline void SaveJsonValue(rapidjson::Document& v, const T& t) 
     SaveJsonValue(v, t, v.GetAllocator());
 }
 
-/** do not remove: otherwise boost::shared_ptr could be treated as bool
- */
-template<class T> inline void SaveJsonValue(rapidjson::Value& v, const boost::shared_ptr<T>& ptr, rapidjson::Document::AllocatorType& alloc) {
-    SaveJsonValue(v, *ptr, alloc);
-}
 
 template<class T, class U> inline void SetJsonValueByKey(rapidjson::Value& v, const U& key, const T& t, rapidjson::Document::AllocatorType& alloc);
 
@@ -337,7 +338,7 @@ template<class T, class U> T GetJsonValueByKey(const rapidjson::Value& v, const 
     }
 }
 template<class T> inline T GetJsonValueByKey(const rapidjson::Value& v, const char* key) {
-    T r;
+    T r = T();
     if (v.HasMember(key)) {
         LoadJsonValue(v[key], r);
     }

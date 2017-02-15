@@ -1,8 +1,8 @@
 .. image:: https://travis-ci.org/mujin/mujinvision.svg?branch=master
     :target: https://travis-ci.org/mujin/mujinvision
-
 .. image:: https://coveralls.io/repos/github/mujin/mujinvision/badge.svg?branch=master
-:target: https://coveralls.io/github/mujin/mujinvision?branch=master
+    :target: https://coveralls.io/github/mujin/mujinvision?branch=master
+
 mujinvision
 -----------
 

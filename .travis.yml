@@ -40,7 +40,7 @@ before_install:
   - make -j2 install
   # install controllerclientcpp
   - cd ~
-  - git clone --depth=1 https://github.com/mujin/concontrollerclient.git
+  - git clone --depth=1 https://github.com/mujin/controllerclientcpp.git
   - mkdir -p build/controllerclientcpp && cd build/controllerclientcpp
   - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DCMAKE_BUILD_TYPE=RelWithDebInfo -DOPT_SAMPLES=OFF -DOPT_LOG4CXX=ON .././controllerclientcpp
   - make -j2 install

@@ -31,32 +31,26 @@ before_install:
     -DRAPIDJSON_BUILD_TESTS=OFF
     -DCMAKE_CXX_FLAGS="-fno-strict-overflow"
     ../../rapidjson
-  - make -j2
+  - make -j2 install
   # install googletest
   - cd ~
   - git clone --depth=1 https://github.com/mujin/googletest.git
   - mkdir -p build/googletest && cd build/googletest
-  - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR
-  - make -j2
+  - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR ../../googletest
+  - make -j2 install
   # install controllerclientcpp
   - cd ~
   - git clone --depth=1 https://github.com/mujin/concontrollerclient.git
   - mkdir -p build/controllerclientcpp && cd build/controllerclientcpp
-  - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DCMAKE_BUILD_TYPE=RelWithDebInfo -DOPT_SAMPLES=OFF -DOPT_LOG4CXX=ON
-  - make -j2
+  - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DCMAKE_BUILD_TYPE=RelWithDebInfo -DOPT_SAMPLES=OFF -DOPT_LOG4CXX=ON .././controllerclientcpp
+  - make -j2 install
 
 install:
   - mkdir build
   - cd build
   - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR
-  - make -j2
+  - make -j2 install
 
 script:
   - $INSTALL_DIR/bin/testmujinvision
-
-
-
-
-
-
 

@@ -22,6 +22,7 @@ before_install:
   # install libzmq
   - cd ~
   - wget https://github.com/zeromq/zeromq4-x/releases/download/v4.0.8/zeromq-4.0.8.tar.gz
+  - tar -zxvf zeromq-4.0.8.tar.gz
   - cd zeromq-4.0.8
   - env CFLAGS="${CFLAGS} -O3" CXXFLAGS="${CXXFLAGS} -O3" ./configure --prefix $INSTALL_DIR  --disable-static --disable-gtk-doc --disable-Werror
   - make -j2 install

@@ -61,4 +61,4 @@ script:
 
 after_success:
   - pip install --user cpp-coveralls
-  - coveralls -r .. --gcov-options '\-lp' -e test
+  - coveralls -r .. --gcov-options '\-lp' -e test -e controllerclientcpp -e samples -e build/CMakeFiles

@@ -1,5 +1,5 @@
 find_package(gtest REQUIRED)
-if (gtest_FOUND)
+if (GTEST_FOUND)
   macro(build_test name)
     set(TEST_SOURCES testmain.cpp testjson.cpp)
     include_directories(${GTEST_INCLUDE_DIRS})

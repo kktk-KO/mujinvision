@@ -53,9 +53,12 @@ install:
   - cd $TRAVIS_BUILD_DIR
   - mkdir build
   - cd build
-  - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR ..
+  - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DCMAKE_CXX_FLAGS="--coverage" ..
   - make -j2 install
 
 script:
   - $INSTALL_DIR/bin/testmujinvision
 
+after_success:
+  - pip install --user cpp-coveralls
+  - coveralls -r .. --gcov-options '\-lp' -e test

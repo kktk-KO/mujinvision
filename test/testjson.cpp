@@ -230,7 +230,7 @@ TEST(JsonTest, ParametersBase) {
     TestParameterBase(RegionParameters());
 }
 
-TEST(JsonTest, ParameterBase) {
+TEST(JsonTest, DetectedObject) {
     DetectedObject detectedObject;
     rapidjson::Document d;
     EXPECT_NO_THROW({

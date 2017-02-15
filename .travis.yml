@@ -15,7 +15,7 @@ branches:
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -y -qq liblog4cxx-dev cmake libboost-dev libboost-filesystem-dev libboost-system-dev libboost-python-dev libboost-thread-dev libboost-date-time-dev
+  - sudo apt-get install -y -qq liblog4cxx10 liblog4cxx10-dev cmake libboost-dev libboost-filesystem-dev libboost-system-dev libboost-python-dev libboost-thread-dev libboost-date-time-dev
   - cd ~
   - mkdir install
   # install rapidjson

@@ -20,7 +20,7 @@ before_install:
   - mkdir install
   # install rapidjson
   - cd ~
-  - git clone --depth=1 git@github.com:mujin/rapidjson.git
+  - git clone --depth=1 https://github.com/mujin/rapidjson.git
   - mkdir -p build/rapidjson && cd build/rapidjson
   - >
     cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR
@@ -34,13 +34,13 @@ before_install:
   - make -j2
   # install googletest
   - cd ~
-  - git clone --depth=1 git@github.com:mujin/googletest.git
+  - git clone --depth=1 https://github.com/mujin/googletest.git
   - mkdir -p build/googletest && cd build/googletest
   - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR
   - make -j2
   # install controllerclientcpp
   - cd ~
-  - git clone --depth=1 git@github.com:mujin/concontrollerclient.git
+  - git clone --depth=1 https://github.com/mujin/concontrollerclient.git
   - mkdir -p build/controllerclientcpp && cd build/controllerclientcpp
   - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DCMAKE_BUILD_TYPE=RelWithDebInfo -DOPT_SAMPLES=OFF -DOPT_LOG4CXX=ON
   - make -j2

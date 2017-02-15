@@ -1,0 +1,62 @@
+language:
+  - cpp  
+compiler:
+  - gcc
+
+env:
+  global:
+    - MUJIN_TESTVISION=ON
+    - INSTALL_DIR=~/install
+
+branches:
+  only:
+    - master
+    - test
+
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -y -qq liblog4cxx-dev cmake libboost-dev libboost-filesystem-dev libboost-system-dev libboost-python-dev libboost-thread-dev libboost-date-time-dev
+  - cd ~
+  - mkdir install
+  # install rapidjson
+  - cd ~
+  - git clone --depth=1 git@github.com:mujin/rapidjson.git
+  - mkdir -p build/rapidjson && cd build/rapidjson
+  - >
+    cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo
+    -DRAPIDJSON_HAS_STDSTRING=ON
+    -DRAPIDJSON_BUILD_DOC=OFF
+    -DRAPIDJSON_BUILD_EXAMPLES=OFF
+    -DRAPIDJSON_BUILD_TESTS=OFF
+    -DCMAKE_CXX_FLAGS="-fno-strict-overflow"
+    ../../rapidjson
+  - make -j2
+  # install googletest
+  - cd ~
+  - git clone --depth=1 git@github.com:mujin/googletest.git
+  - mkdir -p build/googletest && cd build/googletest
+  - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR
+  - make -j2
+  # install controllerclientcpp
+  - cd ~
+  - git clone --depth=1 git@github.com:mujin/concontrollerclient.git
+  - mkdir -p build/controllerclientcpp && cd build/controllerclientcpp
+  - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DCMAKE_BUILD_TYPE=RelWithDebInfo -DOPT_SAMPLES=OFF -DOPT_LOG4CXX=ON
+  - make -j2
+
+install:
+  - mkdir build
+  - cd build
+  - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR
+  - make -j2
+
+script:
+  - $INSTALL_DIR/bin/testmujinvision
+
+
+
+
+
+
+

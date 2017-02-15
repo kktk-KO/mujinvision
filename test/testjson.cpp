@@ -32,23 +32,35 @@ TEST(JsonTest, GetInt) {
     EXPECT_EQ(GetJsonValueByKey<unsigned int>(d, "b", 0), 0);
     EXPECT_EQ(GetJsonValueByKey<unsigned long long>(d, "b", 0), 0);
     EXPECT_EQ(GetJsonValueByKey<uint64_t >(d, "b", 0), 0);
+    //test case when key is not missed but default value is provided
+    EXPECT_EQ(GetJsonValueByKey<int>(d, "a", 0), INT_MAX);
+    EXPECT_EQ(GetJsonValueByKey<unsigned int>(d, "a", 0), INT_MAX);
+    EXPECT_EQ(GetJsonValueByKey<unsigned long long>(d, "a", 0), INT_MAX);
+    EXPECT_EQ(GetJsonValueByKey<uint64_t >(d, "a", 0), INT_MAX);
     int x;
     LoadJsonValueByKey(d, "a", x);
     EXPECT_EQ(x, INT_MAX);
     x = 0;
     LoadJsonValueByKey(d, "b", x);
     EXPECT_EQ(x, 0);
+    LoadJsonValueByKey(d, "a", x, -1);
+    EXPECT_EQ(x, INT_MAX);
     LoadJsonValueByKey(d, "b", x, -1);
     EXPECT_EQ(x, -1);
 }
 
 TEST(JsonTest, GetDouble) {
     rapidjson::Document d;
+    //case when integer is provided
     d.Parse("{\"a\":32}");
     EXPECT_DOUBLE_EQ(GetJsonValueByKey<double>(d, "a"), 32);
+    EXPECT_DOUBLE_EQ(GetJsonValueByKey<double>(d, "a", 0), 32);
     EXPECT_DOUBLE_EQ(GetJsonValueByKey<double>(d, "b", 0), 0);
+    EXPECT_DOUBLE_EQ(GetJsonValueByKey<double>(d, "b", 0), 0);
+    //case when double is provided
     d.Parse("{\"a\":1.0111}");
     EXPECT_DOUBLE_EQ(GetJsonValueByKey<double>(d, "a"), 1.0111);
+    EXPECT_DOUBLE_EQ(GetJsonValueByKey<double>(d, "a", 0), 1.0111);
     EXPECT_DOUBLE_EQ(GetJsonValueByKey<double>(d, "b", -1), -1);
     double x;
     LoadJsonValueByKey(d, "a", x);
@@ -56,6 +68,8 @@ TEST(JsonTest, GetDouble) {
     x = 0;
     LoadJsonValueByKey(d, "b", x);
     EXPECT_DOUBLE_EQ(x, 0);
+    LoadJsonValueByKey(d, "a", x, 1.0111);
+    EXPECT_DOUBLE_EQ(x, 1.0111);
     LoadJsonValueByKey(d, "b", x, -1);
     EXPECT_DOUBLE_EQ(x, -1);
 }
@@ -64,6 +78,7 @@ TEST(JsonTest, GetString) {
     rapidjson::Document d;
     d.Parse("{\"a\":\"{string}\"}");
     EXPECT_EQ(GetJsonValueByKey<std::string>(d, "a"), "{string}");
+    EXPECT_EQ(GetJsonValueByKey<std::string>(d, "a", "{}"), "{string}");
     EXPECT_EQ(GetJsonValueByKey<std::string>(d, "b", "{}"), "{}");
     std::string x;
     LoadJsonValueByKey(d, "a", x);
@@ -71,6 +86,8 @@ TEST(JsonTest, GetString) {
     x = "{}";
     LoadJsonValueByKey(d, "b", x);
     EXPECT_EQ(x, "{}");
+    LoadJsonValueByKey(d, "a", x, "s");
+    EXPECT_EQ(x, "{string}");
     LoadJsonValueByKey(d, "b", x, "s");
     EXPECT_EQ(x, "s");
 }
@@ -79,8 +96,12 @@ TEST(JsonTest, GetBool) {
     rapidjson::Document d;
     d.Parse("{\"a\":true}");
     EXPECT_TRUE(GetJsonValueByKey<bool>(d, "a"));
+    EXPECT_TRUE(GetJsonValueByKey<bool>(d, "a", false));
+    EXPECT_FALSE(GetJsonValueByKey<bool>(d, "b", false));
     d.Parse("{\"a\":false}");
     EXPECT_FALSE(GetJsonValueByKey<bool>(d, "a"));
+    EXPECT_FALSE(GetJsonValueByKey<bool>(d, "a", true));
+    EXPECT_TRUE(GetJsonValueByKey<bool>(d, "b", true));
 }
 
 template<class T>
@@ -97,6 +118,8 @@ TEST(JsonTest, GetVector) {
     d.Parse("{\"a\":[0, 1, 2]}");
     EXPECT_EQ(GetJsonValueByKey<std::vector<int> >(d, "a"), Range<int>(3));
     EXPECT_EQ(GetJsonValueByKey<std::vector<double> >(d, "a"), Range<double>(3));
+    EXPECT_EQ(GetJsonValueByKey<std::vector<int> >(d, "a", Range<int>(0)), Range<int>(3));
+    EXPECT_EQ(GetJsonValueByKey<std::vector<double> >(d, "a", Range<double>(0)), Range<double>(3));
     EXPECT_EQ(GetJsonValueByKey<std::vector<int> >(d, "b"), Range<int>(0));
     EXPECT_EQ(GetJsonValueByKey<std::vector<double> >(d, "b"), Range<double>(0));
     EXPECT_EQ(GetJsonValueByKey<std::vector<int> >(d, "b", Range<int>(10)), Range<int>(10));
@@ -112,11 +135,14 @@ TEST(JsonTest, GetArray) {
 }
 
 template<class T>
-void TestSaveJsonValue(const T& v) {
+void TestSaveJsonValue(const T& v) { // this involved many cases
     rapidjson::Document d;
     d.SetObject();
     SetJsonValueByKey(d, "a", v);
+    std::string key = "a";
+    SetJsonValueByKey(d, key, v); // set the key again
     EXPECT_EQ(GetJsonValueByKey<T>(d, "a"), v);
+    EXPECT_EQ(GetJsonString(v), DumpJson(d["a"])); // check GetJsonString() works
 }
 
 TEST(JsonTest, SaveJsonValue) {
@@ -159,6 +185,9 @@ TEST(JsonTest, MismatchedType) {
     TestMismatchedType<ConnectionParameters, std::vector<int> >(ConnectionParameters());
     TestMismatchedType<ConnectionParameters, int>(ConnectionParameters());
     TestMismatchedType<ConnectionParameters, std::string>(ConnectionParameters());
+    TestMismatchedType<ConnectionParameters, bool>(ConnectionParameters());
+    TestMismatchedType<bool, ConnectionParameters>(true);
+    TestMismatchedType<bool, ConnectionParameters>(false);
 }
 
 template<class T>
@@ -237,4 +266,23 @@ TEST(JsonTest, DetectedObject) {
         std::string s = detectedObject.GetJsonString();
         ParseJson(d, s);
     });
+}
+
+void TestValidateJson(const std::string &s, bool valid) {
+    if (valid) {
+        EXPECT_NO_THROW({
+            ValidateJsonString(s);
+        });
+    } else {
+        EXPECT_THROW({
+            ValidateJsonString(s);
+         }, MujinVisionException);
+    }
+}
+
+TEST(JsonTest, Validate) {
+    TestValidateJson("{}", true);
+    TestValidateJson(s, true);
+    TestValidateJson("{", false);
+    TestValidateJson("fsdfs", false);
 }

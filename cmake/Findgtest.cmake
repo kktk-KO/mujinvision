@@ -13,4 +13,5 @@ find_package_handle_standard_args(gtest DEFAULT_MSG GTEST_INCLUDE_DIR GTEST_LIBR
 
 set(GTEST_INCLUDE_DIRS ${GTEST_INCLUDE_DIR})
 get_filename_component(GTEST_LIBRARY_DIRS ${GTEST_LIBRARY_DIR} PATH)
+message($GTEST_LIBRARY_DIRS)
 set(GTEST_LIBRARIES "gtest")

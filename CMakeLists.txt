@@ -37,11 +37,7 @@ cmake_policy(SET CMP0003 NEW)
 option(OPT_SAMPLES "Build the samples" ON)
 option(OPT_BUILD_STATIC "Build static libraries for the library" OFF)
 option(OPT_LOG4CXX "Use log4cxx for logging" ON)
-if( $ENV{MUJIN_TESTVISION} )
-  option(OPT_BUILD_TESTS "Build the tests" ON)
-else()
-  option(OPT_BUILD_TESTS "Build the tests" OFF)
-endif()
+option(OPT_BUILD_TESTS "Build the tests" OFF)
 
 # Use, i.e. don't skip the full RPATH for the build tree
 set(CMAKE_SKIP_BUILD_RPATH  FALSE)

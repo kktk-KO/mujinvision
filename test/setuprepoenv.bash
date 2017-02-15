@@ -1,1 +1,0 @@
-export MUJIN_TESTVISION=ON

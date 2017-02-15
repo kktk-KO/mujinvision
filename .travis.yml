@@ -50,6 +50,7 @@ before_install:
 
 
 install:
+  - cd $TRAVIS_BUILD_DIR
   - mkdir build
   - cd build
   - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR ..

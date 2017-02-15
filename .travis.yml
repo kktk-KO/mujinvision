@@ -7,6 +7,7 @@ env:
   global:
     - MUJIN_TESTVISION=ON
     - INSTALL_DIR=~/install
+    - PKG_CONFIG_PATH=$INSTALL_DIR/lib/pkgconfig
 
 branches:
   only:
@@ -15,9 +16,15 @@ branches:
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -y -qq liblog4cxx10 liblog4cxx10-dev cmake libboost-dev libboost-filesystem-dev libboost-system-dev libboost-python-dev libboost-thread-dev libboost-date-time-dev libzmq-dev
+  - sudo apt-get install -y -qq liblog4cxx10 liblog4cxx10-dev cmake libboost-dev libboost-filesystem-dev libboost-system-dev libboost-python-dev libboost-thread-dev libboost-date-time-dev
   - cd ~
   - mkdir install
+  # install libzmq
+  - cd ~
+  - wget http://download.zeromq.org/zeromq-4.0.8.tar.gz
+  - cd zeromq-4.0.8
+  - env CFLAGS="${CFLAGS} -O3" CXXFLAGS="${CXXFLAGS} -O3" ./configure --prefix $INSTALL_DIR  --disable-static --disable-gtk-doc --disable-Werror
+  - make -j2 install
   # install rapidjson
   - cd ~
   - git clone --depth=1 https://github.com/mujin/rapidjson.git
@@ -44,6 +51,7 @@ before_install:
   - mkdir -p build/controllerclientcpp && cd build/controllerclientcpp
   - cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR -DCMAKE_BUILD_TYPE=RelWithDebInfo -DOPT_SAMPLES=OFF -DOPT_LOG4CXX=ON ../../controllerclientcpp
   - make -j2 install
+
 
 install:
   - mkdir build

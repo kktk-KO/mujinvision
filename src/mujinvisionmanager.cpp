@@ -2946,7 +2946,7 @@ bool MujinVisionManager::_GetImages(GetImagesParams params, std::vector<ImagePtr
                 boost::mutex::scoped_lock lock(_mutexRegion);
                 extracaptureoptions = _GetExtraCaptureOptions(_GetHardwareIds(cameranames), _GetHardwareIds(cameranames), _visionserverconfig, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid, ignoreocclusion);
             }
-            _pImagesubscriberManager->SnapImages(cameranames, imageStartTimestamp, imageEndTimestamp, colorimages, depthimages, fetchimagetimeout / 1000.0, /*numimages=*/ -1, extracaptureoptions, checkpreemptbits);
+            _pImagesubscriberManager->SnapImages(cameranames, imageStartTimestamp, imageEndTimestamp, colorimages, depthimages, resultimages, fetchimagetimeout / 1000.0, /*numimages=*/ -1, extracaptureoptions, checkpreemptbits);
         }
         // if called by detection thread, break if it is being stopped
         if (tt == TT_Detector && _bStopDetectionThread) {

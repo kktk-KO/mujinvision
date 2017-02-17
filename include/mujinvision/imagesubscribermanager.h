@@ -120,13 +120,13 @@ public:
     virtual ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=1.0 /*sec*/, const int numimages=-1, const unsigned int checkpreemptbits=0) = 0;
 
     /** \brief Gets the color and depth image. The depth image is generated from the latest n images with depth data, and the min/max timestamps of the images used.
-        \param cameraname name of the camera
+        \param cameranames names of the cameras that will provide the images
         \param starttime timestamp of the earliest image
         \param endtime timestamp of the latest image
         \param checkpreemptbits specifying which bit to check for preempting
         \return pointer to the depth image
      */
-    virtual void SnapColorAndDepthImages(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const double timeout=1.0 /*sec*/, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0) = 0;
+    virtual void SnapColorAndDepthImages(const std::vector<std::string>& cameranames, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const double timeout=1.0 /*sec*/, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0) = 0;
 
     /** \brief gets detection result
         \param checkpreemptbits specifying which bit to check for preempting

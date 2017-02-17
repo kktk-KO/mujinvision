@@ -2924,17 +2924,15 @@ bool MujinVisionManager::_GetImages(GetImagesParams params, std::vector<ImagePtr
             }
             _pImagesubscriberManager->GetImagePackFromBuffer(colorcameranames, depthcameranames, colorimages, depthimages, resultimages, imageStartTimestamp, imageEndTimestamp, imagepacktimestamp, fetchimagetimeout / 1000.0, oldimagepacktimestamp, mCameraIdRegionName, checkpreemptbits);
         } else {
-            BOOST_ASSERT(colorcameranames.size() == 1); // TODO supports only one color camera
-            BOOST_ASSERT(depthcameranames.size() == 1); // TODO supports only one depth camera
             colorimages.resize(0);
             depthimages.resize(0);
             // assuming that the depth camera will return color image as well (with color camera name)
             std::string extracaptureoptions;
             {
                 boost::mutex::scoped_lock lock(_mutexRegion);
-                extracaptureoptions = _GetExtraCaptureOptions(_GetHardwareIds(depthcameranames), _GetHardwareIds(depthcameranames), _visionserverconfig, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid, ignoreocclusion);
+                extracaptureoptions = _GetExtraCaptureOptions(_GetHardwareIds(cameranames), _GetHardwareIds(cameranames), _visionserverconfig, _controllerIp, _binpickingTaskZmqPort, _slaverequestid, _mCameraNameHardwareId, _mCameranameActiveRegionname, _subscriberid, ignoreocclusion);
             }
-            _pImagesubscriberManager->SnapColorAndDepthImages(depthcameranames.at(0), imageStartTimestamp, imageEndTimestamp, colorimages, depthimages, fetchimagetimeout / 1000.0, /*numimages=*/ -1, extracaptureoptions, checkpreemptbits);
+            _pImagesubscriberManager->SnapColorAndDepthImages(cameranames, imageStartTimestamp, imageEndTimestamp, colorimages, depthimages, fetchimagetimeout / 1000.0, /*numimages=*/ -1, extracaptureoptions, checkpreemptbits);
         }
         // if called by detection thread, break if it is being stopped
         if (tt == TT_Detector && _bStopDetectionThread) {

@@ -126,7 +126,7 @@ public:
         \param checkpreemptbits specifying which bit to check for preempting
         \return pointer to the depth image
      */
-    virtual void SnapColorAndDepthImages(const std::vector<std::string>& cameranames, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const double timeout=1.0 /*sec*/, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0) = 0;
+    virtual void SnapImages(const std::vector<std::string>& cameranames, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const double timeout=1.0 /*sec*/, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0) = 0;
 
     /** \brief gets detection result
         \param checkpreemptbits specifying which bit to check for preempting

@@ -2413,7 +2413,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 hasRobotExecutionStarted = _bHasRobotExecutionStarted;
             }
             boost::this_thread::sleep(boost::posix_time::milliseconds(20));
-        } while (!hasRobotExecutionStarted);
+        } while (!hasRobotExecutionStarted && !_bStopControllerMonitorThread);
 
         FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);
         std::vector<std::string> cameranames = params.cameranames;

@@ -44,7 +44,7 @@ public:
     {
         return ImagePtr();
     }
-    void SnapColorAndDepthImages(const std::vector<std::string>& cameranames, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, const double timeout=1.0, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0)
+    void SnapImages(const std::vector<std::string>& cameranames, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const double timeout=1.0, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0)
     {
     }
     void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout, const unsigned long long laterthan, const std::map<std::string, std::string>& mCameraIdRegionName=std::map<std::string, std::string>(), const unsigned int checkpreemptbits=0)

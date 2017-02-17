@@ -699,6 +699,7 @@ private:
     bool _bForceRequestDetectionResults; ///< whether to run detection ignoring _numPickAttempt
     bool _bIsGrabbingTarget; ///< whether the robot is grabbing target
     bool _bIsGrabbingLastTarget; ///< whether the robot is grabbing the last target
+    bool _bHasRobotExecutionStarted; ///< whether the robot has started execution. ExecutionVerification thread will be started when it becomes true
 
     // vision manager flags
     bool _bInitialized; ///< whether visionmanager is initialized

@@ -916,11 +916,10 @@ void MujinVisionManager::_ExecuteUserCommand(const rapidjson::Document& commandj
             unsigned int fetchimagetimeout = GetJsonValueByKey<unsigned int>(commandjson, "fetchimagetimeout");
             std::string obstaclename = GetJsonValueByKey<std::string>(commandjson, "obstaclename", "__dynamicobstacle__");
             bool fast = GetJsonValueByKey<bool>(commandjson, "fast", false);
-            bool request = GetJsonValueByKey<bool>(commandjson, "request", true);
             bool async = GetJsonValueByKey<bool>(commandjson, "async", false);
             std::string locale = GetJsonValueByKey<std::string>(commandjson, "locale", "en_US");
             _locale = locale;
-            SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, newerthantimestamp, fetchimagetimeout, obstaclename, fast, request, async, locale);
+            SendPointCloudObstacleToController(regionname, cameranames, detectedobjects, newerthantimestamp, fetchimagetimeout, obstaclename, fast, /*request=*/false, async, locale);
             SetJsonValueByKey(resultjson, "computationtime", GetMicroTime()-starttime);
         }
     } else if (!!_pDetectionThread && _bIsDetectionRunning) {
@@ -3973,7 +3972,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
             params.ignoreocclusion = ignoreocclusion;
             params.newerthantimestamp = newerthantimestamp;
             params.fetchimagetimeout = fetchimagetimeout;
-            params.request = true;
+            params.request = false;
             params.useold = false;
             params.waitinterval = 50;
             params.checkpreemptbits = PC_SendPointcloudThread;

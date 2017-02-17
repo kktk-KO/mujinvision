@@ -2412,7 +2412,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 boost::mutex::scoped_lock(_mutexControllerBinpickingState);
                 hasRobotExecutionStarted = _bHasRobotExecutionStarted;
             }
-            boost::this_thread::sleep(20);
+            boost::this_thread::sleep(boost::posix_time::milliseconds(20));
         } while (!hasRobotExecutionStarted);
 
         FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);

@@ -2404,6 +2404,7 @@ std::string MujinVisionManager::_GetUserInfoJsonString() {
 
 void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutionVerificationPointCloudParams params)
 {
+    FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);
     try {
         bool hasRobotExecutionStarted = false;
         do { // wait until robot starts
@@ -2413,8 +2414,9 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
             }
             boost::this_thread::sleep(boost::posix_time::milliseconds(20));
         } while (!hasRobotExecutionStarted && !_bStopExecutionVerificationPointCloudThread);
-
-        FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);
+        if (_bStopExecutionVerificationPointCloudThread) {
+            break;
+        }
         std::vector<std::string> cameranames = params.cameranames;
         std::vector<std::string> evcamnames = params.executionverificationcameranames;
         MUJIN_LOG_INFO("starting SendExecutionVerificationPointCloudThread " + GetJsonString(evcamnames));

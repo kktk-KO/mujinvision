@@ -441,6 +441,7 @@ MujinVisionManager::MujinVisionManager(ImageSubscriberManagerPtr imagesubscriber
     _bForceRequestDetectionResults = false;
     _bIsGrabbingTarget = false;
     _bIsGrabbingLastTarget = false;
+    _bHasRobotExecutionStarted = false;
     _bindetectionMode = "never";
     _numPickAttempt = 0;
     _binpickingstateTimestamp = 0;
@@ -2608,6 +2609,9 @@ void MujinVisionManager::_ControllerMonitorThread(const unsigned int waitinterva
                 _lastGrabbedTargetTimestamp = binpickingstate.lastGrabbedTargetTimeStamp;
                 _bIsGrabbingTarget = binpickingstate.isGrabbingTarget;
                 _bIsGrabbingLastTarget = binpickingstate.isGrabbingLastTarget;
+                if (binpickingstate.hasRobotExecutionStarted != _bHasRobotExecutionStarted) {
+                    MUJIN_LOG_INFO(str(boost::format("updating _bHasRobotExecutionStarted from %d to %d") % _bHasRobotExecutionStarted % binpickingstate.hasRobotExecutionStarted));
+                }
                 _bHasRobotExecutionStarted = binpickingstate.hasRobotExecutionStarted;
                 _orderNumber = binpickingstate.orderNumber;
                 _numLeftInOrder = binpickingstate.numLeftInOrder;
@@ -3976,7 +3980,7 @@ void MujinVisionManager::_SendPointCloudObstacleToControllerThread(SendPointClou
             params.ignoreocclusion = ignoreocclusion;
             params.newerthantimestamp = newerthantimestamp;
             params.fetchimagetimeout = fetchimagetimeout;
-            params.request = false;
+            params.request = true;
             params.useold = false;
             params.waitinterval = 50;
             params.checkpreemptbits = PC_SendPointcloudThread;

@@ -2407,6 +2407,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
     FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);
     try {
         bool hasRobotExecutionStarted = false;
+        MUJIN_LOG_INFO("wait for robot to move before starting execution verification thread");
         do { // wait until robot starts
             {
                 boost::mutex::scoped_lock(_mutexControllerBinpickingState);
@@ -2417,6 +2418,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         if (_bStopExecutionVerificationPointCloudThread) {
             return;
         }
+        MUJIN_LOG_INFO("robot has moved, starting execution verification thread");
         std::vector<std::string> cameranames = params.cameranames;
         std::vector<std::string> evcamnames = params.executionverificationcameranames;
         MUJIN_LOG_INFO("starting SendExecutionVerificationPointCloudThread " + GetJsonString(evcamnames));

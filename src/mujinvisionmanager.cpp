@@ -2415,7 +2415,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
             boost::this_thread::sleep(boost::posix_time::milliseconds(20));
         } while (!hasRobotExecutionStarted && !_bStopExecutionVerificationPointCloudThread);
         if (_bStopExecutionVerificationPointCloudThread) {
-            break;
+            return;
         }
         std::vector<std::string> cameranames = params.cameranames;
         std::vector<std::string> evcamnames = params.executionverificationcameranames;

@@ -2408,18 +2408,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
     FalseSetter turnoffstatusvar(_bIsExecutionVerificationPointCloudRunning);
     try {
         bool hasRobotExecutionStarted = false;
-        MUJIN_LOG_INFO("wait for robot to move before starting execution verification thread");
-        do { // wait until robot starts
-            {
-                boost::mutex::scoped_lock(_mutexControllerBinpickingState);
-                hasRobotExecutionStarted = _bHasRobotExecutionStarted;
-            }
-            boost::this_thread::sleep(boost::posix_time::milliseconds(20));
-        } while (!hasRobotExecutionStarted && !_bStopExecutionVerificationPointCloudThread);
-        if (_bStopExecutionVerificationPointCloudThread) {
-            return;
-        }
-        MUJIN_LOG_INFO("robot has moved, starting execution verification thread");
+        bool hasRunOnce = false;  // whether exec verification has run once
         std::vector<std::string> cameranames = params.cameranames;
         std::vector<std::string> evcamnames = params.executionverificationcameranames;
         MUJIN_LOG_INFO("starting SendExecutionVerificationPointCloudThread " + GetJsonString(evcamnames));
@@ -2452,6 +2441,20 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         uint64_t lastCaptureResetTimeout = 4000; // how long to wait until force reset is called again
         //uint64_t lastUpdateTimestamp = 0;
         while (!_bStopExecutionVerificationPointCloudThread && evcamnames.size() > 0) {
+            if (hasRunOnce && !hasRobotExecutionStarted) { // we want to send exec verification once, then pause until robot moves
+                MUJIN_LOG_INFO("wait for robot to move before starting execution verification thread");
+                do { // wait until robot starts
+                    {
+                        boost::mutex::scoped_lock(_mutexControllerBinpickingState);
+                        hasRobotExecutionStarted = _bHasRobotExecutionStarted;
+                    }
+                    boost::this_thread::sleep(boost::posix_time::milliseconds(20));
+                } while (!hasRobotExecutionStarted && !_bStopExecutionVerificationPointCloudThread);
+                if (_bStopExecutionVerificationPointCloudThread) {
+                    return;
+                }
+                MUJIN_LOG_INFO("robot has moved, starting execution verification thread");
+            }
             // send latest pointcloud for execution verification
             for (unsigned int i=0; i<evcamnames.size(); ++i) {
                 std::vector<double> points;
@@ -2526,7 +2529,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                             lastwarnedtimestamp0 = GetMilliTime();
                             std::stringstream ss;
                             ss << "Failed to send latest pointcloud of " << cameraname << " (" << _GetHardwareId(cameraname) << ") ex.what()=" << ex.what() << ".";
-                            _SetStatusMessage(TT_UpdateEnvironment, ss.str(), GetErrorCodeString(MVE_ControllerError));
+                            _SetStatusMessage(TT_SendExecutionVerificationPointCloud, ss.str(), GetErrorCodeString(MVE_ControllerError));
                             MUJIN_LOG_WARN(ss.str());
                         }
                     }
@@ -2541,6 +2544,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 }
             }
             boost::this_thread::sleep(boost::posix_time::milliseconds(waitinterval));
+            hasRunOnce = true;
         }
     }
     catch (const zmq::error_t& e) {

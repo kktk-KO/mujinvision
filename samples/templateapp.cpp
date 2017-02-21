@@ -23,27 +23,6 @@ public:
     void UpdateCameras(const std::map<std::string, CameraPtr >&mNameCamera) {
     }
 
-    ImagePtr GetColorImageFromBuffer(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout, const unsigned int checkpreemptbits=0)
-    {
-        return ImagePtr();
-    }
-    ImagePtr SnapColorImage(const std::string& cameraname, unsigned long long& timestamp, unsigned long long& endtimestamp, const double timeout=1.0, const unsigned int checkpreemptbits=0)
-    {
-        return ImagePtr();
-    }
-
-    ImagePtr GetDepthImageFromBuffer(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout, const unsigned int checkpreemptbits=0)
-    {
-        return ImagePtr();
-    }
-    ImagePtr SnapDepthImage(const std::string& cameraname, unsigned long long& starttime, unsigned long long& endtime, const double timeout=1.0, const int numimages=-1, const unsigned int checkpreemptbits=0)
-    {
-        return ImagePtr();
-    }
-    ImagePtr SnapDetectionResult(const std::string& cameraname, const double timeout=20.0 /*sec*/, const std::string& extraoptions="", const unsigned int checkpreemptbits=0)
-    {
-        return ImagePtr();
-    }
     void SnapImages(const std::vector<std::string>& cameranames, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const double timeout=1.0, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0)
     {
     }
@@ -64,10 +43,6 @@ public:
     }
 
     int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize, const double stddev, const size_t numnn, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1, const unsigned int checkpreemptbits=0) {
-        return -2;
-    }
-
-    int GetCollisionPointCloud(const std::string& cameraname, ImagePtr depthimage, std::vector<double>& points, const double voxelsize, const double stddev, const size_t numnn, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1, const unsigned int checkpreemptbits=0) {
         return -2;
     }
 };

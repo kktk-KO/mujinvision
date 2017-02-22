@@ -2440,6 +2440,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
         uint64_t lastCaptureResetTimestamp = 0; // ms timestamp when the capture handles were last reset. Used to prevent too many force resets in one time.
         uint64_t lastCaptureResetTimeout = 4000; // how long to wait until force reset is called again
         //uint64_t lastUpdateTimestamp = 0;
+        unsigned long long newerthantimestamp = GetMilliTime();
         while (!_bStopExecutionVerificationPointCloudThread && evcamnames.size() > 0) {
             if (hasRunOnce && !hasRobotExecutionStarted) { // we want to send exec verification once, then pause until robot moves
                 MUJIN_LOG_INFO("wait for robot to move before starting execution verification thread");
@@ -2454,6 +2455,9 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                     return;
                 }
                 MUJIN_LOG_INFO("robot has moved, starting execution verification thread");
+            }
+            if (!hasRunOnce) {
+                MUJIN_LOG_INFO("send executionverification pointcloud for the first time");
             }
             // send latest pointcloud for execution verification
             for (unsigned int i=0; i<evcamnames.size(); ++i) {
@@ -2501,7 +2505,10 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                 MUJIN_LOG_DEBUG("pointsize=" << newpointsize << ", and filteringstddev=" << filteringstddev << ", and filteringnumnn=" << filteringnumnn);
                 double timeout = 3.0; // secs
                 int isoccluded = -1;
-                isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, newpointsize, filteringstddev, filteringnumnn, regionname, timeout, 0, filteringsubsample, PC_ExecutionVerificationThread);
+                isoccluded = _pImagesubscriberManager->GetCollisionPointCloud(cameraname, points, cloudstarttime, cloudendtime, newpointsize, filteringstddev, filteringnumnn, regionname, timeout, newerthantimestamp, filteringsubsample, PC_ExecutionVerificationThread);
+                if (cloudendtime > newerthantimestamp) {
+                    newerthantimestamp = cloudendtime;
+                }
                 if (isoccluded == -2 ) {
                     MUJIN_LOG_DEBUG("did not get depth from " << cameraname << " (" << _GetHardwareId(cameraname) << "), so do not send to controller");
                     if( lastCaptureResetTimestamp == 0 || GetMilliTime() - lastCaptureResetTimestamp > lastCaptureResetTimeout ) {
@@ -2522,7 +2529,7 @@ void MujinVisionManager::_SendExecutionVerificationPointCloudThread(SendExecutio
                         pBinpickingTask->AddPointCloudObstacle(points, newpointsize, "latestobstacle_"+cameraname, cloudstarttime, cloudendtime, true, "mm", isoccluded, regionname);
                         mCameranameLastsentcloudtime[cameraname] = cloudstarttime;
                         std::stringstream ss;
-                        ss << "Sent latest pointcloud of " << cameraname << " (" << _GetHardwareId(cameraname) << ") with " << (points.size()/3.) << " points, region=" << regionname << ", isoccluded=" << isoccluded << ", took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
+                        ss << "Sent latest pointcloud " << cloudstarttime << "-" << cloudendtime << " of " << cameraname << " (" << _GetHardwareId(cameraname) << ") with " << (points.size()/3.) << " points, region=" << regionname << ", isoccluded=" << isoccluded << ", took " << (GetMilliTime() - starttime) / 1000.0f << " secs";
                         MUJIN_LOG_DEBUG(ss.str());
                     } catch(const std::exception& ex) {
                         if (GetMilliTime() - lastwarnedtimestamp0 > 1000.0) {

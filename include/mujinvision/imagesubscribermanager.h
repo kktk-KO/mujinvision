@@ -83,6 +83,8 @@ public:
      */
     virtual void SnapImages(const std::vector<std::string>& cameranames, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const double timeout=1.0 /*sec*/, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0) = 0;
 
+    virtual void SnapImages(ImageUserType imageusertype, const std::vector<std::string>& cameranames, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const double timeout=1.0/*sec*/, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreempbits=0) = 0;
+
     /** \brief starts capture thread
         \param checkpreemptbits specifying which bit to check for preempting
      */

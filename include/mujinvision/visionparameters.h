@@ -903,6 +903,10 @@ typedef boost::shared_ptr<Image> ImagePtr;
 typedef boost::shared_ptr<Image const> ImageConstPtr;
 typedef boost::weak_ptr<Image> ImageWeakPtr;
 
+enum ImageUserType {
+    IUT_Detecion = 0,
+    IUT_ExecutionVerification = 1,
+};
 
 } // namespace mujinvision
 #endif

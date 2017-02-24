@@ -1,7 +1,9 @@
 #include "gtest/gtest.h"
 #include "mujinvision/visionparameters.h"
+#include "mujincontrollerclient/mujinexceptions.h"
 
 using namespace mujinvision;
+using namespace std;
 static std::string s = "{\"a\":true,\"b\":1,\"c\":\"string\",\"d\":[null]}";
 TEST(JsonTest, Parse) {
     rapidjson::Document d;
@@ -11,7 +13,7 @@ TEST(JsonTest, Parse) {
     std::string ts = s.substr(1);
     EXPECT_THROW( {
         ParseJson(d, ts);
-    }, MujinVisionException);
+    }, MujinException);
 }
 
 TEST(JsonTest, Dump) {
@@ -169,7 +171,7 @@ void TestMismatchedType(const U& u) {
     SetJsonValueByKey(d, "a", u);
     EXPECT_THROW({
         GetJsonValueByKey<V>(d, "a");
-    }, MujinVisionException) << DumpJson(d);
+    }, MujinException) << DumpJson(d);
 }
 
 TEST(JsonTest, MismatchedType) {
@@ -222,7 +224,7 @@ void TestGetTransform(const std::string &s, bool valid=true) {
     } else {
         EXPECT_THROW({
             GetTransform(d);
-        }, MujinVisionException);
+        }, MujinException);
     }
 }
 
@@ -236,11 +238,11 @@ TEST(JsonTest, GetTransform) {
 template<class T>
 void TestParameterBase(const T& v = T()) {
     rapidjson::Document d;
-    std::string jsonstr = v.GetJsonString();
+    std::string jsonstr = GetJsonString(v);
     ParseJson(d, jsonstr);
     T u(d);
     std::cerr << jsonstr << std::endl;
-    EXPECT_EQ(std::string(u.GetJsonString()), jsonstr);
+    EXPECT_EQ(std::string(GetJsonString(v)), jsonstr);
 }
 
 template<class T>
@@ -263,7 +265,7 @@ TEST(JsonTest, DetectedObject) {
     DetectedObject detectedObject;
     rapidjson::Document d;
     EXPECT_NO_THROW({
-        std::string s = detectedObject.GetJsonString();
+        std::string s = GetJsonString(detectedObject);
         ParseJson(d, s);
     });
 }
@@ -276,7 +278,7 @@ void TestValidateJson(const std::string &s, bool valid) {
     } else {
         EXPECT_THROW({
             ValidateJsonString(s);
-         }, MujinVisionException);
+         }, MujinException);
     }
 }
 

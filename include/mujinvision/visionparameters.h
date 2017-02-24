@@ -32,6 +32,8 @@
 #include "geometry.h"
 #include "visionexceptions.h"
 
+#include <mujincontrollerclient/mujinjson.h>
+
 #define FOREACH(it, v) for(typeof((v).begin())it = (v).begin(); it != (v).end(); (it)++)
 #define FOREACH_NOINC(it, v) for(typeof((v).begin())it = (v).begin(); it != (v).end(); )
 
@@ -48,363 +50,10 @@ typedef MathTransformMatrix<double> TransformMatrix;
 using geometry::MathVector;
 typedef MathVector<double> Vector;
 
-/// \brief gets a string of the Value type for debugging purposes 
-inline std::string GetJsonTypeName(const rapidjson::Value& v) {
-    int type = v.GetType();
-    switch (type) {
-        case 0:
-            return "Null";
-        case 1:
-            return "False";
-        case 2:
-            return "True";
-        case 3:
-            return "Object";
-        case 4:
-            return "Array";
-        case 5:
-            return "String";
-        case 6:
-            return "Number";
-        default:
-            return "Unknown";
-    }
-}
-
-inline std::string DumpJson(const rapidjson::Value& value) {
-    rapidjson::StringBuffer stringbuffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(stringbuffer);
-    value.Accept(writer);
-    return std::string(stringbuffer.GetString(), stringbuffer.GetSize());
-}
-
-inline void ParseJson(rapidjson::Document&d, const std::string& str) {
-    d.Parse(str.c_str());
-    if (d.HasParseError()) {
-        std::string substr;
-        if (str.length()> 200) {
-            substr = str.substr(0, 200);
-        } else {
-            substr = str;
-        }
-        throw MujinVisionException("Json string is invalid: " + substr, MVE_InvalidArgument);
-    }
-}
-
-/// \brief base class of parameters
-struct MUJINVISION_API ParametersBase
-{
-    virtual ~ParametersBase() {
-    }
-    inline std::string GetJsonString() const {
-        rapidjson::Document d;
-        GetJson(d);
-        return DumpJson(d);
-
-    }
-    virtual void GetJson(rapidjson::Document& d) const = 0;
-    virtual void LoadFromJson(const rapidjson::Value& value) = 0;
-};
-
-//store a json value to local data structures
-//for compatibility with ptree, type conversion is made. will remove them in the future
-inline void LoadJsonValue(const rapidjson::Value& v, std::string& t) {
-    if (v.IsString()) {
-        t = v.GetString();
-    } else if (v.IsInt64()) {
-        t = boost::lexical_cast<std::string>(v.GetInt64());
-    } else {
-        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to String", MVE_InvalidArgument);
-    }
-
-}
-
-inline void LoadJsonValue(const rapidjson::Value& v, int& t) {
-    if (v.IsInt()) {
-        t = v.GetInt();
-    } else if (v.IsString()) {
-        t = boost::lexical_cast<int>(v.GetString());
-    } else {
-        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Int", MVE_InvalidArgument);
-    }
-}
-
-inline void LoadJsonValue(const rapidjson::Value& v, unsigned int& t) {
-    if (v.IsUint()) {
-        t = v.GetUint();
-    } else if (v.IsString()) {
-        t = boost::lexical_cast<unsigned int>(v.GetString());
-    } else {
-        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Int", MVE_InvalidArgument);
-    }
-}
-
-inline void LoadJsonValue(const rapidjson::Value& v, unsigned long long& t) {
-    if (v.IsUint64()) {
-        t = v.GetUint64();
-    } else if (v.IsString()) {
-        t = boost::lexical_cast<unsigned long long>(v.GetString());
-    } else {
-        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Int64", MVE_InvalidArgument);
-    }
-}
-
-inline void LoadJsonValue(const rapidjson::Value& v, uint64_t& t) {
-    if (v.IsUint64()) {
-        t = v.GetUint64();
-    } else if (v.IsString()) {
-        t = boost::lexical_cast<uint64_t>(v.GetString());
-    } else {
-        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Int64", MVE_InvalidArgument);
-    }
-}
-
-inline void LoadJsonValue(const rapidjson::Value& v, double& t) {
-    if (v.IsNumber()) {
-        t = v.GetDouble();
-    } else if (v.IsString()) {
-        t = boost::lexical_cast<double>(v.GetString());
-    } else {
-        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Double", MVE_InvalidArgument);
-    }
-}
-
-inline void LoadJsonValue(const rapidjson::Value& v, bool& t) {
-    if (v.IsInt()) t = v.GetInt();
-    else if (v.IsBool()) t = v.GetBool();
-    else if (v.IsString())  {
-        t = boost::lexical_cast<bool>(v.GetString());
-    } else {
-        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Bool", MVE_InvalidArgument);
-    }
-}
-
-inline void LoadJsonValue(const rapidjson::Value& v, ParametersBase& t) {
-    if (v.IsObject()) {
-        t.LoadFromJson(v);
-    } else {
-        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Object", MVE_InvalidArgument);
-    }
-}
-
-template<class T> inline void LoadJsonValue(const rapidjson::Value& v, std::vector<T>& t);
-
-template<class T> inline void LoadJsonValue(const rapidjson::Value& v, boost::shared_ptr<T>& ptr) {
-    T t;
-    LoadJsonValue(v, t);
-    ptr = boost::shared_ptr<T>(new T(t));
-}
-
-template<class T, size_t N> inline void LoadJsonValue(const rapidjson::Value& v, T (&p)[N]) {
-    if (v.IsArray()) {
-        if (v.GetArray().Size() != N) {
-            throw MujinVisionException("Json array size doesn't match", MVE_InvalidArgument);
-        }
-        size_t i = 0;
-        for (rapidjson::Value::ConstValueIterator it = v.Begin(); it != v.End(); ++it) {
-            LoadJsonValue(*it, p[i]);
-            i++;
-        }
-    } else {
-        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Array", MVE_InvalidArgument);
-    }
-}
-
-template<class T> inline void LoadJsonValue(const rapidjson::Value& v, std::vector<T>& t) {
-    if (v.IsArray()) {
-        t.clear();
-        t.resize(v.GetArray().Size());
-        size_t i = 0;
-        for (rapidjson::Value::ConstValueIterator it = v.Begin(); it != v.End(); ++it) {
-            LoadJsonValue(*it, t[i]);
-            i++;
-        }
-    } else {
-        throw MujinVisionException("Cannot convert json type " + GetJsonTypeName(v) + " to Array", MVE_InvalidArgument);
-    }
-}
-
-//Save a data structure to rapidjson::Value format
-
-inline void SaveJsonValue(rapidjson::Value& v, const std::string& t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetString(t.c_str(), alloc);
-}
-
-inline void SaveJsonValue(rapidjson::Value& v, const char* t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetString(t, alloc);
-}
-
-inline void SaveJsonValue(rapidjson::Value& v, int t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetInt(t);
-}
-
-inline void SaveJsonValue(rapidjson::Value& v, unsigned int t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetUint(t);
-}
-
-inline void SaveJsonValue(rapidjson::Value& v, long long t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetInt64(t);
-}
-
-inline void SaveJsonValue(rapidjson::Value& v, unsigned long long t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetUint64(t);
-}
-
-inline void SaveJsonValue(rapidjson::Value& v, uint64_t t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetUint64(t);
-}
-
-inline void SaveJsonValue(rapidjson::Value& v, bool t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetBool(t);
-}
-
-inline void SaveJsonValue(rapidjson::Value& v, double t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetDouble(t);
-}
-
-inline void SaveJsonValue(rapidjson::Value& v, const rapidjson::Value& t, rapidjson::Document::AllocatorType& alloc) {
-    v.CopyFrom(t, alloc);
-}
-
-inline void SaveJsonValue(rapidjson::Value& v, const ParametersBase& p, rapidjson::Document::AllocatorType& alloc) {
-    rapidjson::Document d;
-    p.GetJson(d);
-    v.CopyFrom(d, alloc);
-}
-
-template<class T> inline void SaveJsonValue(rapidjson::Value& v, const std::vector<T>& t, rapidjson::Document::AllocatorType& alloc);
-
-/** do not remove: otherwise boost::shared_ptr could be treated as bool
- */
-template<class T> inline void SaveJsonValue(rapidjson::Value& v, const boost::shared_ptr<T>& ptr, rapidjson::Document::AllocatorType& alloc) {
-    SaveJsonValue(v, *ptr, alloc);
-}
-
-template<class T> inline void SaveJsonValue(rapidjson::Value& v, const std::vector<T>& t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetArray();
-    v.Reserve(t.size(), alloc);
-    for (size_t i = 0; i < t.size(); ++i) {
-        rapidjson::Value tmpv;
-        SaveJsonValue(tmpv, t[i], alloc);
-        v.PushBack(tmpv, alloc);
-    }
-}
-
-template<> inline void SaveJsonValue(rapidjson::Value& v, const std::vector<double>& t, rapidjson::Document::AllocatorType& alloc) {
-    v.SetArray();
-    v.Reserve(t.size(), alloc);
-    for (size_t i = 0; i < t.size(); ++i) {
-        v.PushBack(t[i], alloc);
-    }
-}
-
-template<class T> inline void SaveJsonValue(rapidjson::Document& v, const T& t) {
-    SaveJsonValue(v, t, v.GetAllocator());
-}
-
-
-template<class T, class U> inline void SetJsonValueByKey(rapidjson::Value& v, const U& key, const T& t, rapidjson::Document::AllocatorType& alloc);
-
-inline void SaveJsonValue(rapidjson::Value& v, const MujinVisionException& e, rapidjson::Document::AllocatorType& alloc) {
-    v.SetObject();
-    SetJsonValueByKey(v, "type", (int)(e.GetCode()), alloc);
-    SetJsonValueByKey(v, "desc", e.GetCodeString(), alloc);
-}
-
-//get one json value by key, and store it in local data structures
-template<class T> void inline LoadJsonValueByKey(const rapidjson::Value& v, const char* key, T& t) {
-    if (v.HasMember(key)) {
-        LoadJsonValue(v[key], t);
-    }
-}
-template<class T, class U> inline void LoadJsonValueByKey(const rapidjson::Value& v, const char* key, T& t, const U& d) {
-    if (v.HasMember(key)) {
-        LoadJsonValue(v[key], t);
-    }
-    else {
-        t = d;
-    }
-}
-
-//work the same as LoadJsonValueByKey, but the value is returned instead of being passed as reference
-template<class T, class U> T GetJsonValueByKey(const rapidjson::Value& v, const char* key, const U& t) {
-    if (v.HasMember(key)) {
-        T r;
-        LoadJsonValue(v[key], r);
-        return r;
-    }
-    else {
-        return T(t);
-    }
-}
-template<class T> inline T GetJsonValueByKey(const rapidjson::Value& v, const char* key) {
-    T r = T();
-    if (v.HasMember(key)) {
-        LoadJsonValue(v[key], r);
-    }
-    return r;
-}
-
-template<class T> inline T GetJsonValueByPath(const rapidjson::Value& v, const char* key) {
-    T r;
-    const rapidjson::Value *child = rapidjson::Pointer(key).Get(v);
-    if (child) {
-        LoadJsonValue(*child, r);
-    }
-    return r;
-}
-
-template<class T, class U> T GetJsonValueByPath(const rapidjson::Value& v, const char* key, const U& t) {
-    const rapidjson::Value *child = rapidjson::Pointer(key).Get(v);
-    if (child) {
-        T r;
-        LoadJsonValue(*child, r);
-        return r;
-    }
-    else {
-        return T(t);
-    }
-}
-
-template<class T, class U> inline void SetJsonValueByKey(rapidjson::Value& v, const U& key, const T& t, rapidjson::Document::AllocatorType& alloc)
-{
-    if (v.HasMember(key)) {
-        SaveJsonValue(v[key], t, alloc);
-    }
-    else {
-        rapidjson::Value value, name;
-        SaveJsonValue(name, key, alloc);
-        SaveJsonValue(value, t, alloc);
-        v.AddMember(name, value, alloc);
-    }
-}
-
-template<class T>
-inline void SetJsonValueByKey(rapidjson::Document& d, const char* key, const T& t)
-{
-    SetJsonValueByKey(d, key, t, d.GetAllocator());
-}
-
-template<class T>
-inline void SetJsonValueByKey(rapidjson::Document& d, const std::string& key, const T& t)
-{
-    SetJsonValueByKey(d, key.c_str(), t, d.GetAllocator());
-}
-
-inline void ValidateJsonString(const std::string& str) {
-    rapidjson::Document d;
-    if (d.Parse(str.c_str()).HasParseError()) {
-        throw MujinVisionException("json string " + str + " is invalid.", MVE_InvalidArgument);
-    }
-}
-template<class T> inline std::string GetJsonString(const T& t) {
-    rapidjson::Document d;
-    SaveJsonValue(d, t);
-    return DumpJson(d);
-}
+using namespace mujinjson;
 
 /// \brief ip and port of a connection
-struct MUJINVISION_API ConnectionParameters : public ParametersBase
+struct MUJINVISION_API ConnectionParameters : public JsonSerializable
 {
     ConnectionParameters() {
     }
@@ -418,10 +67,10 @@ struct MUJINVISION_API ConnectionParameters : public ParametersBase
         LoadJsonValueByKey(value, "port", port);
     }
 
-    void GetJson(rapidjson::Document& d) const {
+    void SaveToJson(rapidjson::Value& d, rapidjson::Document::AllocatorType& alloc) const {
         d.SetObject();
-        SetJsonValueByKey(d, "ip", ip);
-        SetJsonValueByKey(d, "port", port);
+        SetJsonValueByKey(d, "ip", ip, alloc);
+        SetJsonValueByKey(d, "port", port, alloc);
     }
 
     virtual ~ConnectionParameters() {
@@ -436,7 +85,7 @@ typedef boost::shared_ptr<ConnectionParameters const> ConnectionParametersConstP
 typedef boost::weak_ptr<ConnectionParameters> ConnectionParametersWeakPtr;
 
 /// \brief information about camera
-struct MUJINVISION_API CameraParameters : public ParametersBase
+struct MUJINVISION_API CameraParameters : public JsonSerializable
 {
     CameraParameters(): isColorCamera(true), isDepthCamera(true){
     }
@@ -455,11 +104,11 @@ struct MUJINVISION_API CameraParameters : public ParametersBase
         LoadJsonValueByKey(value, "is_depth_camera", isDepthCamera);
     }
 
-    void GetJson(rapidjson::Document& d) const {
+    void SaveToJson(rapidjson::Value& d, rapidjson::Document::AllocatorType& alloc) const {
         d.SetObject();
-        SetJsonValueByKey(d, "id", id);
-        SetJsonValueByKey(d, "is_color_camera", isColorCamera);
-        SetJsonValueByKey(d, "is_depth_camera", isDepthCamera);
+        SetJsonValueByKey(d, "id", id, alloc);
+        SetJsonValueByKey(d, "is_color_camera", isColorCamera, alloc);
+        SetJsonValueByKey(d, "is_depth_camera", isDepthCamera, alloc);
     }
 
     virtual ~CameraParameters() {
@@ -474,7 +123,7 @@ typedef boost::shared_ptr<CameraParameters const> CameraParametersConstPtr;
 typedef boost::weak_ptr<CameraParameters> CameraParametersWeakPtr;
 
 /// \brief sensor calibration data
-struct MUJINVISION_API CalibrationData : public ParametersBase
+struct MUJINVISION_API CalibrationData : public JsonSerializable
 {
 
     CalibrationData() : distortion_coeffs(5) {
@@ -500,21 +149,21 @@ struct MUJINVISION_API CalibrationData : public ParametersBase
         LoadJsonValueByKey(value, "distortion_coeffs", distortion_coeffs);
     }
 
-    void GetJson(rapidjson::Document& d) const {
+    void SaveToJson(rapidjson::Value& d, rapidjson::Document::AllocatorType& alloc) const {
         d.SetObject();
-        SetJsonValueByKey(d, "fx", fx);
-        SetJsonValueByKey(d, "fy", fx);
-        SetJsonValueByKey(d, "pu", pv);
-        SetJsonValueByKey(d, "pv", pv);
-        SetJsonValueByKey(d, "s", s);
-        SetJsonValueByKey(d, "focal_length", focal_length);
-        SetJsonValueByKey(d, "kappa", kappa);
-        SetJsonValueByKey(d, "image_width", image_width);
-        SetJsonValueByKey(d, "image_height", image_height);
-        SetJsonValueByKey(d, "pixel_width", pixel_width);
-        SetJsonValueByKey(d, "pixel_height", pixel_height);
-        SetJsonValueByKey(d, "distortion_model", distortion_model);
-        SetJsonValueByKey(d, "distortion_coeffs", distortion_coeffs);
+        SetJsonValueByKey(d, "fx", fx, alloc);
+        SetJsonValueByKey(d, "fy", fx, alloc);
+        SetJsonValueByKey(d, "pu", pv, alloc);
+        SetJsonValueByKey(d, "pv", pv, alloc);
+        SetJsonValueByKey(d, "s", s, alloc);
+        SetJsonValueByKey(d, "focal_length", focal_length, alloc);
+        SetJsonValueByKey(d, "kappa", kappa, alloc);
+        SetJsonValueByKey(d, "image_width", image_width, alloc);
+        SetJsonValueByKey(d, "image_height", image_height, alloc);
+        SetJsonValueByKey(d, "pixel_width", pixel_width, alloc);
+        SetJsonValueByKey(d, "pixel_height", pixel_height, alloc);
+        SetJsonValueByKey(d, "distortion_model", distortion_model, alloc);
+        SetJsonValueByKey(d, "distortion_coeffs", distortion_coeffs, alloc);
     }
 
     virtual ~CalibrationData() {
@@ -578,7 +227,7 @@ inline Transform GetTransform(const rapidjson::Value& config) {
 }
 
 /// \brief information about the detected object
-struct MUJINVISION_API DetectedObject: public ParametersBase
+struct MUJINVISION_API DetectedObject : public JsonSerializable
 {
     DetectedObject(): confidence("0"), extra("null"){
     }
@@ -617,15 +266,13 @@ struct MUJINVISION_API DetectedObject: public ParametersBase
         //type = ty;
     }
 
-    void LoadFromJson(const rapidjson::Value& value) {
-        //dummpy function
-    }
+    void LoadFromJson(const rapidjson::Value& d) {} // dummpy
 
-    void GetJson(rapidjson::Document& d) const {
+    void SaveToJson(rapidjson::Value& d, rapidjson::Document::AllocatorType& alloc) const {
         d.SetObject();
-        SetJsonValueByKey(d, "name", name);
+        SetJsonValueByKey(d, "name", name, alloc);
         //SetJsonValueByKey(d, "type", type);
-        SetJsonValueByKey(d, "object_uri", objecturi);
+        SetJsonValueByKey(d, "object_uri", objecturi, alloc);
         std::vector<double> trans, quat;
         for (size_t i = 0; i < 3; ++i) {
             trans.push_back(transform.trans[i]);
@@ -633,13 +280,13 @@ struct MUJINVISION_API DetectedObject: public ParametersBase
         for (size_t i = 0; i < 4; ++i) {
             quat.push_back(transform.rot[i]);
         }
-        SetJsonValueByKey(d, "translation_", trans);
-        SetJsonValueByKey(d, "quat_", quat);
+        SetJsonValueByKey(d, "translation_", trans, alloc);
+        SetJsonValueByKey(d, "quat_", quat, alloc);
         rapidjson::Document confidencejson;
         confidencejson.Parse(confidence.c_str());
-        SetJsonValueByKey(d, "confidence", confidencejson);
-        SetJsonValueByKey(d, "timestamp", timestamp);
-        SetJsonValueByKey(d, "extra", extra);
+        SetJsonValueByKey(d, "confidence", confidencejson, alloc);
+        SetJsonValueByKey(d, "timestamp", timestamp, alloc);
+        SetJsonValueByKey(d, "extra", extra, alloc);
     }
 
     virtual ~DetectedObject() {
@@ -659,7 +306,7 @@ typedef boost::shared_ptr<DetectedObject const> DetectedObjectConstPtr;
 typedef boost::weak_ptr<DetectedObject> DetectedObjectWeakPtr;
 
 /// \brief Specifies region where vision system performs detection with a set of cameras
-struct MUJINVISION_API RegionParameters : public ParametersBase
+struct MUJINVISION_API RegionParameters : public JsonSerializable
 {
     RegionParameters(): containerEmptyDivisor(150), pointsize(3), filteringstddev(0), filteringnumnn(0), filteringsubsample(0) {
         memset(cropContainerMarginsXYZXYZ, 0, sizeof(cropContainerMarginsXYZXYZ));
@@ -720,37 +367,37 @@ struct MUJINVISION_API RegionParameters : public ParametersBase
 
     Transform baselinkcenter_T_region; ///< transform of the container link's coordinate system with respect to the inner region's center top face (baselinkcenter_T_region)
 
-    void GetJson(rapidjson::Document& d) const {
+    void SaveToJson(rapidjson::Value& d, rapidjson::Document::AllocatorType& alloc) const {
         d.SetObject();
-        SetJsonValueByKey(d, "instobjectname", instobjectname);
-        SetJsonValueByKey(d, "cameranames", cameranames);
-        SetJsonValueByKey(d, "type", type);
-        SetJsonValueByKey(d, "cropContainerMarginsXYZXYZ", std::vector<double>(cropContainerMarginsXYZXYZ, cropContainerMarginsXYZXYZ + 6));
-        SetJsonValueByKey(d, "cropContainerEmptyMarginsXYZXYZ", std::vector<double>(cropContainerEmptyMarginsXYZXYZ, cropContainerEmptyMarginsXYZXYZ + 6));
-        SetJsonValueByKey(d, "containerRoiMarginsXYZXYZ", std::vector<double>(containerRoiMarginsXYZXYZ, containerRoiMarginsXYZXYZ + 6));
-        SetJsonValueByKey(d, "containerEmptyDivisor", containerEmptyDivisor);
-        SetJsonValueByKey(d, "visualizationuri", visualizationuri);
-        SetJsonValueByKey(d, "pointsize", pointsize);
-        SetJsonValueByKey(d, "filteringstddev", filteringstddev);
-        SetJsonValueByKey(d, "filteringnumnn", filteringnumnn);
-        SetJsonValueByKey(d, "filteringsubsample", filteringsubsample);
+        SetJsonValueByKey(d, "instobjectname", instobjectname, alloc);
+        SetJsonValueByKey(d, "cameranames", cameranames, alloc);
+        SetJsonValueByKey(d, "type", type, alloc);
+        SetJsonValueByKey(d, "cropContainerMarginsXYZXYZ", std::vector<double>(cropContainerMarginsXYZXYZ, cropContainerMarginsXYZXYZ + 6), alloc);
+        SetJsonValueByKey(d, "cropContainerEmptyMarginsXYZXYZ", std::vector<double>(cropContainerEmptyMarginsXYZXYZ, cropContainerEmptyMarginsXYZXYZ + 6), alloc);
+        SetJsonValueByKey(d, "containerRoiMarginsXYZXYZ", std::vector<double>(containerRoiMarginsXYZXYZ, containerRoiMarginsXYZXYZ + 6), alloc);
+        SetJsonValueByKey(d, "containerEmptyDivisor", containerEmptyDivisor, alloc);
+        SetJsonValueByKey(d, "visualizationuri", visualizationuri, alloc);
+        SetJsonValueByKey(d, "pointsize", pointsize, alloc);
+        SetJsonValueByKey(d, "filteringstddev", filteringstddev, alloc);
+        SetJsonValueByKey(d, "filteringnumnn", filteringnumnn, alloc);
+        SetJsonValueByKey(d, "filteringsubsample", filteringsubsample, alloc);
         if (!innerTranslation.empty()) {
-            SetJsonValueByKey(d, "innerTranslation", innerTranslation);
+            SetJsonValueByKey(d, "innerTranslation", innerTranslation, alloc);
         }
         if (!innerExtents.empty()) {
-            SetJsonValueByKey(d, "innerExtents", innerExtents);
+            SetJsonValueByKey(d, "innerExtents", innerExtents, alloc);
         }
         if (!innerRotationmat.empty()) {
-            SetJsonValueByKey(d, "innerRotationmat", innerRotationmat);
+            SetJsonValueByKey(d, "innerRotationmat", innerRotationmat, alloc);
         }
         if (!outerTranslation.empty()) {
-            SetJsonValueByKey(d, "outerTranslation", outerTranslation);
+            SetJsonValueByKey(d, "outerTranslation", outerTranslation, alloc);
         }
         if (!outerExtents.empty()) {
-            SetJsonValueByKey(d, "outerExtents", outerExtents);
+            SetJsonValueByKey(d, "outerExtents", outerExtents, alloc);
         }
         if (!outerRotationmat.empty()) {
-            SetJsonValueByKey(d, "outerRotationmat", outerRotationmat);
+            SetJsonValueByKey(d, "outerRotationmat", outerRotationmat, alloc);
         }
     }
 };

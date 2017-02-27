@@ -44,6 +44,8 @@ inline void usleep(unsigned long microseconds) {
 
 namespace mujinvision {
 
+using namespace mujinjson;
+
 #ifdef _WIN32
 inline uint64_t GetMilliTime()
 {
@@ -1356,7 +1358,10 @@ void MujinVisionManager::_RunCommandThread(const unsigned int port, int commandi
                     case MVE_ControllerError: break;
                     default: break;
                     }
-                    SetJsonValueByKey(resultjson, "error", e);
+                    rapidjson::Document errorjson(rapidjson::kObjectType);
+                    SetJsonValueByKey(errorjson, "type", (int)(e.GetCode()));
+                    SetJsonValueByKey(errorjson, "desc", e.GetCodeString());
+                    SetJsonValueByKey(resultjson, "error", errorjson);
                     _SetStatus(TT_Command, MS_Aborted, "", e.message(), false);
                 }
                 catch (const zmq::error_t& e) {

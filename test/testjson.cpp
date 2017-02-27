@@ -2,6 +2,7 @@
 #include "mujinvision/visionparameters.h"
 #include "mujincontrollerclient/mujinexceptions.h"
 
+using namespace mujinjson;
 using namespace mujinvision;
 using namespace std;
 static std::string s = "{\"a\":true,\"b\":1,\"c\":\"string\",\"d\":[null]}";
@@ -13,7 +14,7 @@ TEST(JsonTest, Parse) {
     std::string ts = s.substr(1);
     EXPECT_THROW( {
         ParseJson(d, ts);
-    }, MujinException);
+    }, MujinJSONException);
 }
 
 TEST(JsonTest, Dump) {
@@ -171,7 +172,7 @@ void TestMismatchedType(const U& u) {
     SetJsonValueByKey(d, "a", u);
     EXPECT_THROW({
         GetJsonValueByKey<V>(d, "a");
-    }, MujinException) << DumpJson(d);
+    }, MujinJSONException) << DumpJson(d);
 }
 
 TEST(JsonTest, MismatchedType) {
@@ -224,7 +225,7 @@ void TestGetTransform(const std::string &s, bool valid=true) {
     } else {
         EXPECT_THROW({
             GetTransform(d);
-        }, MujinException);
+        }, MujinJSONException);
     }
 }
 
@@ -278,7 +279,7 @@ void TestValidateJson(const std::string &s, bool valid) {
     } else {
         EXPECT_THROW({
             ValidateJsonString(s);
-         }, MujinException);
+         }, MujinJSONException);
     }
 }
 

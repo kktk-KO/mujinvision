@@ -215,13 +215,17 @@ TEST(JsonTest, SharedPointer) {
     TestSharedPtr<ConnectionParameters>(ConnectionParameters());
 }
 
-void TestGetTransform(const std::string &s, bool valid=true) {
+void TestGetTransform(const std::string &s, bool valid=true, bool visionexception=false) {
     rapidjson::Document d;
     ParseJson(d, s);
     if (valid) {
         EXPECT_NO_THROW({
             GetTransform(d);
         });
+    } else if (visionexception) {
+        EXPECT_THROW({
+            GetTransform(d);
+        }, MujinVisionException);
     } else {
         EXPECT_THROW({
             GetTransform(d);
@@ -233,7 +237,7 @@ TEST(JsonTest, GetTransform) {
     TestGetTransform("{\"unit\":\"m\", \"translation_\":[0.0, 0.0, 0.0], \"quat_\":[1.0, 0.0, 0.0, 0.0]}");
     TestGetTransform("{\"unit\":\"mm\", \"translation_\":[0.0, 0.0, 0.0], \"quat_\":[1.0, 0.0, 0.0, 0.0]}");
     TestGetTransform("{\"unit\":\"mm\"}"); // when no field is applied, should handle correctly
-    TestGetTransform("{\"unit\":\"cm\", \"translation_\":[0.0, 0.0, 0.0], \"quat_\":[1.0, 0.0, 0.0, 0.0]}", false); //unsupported unit
+    TestGetTransform("{\"unit\":\"cm\", \"translation_\":[0.0, 0.0, 0.0], \"quat_\":[1.0, 0.0, 0.0, 0.0]}", false, true); //unsupported unit
 }
 
 template<class T>

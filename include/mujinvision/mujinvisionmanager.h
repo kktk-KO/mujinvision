@@ -414,6 +414,7 @@ private:
         bool useold;
         unsigned int waitinterval; ///< ms
         unsigned int checkpreemptbits; ///< specifying which bits to check for preempting. \see PreemptComponent
+        ImageUserType imageusertype; ///< specifying what the images are used for
     };
 
     void _SetDetectorStatusMessage(const std::string& msg, const std::string& err="");
@@ -583,7 +584,7 @@ private:
      */
     void _CheckAndUpdateRegionCameraMapping(const std::string& regionname, const std::vector<std::string>& cameranames);
 
-    void _StartAndGetCaptureHandle(const std::vector<std::string>& camreaids, const std::vector<std::string>& cameranamestocheckocclusion, std::vector<CameraCaptureHandlePtr>& capturehandles, const bool force=false, const bool ignoreocclusion=false);
+    void _StartAndGetCaptureHandle(ImageUserType imageusertype, const std::vector<std::string>& camreaids, const std::vector<std::string>& cameranamestocheckocclusion, std::vector<CameraCaptureHandlePtr>& capturehandles, const bool force=false, const bool ignoreocclusion=false);
 
     /// \brief delete the camera handles safely by locking _mutexCaptureHandles. This prevents any shared_ptrs from being released simultaneously
     void _DeleteCameraHandlesSafely(std::vector<CameraCaptureHandlePtr>& capturehandles);

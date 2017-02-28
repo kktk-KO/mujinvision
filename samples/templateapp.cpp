@@ -23,18 +23,14 @@ public:
     void UpdateCameras(const std::map<std::string, CameraPtr >&mNameCamera) {
     }
 
-    void SnapImages(const std::vector<std::string>& cameranames, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const double timeout=1.0, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0)
-    {
-    }
-
     void SnapImages(ImageUserType imageusertype, const std::vector<std::string>& cameranames, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const double timeout, const int numimages, const std::string& extraoptions, const unsigned int checkpreempbits)
     {
     }
 
-    void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout, const unsigned long long laterthan, const std::map<std::string, std::string>& mCameraIdRegionName=std::map<std::string, std::string>(), const unsigned int checkpreemptbits=0)
+    void GetImagePackFromBuffer(ImageUserType imageusertype, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout, const unsigned long long laterthan, const std::map<std::string, std::string>& mCameraIdRegionName=std::map<std::string, std::string>(), const unsigned int checkpreemptbits=0)
     {
     }
-    void StartCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0)
+    void StartCaptureThread(ImageUserType imageusertype, const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0)
     {
     }
 
@@ -47,7 +43,7 @@ public:
         return 0;
     }
 
-    int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize, const double stddev, const size_t numnn, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1, const unsigned int checkpreemptbits=0) {
+    int GetCollisionPointCloud(ImageUserType imageusertype, const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize, const double stddev, const size_t numnn, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1, const unsigned int checkpreemptbits=0) {
         return -2;
     }
 };

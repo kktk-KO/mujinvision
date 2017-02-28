@@ -55,6 +55,7 @@ public:
     virtual void UpdateCameras(const std::map<std::string, CameraPtr >&mNameCamera) = 0;
 
     /** \brief Gets image pack from buffer from specified cameras
+        \param imageusertype specifying what the images are used for
         \param starttime min capture starting timestamp of all images in the pack
         \param endtime max capture ending timestamp of all images in the pack
         \param imagepacktimestamp timestamp of the image pack
@@ -62,9 +63,10 @@ public:
         \param newerthan imagepack must be taken later than this timestamp
         \param mCameraIdRegionName camera id regionname mapping
      */
-    virtual void GetImagePackFromBuffer(const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout=10.0, const unsigned long long newerthan=0, const std::map<std::string, std::string>& mCameraIdRegionName=std::map<std::string, std::string>(), const unsigned int checkpreemptbits=0) = 0;
+    virtual void GetImagePackFromBuffer(ImageUserType imageusertype, const std::vector<std::string>& colorcameranames, const std::vector<std::string>& depthcameranames, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, unsigned long long& starttime, unsigned long long& endtime, unsigned long long& imagepacktimestamp, const double timeout=10.0, const unsigned long long newerthan=0, const std::map<std::string, std::string>& mCameraIdRegionName=std::map<std::string, std::string>(), const unsigned int checkpreemptbits=0) = 0;
 
     /** \brief Gets a point cloud from the camera name and prunes and subsamples it.
+        \param imageusertype specifying what the images are used for
         \param regionnameforocclusionchecking regionname for occlusion checking, if not specified, do not check for occlusion
         \param timeout in seconds
         \param newerthan imagepack must be taken later than this timestamp
@@ -72,23 +74,23 @@ public:
         \param checkpreemptbits specifying which bit to check for preempting
         \return occlusion status of robot with the container: -2 if did not get any depth image, -1 if unknown, 0 if not occluding, 1 if robot is occluding container in camera
      */
-    virtual int GetCollisionPointCloud(const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize=0.01, const double stddev=0.01, const size_t numnn=80, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1, const unsigned int checkpreemptbits=0) = 0;
+    virtual int GetCollisionPointCloud(ImageUserType imageusertype, const std::string& cameraname, std::vector<double>& points, unsigned long long& starttime, unsigned long long& endtime, const double voxelsize=0.01, const double stddev=0.01, const size_t numnn=80, const std::string& regionnameforocclusionchecking="", const double timeout=20.0, unsigned long long newerthan=0, const size_t subsample=1, const unsigned int checkpreemptbits=0) = 0;
 
     /** \brief Gets the color and depth image. The depth image is generated from the latest n images with depth data, and the min/max timestamps of the images used.
+        \param imageusertype specifying what the images are used for
         \param cameranames names of the cameras that will provide the images
         \param starttime timestamp of the earliest image
         \param endtime timestamp of the latest image
         \param checkpreemptbits specifying which bit to check for preempting
         \return pointer to the depth image
      */
-    virtual void SnapImages(const std::vector<std::string>& cameranames, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const double timeout=1.0 /*sec*/, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0) = 0;
-
     virtual void SnapImages(ImageUserType imageusertype, const std::vector<std::string>& cameranames, unsigned long long& starttime, unsigned long long& endtime, std::vector<ImagePtr>& colorimages, std::vector<ImagePtr>& depthimages, std::vector<ImagePtr>& resultimages, const double timeout=1.0/*sec*/, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreempbits=0) = 0;
 
     /** \brief starts capture thread
+        \param imageusertype specifying what the images are used for
         \param checkpreemptbits specifying which bit to check for preempting
      */
-    virtual void StartCaptureThread(const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0) = 0;
+    virtual void StartCaptureThread(ImageUserType imageusertype, const std::vector<std::string>& cameranames, const double timeout=5.0, const int numimages=-1, const std::string& extraoptions="", const unsigned int checkpreemptbits=0) = 0;
 
     /** \brief stops capture thread
         \param checkpreemptbits specifying which bit to check for preempting

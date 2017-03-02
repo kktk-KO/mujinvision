@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 include_directories(${MUJINVISION_INCLUDE_LOCAL_DIRS} ${libzmq_INCLUDE_DIRS} ${MujinControllerClient_INCLUDE_DIRS} ${LOG4CXX_INCLUDEDIR})
 link_directories(${MUJINVISION_LINK_DIRS} ${libzmq_LIBRARY_DIRS} ${MujinControllerClient_LIBRARY_DIRS} ${LOG4CXX_LIBDIR})
 add_definitions("-DBOOST_SPIRIT_THREADSAFE") # deprecated for boost::property_tree
@@ -49,13 +50,60 @@ if( OPT_BUILD_STATIC )
                                            CLEAN_DIRECT_OUTPUT 1
                                            COMPILE_FLAGS "${EXTRA_COMPILE_FLAGS} ${Boost_CFLAGS} -DMUJINVISION_DLL_EXPORTS -DMUJINVISION_DLL ${MujinControllerClient_CXX_FLAGS}"
                                            LINK_FLAGS "${MujinControllerClient_LINK_FLAGS}")
-  
+
   target_link_libraries(libmujinvision_static ${EXTRA_LIBRARIES} ${libzmq_LIBRARIES} ${MujinControllerClient_LIBRARIES} ${LOG4CXX_LIBRARIES})
   install(TARGETS libmujinvision_static DESTINATION lib${LIB_SUFFIX})
 endif()
-
 
 install(TARGETS libmujinvision DESTINATION lib)
 set(MUJIN_VISION_INCLUDE_LOCAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 file(GLOB LIB_HEADER_FILES ${MUJIN_VISION_INCLUDE_LOCAL_DIR}/mujinvision/*.h)
 install(FILES ${LIB_HEADER_FILES} DESTINATION include/mujinvision)
+
+if( OPT_BUILD_TESTS )
+
+  set(SOURCE_FILES mujinvisionmanager.cpp)
+
+  add_library(libtestmujinvision SHARED ${SOURCE_FILES})
+
+  set_target_properties(libtestmujinvision PROPERTIES COMPILE_FLAGS "${EXTRA_COMPILE_FLAGS} ${Boost_CFLAGS} -DMUJINVISION_DLL_EXPORTS -DMUJINVISION_DLL ${MujinControllerClient_CXX_FLAGS}" LINK_FLAGS "${MujinControllerClient_LINK_FLAGS}"
+    OUTPUT_NAME mujinvision${MUJINVISION_LIBRARY_SUFFIX}
+    SOVERSION 0 # always have it 0 since we're including the soversion as part of the library name
+    VERSION ${MUJINVISION_VERSION}
+    CLEAN_DIRECT_OUTPUT 1
+    )
+
+  target_link_libraries(libmujinvision ${Boost_THREAD_LIBRARY} ${Boost_DATE_TIME_LIBRARY}  ${EXTRA_LIBRARIES} ${libzmq_LIBRARIES} ${MujinControllerClientMock_LIBRARIES} ${LOG4CXX_LIBRARIES})
+
+  if( MSVC )
+    message(STATUS "TODO: install for MSVC")
+  else()
+    install(TARGETS libtestmujinvision DESTINATION lib${LIB_SUFFIX})
+  endif()
+
+  if( OPT_BUILD_STATIC )
+    # visual studio needs static lib built
+    if( MSVC )
+      message(STATUS "TODO: install for MSVC")
+    else()
+      set(LIBTESTMUJINVISION_NAME testmujinvision${MUJINVISION_LIBRARY_SUFFIX})
+    endif()
+
+    add_library(libtestmujinvision_static STATIC ${SOURCE_FILES})
+    set_target_properties(libtestmujinvision_static PROPERTIES OUTPUT_NAME ${LIBMUJINVISION_NAME}
+                                             SOVERSION 0 # always have it 0 since we're including the soversion as part of the library name
+                                             VERSION ${MUJINVISION_VERSION}
+                                             CLEAN_DIRECT_OUTPUT 1
+                                             COMPILE_FLAGS "${EXTRA_COMPILE_FLAGS} ${Boost_CFLAGS} -DMUJINVISION_DLL_EXPORTS -DMUJINVISION_DLL ${MujinControllerClient_CXX_FLAGS}"
+                                             LINK_FLAGS "${MujinControllerClient_LINK_FLAGS}")
+
+    target_link_libraries(libtestmujinvision_static ${EXTRA_LIBRARIES} ${libzmq_LIBRARIES} ${MujinControllerClientMock_LIBRARIES} ${LOG4CXX_LIBRARIES})
+    install(TARGETS libtestmujinvision_static DESTINATION lib${LIB_SUFFIX})
+  endif()
+
+  install(TARGETS libtestmujinvision DESTINATION lib)
+  set(MUJIN_VISION_INCLUDE_LOCAL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+  file(GLOB LIB_HEADER_FILES ${MUJIN_VISION_INCLUDE_LOCAL_DIR}/mujinvision/*.h)
+  install(FILES ${LIB_HEADER_FILES} DESTINATION include/mujinvision)
+
+endif()
